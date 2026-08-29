@@ -14,11 +14,14 @@ def req(x,m):
 
 # Bootstrap must select an interpreter by execution, not by file existence.
 req('call :TRY_PY' in BAT,'bootstrap must execute-probe Python candidates')
-req('SKIP unusable Python' in BAT,'bootstrap must skip broken Python candidates')
-req('MISSING_PYVENV_CFG' in BAT,'bootstrap must explicitly classify missing pyvenv.cfg')
+req('SKIP_PYTHON_SOURCE' in BAT and 'SKIP_PYTHON_PATH' in BAT and 'SKIP_PYTHON_EXIT' in BAT,
+    'bootstrap must skip and log broken Python candidates')
+req('discover_legacy_site_packages' in INS and 'pyvenv.cfg' in INS,
+    'installer must classify reusable site-packages independently of pyvenv.cfg')
 req('where python.exe' in BAT and 'py -3 -c' in BAT,'bootstrap must fall back to PATH and Python launcher')
 req('VideoBuilderV16' in BAT and 'VideoBuilderV8' in BAT,'bootstrap must probe additional legacy runtime families')
-req('Installer:  not started in this run' in BAT,'bootstrap diagnostics must not point to stale installer logs')
+req('CURRENT_INSTALLER_LOG.txt' in BAT and 'del /q "%INSTALLMARKER%"' in BAT,
+    'bootstrap diagnostics must clear stale installer log markers before launch')
 req('if exist "%LOCALAPPDATA%\\HEXA\\VideoBuilderV12\\runtime\\.venv\\Scripts\\python.exe" set "PYEXE=' not in BAT,
     'old existence-only V12 selection regression returned')
 

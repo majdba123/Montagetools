@@ -8,7 +8,7 @@ assert '_copytree_long(EXT_SRC,stage)' in s
 assert "dep=read_json(stage/'resources'/'DEPENDENCY_MANIFEST_V20.json')" in s
 assert s.index("PHASE 0/8 - Package preflight") < s.index("PHASE 1/8 - Clean previous HEXA Video Builder CEP extensions")
 assert s.index('_copytree_long(EXT_SRC,stage)') < s.index('removed=clean_extensions(cep)')
-assert "VERSION='31.0.20'" in s
+assert "VERSION='31.0.25'" in s
 assert "BUNDLE='com.hexaterminal.videobuilder.v31_0_1'" in s
 print('V31_0_9_INSTALL_PATH_AND_STABLE_BUNDLE_PASS')
 

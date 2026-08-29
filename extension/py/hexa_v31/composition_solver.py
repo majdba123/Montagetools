@@ -58,6 +58,16 @@ def _rect(center,fp:Footprint,scale:float):
     cx,cy=center;w=fp.w*scale;h=fp.h*scale
     return (cx-w/2,cy-h/2,w,h)
 
+def candidate_middle_envelope_geometry(event:dict, center=(0.5,0.5))->dict:
+    """Return authoritative geometry for snapping a solved object to middle."""
+    fp=_fp(event);scale=float(event.get('layout_scale_multiplier') or 1.0)
+    rect=_rect((float(center[0]),float(center[1])),fp,scale*MOTION_ENVELOPE_SCALE)
+    return {'center_norm':[round(float(center[0]),6),round(float(center[1]),6)],
+            'scale':round(scale,6),
+            'rect_norm':[round(x,6) for x in rect],
+            'safe':_in_safe(rect),
+            'authority':'V31_COMPOSITION_SOLVER_MOTION_ENVELOPE'}
+
 def _inflate(r,g):return (r[0]-g,r[1]-g,r[2]+2*g,r[3]+2*g)
 
 def _inter(a,b):

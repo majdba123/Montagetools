@@ -5,7 +5,7 @@ from .framing import compute_reference_camera_fit
 from .preset_authority import authority as preset_authority, duration as preset_duration, choose_entry_for_center, choose_exit_for_center, is_primary_semantic
 from .visual_cards import build_visual_cards
 from .scene_grammar import classify_card
-from .composition_solver import build_story_phases, solve_card_layout, within_preset_safe, repair_story_phases, repartition_story_phases, _in_safe, _fp, _rect, SAFE_X, SAFE_Y, MOTION_ENVELOPE_SCALE
+from .composition_solver import build_story_phases, solve_card_layout, within_preset_safe, repair_story_phases, repartition_story_phases, candidate_middle_envelope_geometry, _in_safe, _fp, _rect, SAFE_X, SAFE_Y, MOTION_ENVELOPE_SCALE
 from .composition_qa import card_motion_conflicts
 from .visual_density import build_visual_density_report
 from .editorial_motion import EditorialMotionGrammarDirector, PacingDirector
@@ -532,7 +532,9 @@ def _solve_semantic_segments(events, cards, fps):
             layout=solve_card_layout(candidate,{'archetype':'GENERIC','explicit_edges':[]},phase)
             if not layout.get('pass'): out['segment_candidates_rejected']+=1;proof['rejections'].append('GEOMETRY');continue
             for x in candidate:
-                p=layout['placements'][x['event_id']];x['planned_rect_norm']=p['rect_norm'];x['collision_envelope_rect_norm']=p['rect_norm']
+                p=layout['placements'][x['event_id']]
+                x['card_rest_position_norm']=p['center_norm'];x['layout_scale_multiplier']=p['scale']
+                x['planned_rect_norm']=p['rect_norm'];x['collision_envelope_rect_norm']=p['rect_norm']
             if card_motion_conflicts(candidate,float(card['start_seconds']),float(card['end_seconds']),fps): out['segment_candidates_rejected']+=1;proof['rejections'].append('COLLISION_PATH');continue
             peak=max(sum(1 for x in candidate if x.get('attention_priority')=='PRIMARY' and float(x['start_seconds'])<=t<float(x['end_seconds']) ) for t in [float(card['start_seconds'])+i/fps for i in range(max(1,int((float(card['end_seconds'])-float(card['start_seconds']))*fps)))])
             if peak>2: out['segment_candidates_rejected']+=1;proof['rejections'].append('PRIMARY_BUDGET');continue
@@ -962,7 +964,7 @@ def _phase_for_event(phase_plan:dict,eid:str):
 
 def _clamp(v,a,b):return max(a,min(b,v))
 
-def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:int, total:int, *, force_static:bool=False):
+def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:int, total:int, *, force_static:bool=False, local_events:list[dict]|None=None, fps:float=30.0):
     """Schedule one already collision-solved object using only user preset families."""
     ps,pe=phase_window;card_end=float(card['end_seconds']);primary=str(e.get('attention_priority') or '').upper()=='PRIMARY'
     center=e.get('card_rest_position_norm') or [0.5,0.5];dur=max(0.05,pe-ps)
@@ -971,17 +973,33 @@ def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:in
     appearance='APPEAR_HIGH_SCALE';ad=preset_duration(appearance);dd=preset_duration('DISAPPEAR_DOWN_SCALE')
     exact_middle=abs(float(center[0])-0.5)<0.025 and abs(float(center[1])-0.5)<0.035
     room_for_entry=dur>=preset_duration('ENTRY_LEFT_TO_MIDDLE')+0.72
-    # Position-entry presets have a fixed MIDDLE settled endpoint.  A layout
-    # that is merely near that endpoint must not be snapped there unless the
-    # actual APPEAR_HIGH_SCALE settled footprint is safe at MIDDLE.  The
-    # composition solver reserves a slightly larger envelope, but this local
-    # check is still required because the preset changes the committed center.
-    middle_settled_safe=_in_safe(_rect((.5,.5),_fp(e),float(e.get('layout_scale_multiplier') or 1.0)*1.10))
-    use_position_entry=bool(total>1 and not force_static and primary and exact_middle and middle_settled_safe and room_for_entry and not e.get('composite_atomic') and not e.get('relationship_source_requested'))
+    # Position-entry presets have a literal MIDDLE settled endpoint.  Snapping a
+    # near-middle solved object to that endpoint is a geometry change, so it must
+    # reuse the solver's 112% motion envelope before becoming committed state.
+    middle_candidate=candidate_middle_envelope_geometry(e)
+    use_position_entry=bool(total>1 and not force_static and primary and exact_middle and middle_candidate.get('safe') and room_for_entry and not e.get('composite_atomic') and not e.get('relationship_source_requested'))
+    pn=pd=st=None
     if use_position_entry:
         pn=choose_entry_for_center(float(e.get('source_center_norm',[0.5,0.5])[0]));pd=preset_duration(pn);st=max(ps,min(hit-pd*.90,pe-pd-0.62));st=max(ps+0.02,st)
         if total==1:st=ps
-        e['card_rest_position_norm']=[0.5,0.5]
+        if local_events:
+            snap=copy.deepcopy(e)
+            e['card_rest_position_norm']=middle_candidate['center_norm']
+            e['planned_rect_norm']=middle_candidate['rect_norm']
+            e['collision_envelope_rect_norm']=list(middle_candidate['rect_norm'])
+            e['layout_scale_multiplier']=middle_candidate['scale']
+            e['preset_entry']={'name':pn,'start_seconds':round(st,6),'duration_seconds':pd,'authority':'USER_PRFPSET_ENTRY_EXIT__V31_SAFE_CENTER'}
+            e['preset_actions']=[]
+            e['start_seconds']=round(st,6)
+            rows=card_motion_conflicts(local_events,float(card.get('start_seconds',ps)),float(card.get('end_seconds',card_end)),fps)
+            e.clear();e.update(snap)
+            if any(str(r.get('event_a'))==str(e.get('event_id')) or str(r.get('event_b'))==str(e.get('event_id')) for r in rows):
+                use_position_entry=False
+    if use_position_entry:
+        e['card_rest_position_norm']=middle_candidate['center_norm']
+        e['planned_rect_norm']=middle_candidate['rect_norm']
+        e['collision_envelope_rect_norm']=list(middle_candidate['rect_norm'])
+        e['layout_scale_multiplier']=middle_candidate['scale']
         e['preset_entry']={'name':pn,'start_seconds':round(st,6),'duration_seconds':pd,'authority':'USER_PRFPSET_ENTRY_EXIT__V31_SAFE_CENTER'}
         e['appearance_method']='POSITION_ENTRY';e['entry_direction']='LEFT' if 'LEFT' in pn else 'RIGHT';e['position_animated']=True;e['settle_seconds']=round(st+pd,6)
         # Position exits are used only when this is the sole independent object in the visual
@@ -1211,7 +1229,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         for e in selected_events:
             if _sid(e) in rel_sources:e['relationship_source_requested']=True
             pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['composite_atomic']=bool(pl['atomic']);e['planned_rect_norm']=pl['rect_norm'];window=_phase_for_event(phase_plan,e['event_id'])
-            if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events))
+            if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),local_events=selected_events,fps=fps)
         pre_conflicts=card_motion_conflicts(selected_events,float(card['start_seconds']),float(card['end_seconds']),fps)
         if pre_conflicts:
             phase_plan=repartition_story_phases(card,selected_events,pre_conflicts)
@@ -1222,7 +1240,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
             for e in selected_events:
                 pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['planned_rect_norm']=pl['rect_norm'];e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
                 window=_phase_for_event(phase_plan,e['event_id'])
-                if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True)
+                if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True,local_events=selected_events,fps=fps)
             card['semantic_phase_repartition']={'detected_conflicts':len(pre_conflicts),'resolved_by_internal_phase_split':len(pre_conflicts),'cards_split':0}
         relationship_resolutions=_safe_relationship_motion(card,selected_events,rels)
         relationship_resolutions=_recover_trajectory_conflicts(card,selected_events,phase_plan,relationship_resolutions,fps)
