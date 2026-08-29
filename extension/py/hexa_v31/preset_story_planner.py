@@ -5,7 +5,7 @@ from .framing import compute_reference_camera_fit
 from .preset_authority import authority as preset_authority, duration as preset_duration, choose_entry_for_center, choose_exit_for_center, is_primary_semantic
 from .visual_cards import build_visual_cards
 from .scene_grammar import classify_card
-from .composition_solver import build_story_phases, solve_card_layout, within_preset_safe, repair_story_phases, repartition_story_phases, _in_safe
+from .composition_solver import build_story_phases, solve_card_layout, within_preset_safe, repair_story_phases, repartition_story_phases, _in_safe, _fp, _rect, SAFE_X, SAFE_Y, MOTION_ENVELOPE_SCALE
 from .composition_qa import card_motion_conflicts
 from .visual_density import build_visual_density_report
 
@@ -277,6 +277,36 @@ def _hit_delta_frames(event, anchor, fps):
     entry=event.get('preset_entry') or {}
     duration=float(entry.get('duration_seconds') or preset_duration(entry.get('name') or 'APPEAR_HIGH_SCALE'))
     return (float(entry.get('start_seconds',event.get('start_seconds',0)))+_entry_fraction(event)*duration-float(anchor))*fps
+
+def _finalize_secondary_character_geometry(events):
+    """Make one safe settled geometry authoritative after all late planners.
+
+    Source placement is evidence, not a legal destination.  Secondary characters
+    retain their composed scale whenever it fits; only an oversized envelope is
+    minimally reduced, then its center is clamped inside the same safe frame the
+    final motion QA samples.
+    """
+    changed=[]
+    for e in events:
+        if e.get('suppressed_by_card_density') or str(e.get('semantic_type') or '').upper()!='SECONDARY_CHARACTER':
+            continue
+        fp=_fp(e);scale=float(e.get('layout_scale_multiplier') or 1.0)
+        fit=min((SAFE_X[1]-SAFE_X[0])/max(1e-9,fp.w*MOTION_ENVELOPE_SCALE),(SAFE_Y[1]-SAFE_Y[0])/max(1e-9,fp.h*MOTION_ENVELOPE_SCALE))
+        final_scale=min(scale,fit)
+        width,height=fp.w*final_scale*MOTION_ENVELOPE_SCALE,fp.h*final_scale*MOTION_ENVELOPE_SCALE
+        prior=e.get('card_rest_position_norm') or e.get('source_center_norm') or [.5,.5]
+        cx=min(SAFE_X[1]-width/2,max(SAFE_X[0]+width/2,float(prior[0])))
+        cy=min(SAFE_Y[1]-height/2,max(SAFE_Y[0]+height/2,float(prior[1])))
+        rect=list(_rect((cx,cy),fp,final_scale*MOTION_ENVELOPE_SCALE))
+        if not _in_safe(rect):
+            raise ValueError(f"{e.get('event_id')}: secondary character cannot fit safe frame")
+        e['card_rest_position_norm']=[round(cx,6),round(cy,6)]
+        e['layout_scale_multiplier']=round(final_scale,6)
+        e['planned_rect_norm']=[round(x,6) for x in rect]
+        e['collision_envelope_rect_norm']=list(e['planned_rect_norm'])
+        e['final_settled_geometry_authority']='SECONDARY_CHARACTER_SAFE_ENVELOPE'
+        changed.append(str(e.get('event_id')))
+    return changed
 
 def _atomic_handoff_optimize(events, cards, fps):
     """Pre-commit, frame deterministic handoff optimization.
@@ -1212,6 +1242,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # entry selection, lifecycle, geometry, or trajectories; none below may.
     cross_card_stats=_cross_card_handoff_optimize(events,cards,fps)
     atomic_stats=_atomic_handoff_optimize(events,cards,fps)
+    final_secondary_geometry=_finalize_secondary_character_geometry(events)
     from .composition_qa import composition_plan_qa
     final_composition_qa=composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     # This is intentionally retained as an authoritative final-plan record.
@@ -1227,6 +1258,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['effect_variety_director']=effect_variety_stats
     out['perceptual_sync_qa']=sync_qa
     out['final_semantic_timing_composition_qa']=final_composition_qa
+    out['final_secondary_character_geometry_event_ids']=final_secondary_geometry
     out['premium_optical_scale_optimizer']=optical_scale_stats
     out['premium_spatial_choreography_optimizer']=spatial_choreography_stats
     out['instance_metrics']={'visual_instances_total':len(visual_instances),'semantic_events_total':len(semantic_events),'persistent_instances_total':sum(1 for x in visual_instances if len((x.get('persistence_source_evidence') or {}).get('source_states') or [])>1),'duplicate_same_identity_overlap_count':0,'illegal_persistence_count':0,'logical_instance_reentry_without_source_reset':0,**lifetime_stats}
