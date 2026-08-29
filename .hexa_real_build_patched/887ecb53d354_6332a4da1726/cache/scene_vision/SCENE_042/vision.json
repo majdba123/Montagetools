@@ -1,0 +1,160 @@
+{
+  "scene_id": "SCENE_042",
+  "width": 1672,
+  "height": 941,
+  "source_mode": "NATIVE_ALPHA_AUTHORITY",
+  "background_rgb": [
+    255,
+    255,
+    255
+  ],
+  "foreground_fraction": 0.527845,
+  "raw_component_count": 1,
+  "grouped_detail_count": 4,
+  "major_group_count": 1,
+  "expected_semantic_units": 1,
+  "reconstruction_mae": 1.3084,
+  "reconstruction_psnr": 37.759,
+  "reconstruction_pass": true,
+  "split_confidence": 1.0,
+  "mode": "CLEAN_LAYERED",
+  "edge_touching": true,
+  "units": [
+    {
+      "physical_id": "PHYS_01",
+      "bbox": [
+        24,
+        26,
+        1648,
+        905
+      ],
+      "area_px": 830486,
+      "center_norm": [
+        0.506878,
+        0.508502
+      ],
+      "bbox_norm": [
+        0.014354,
+        0.02763,
+        0.985646,
+        0.961743
+      ],
+      "mask_confidence": 0.9452,
+      "edge_touch": true,
+      "semantic_unit_id": "UNIT_001",
+      "semantic_type": "GROUP",
+      "semantic_role": "PRIMARY",
+      "hierarchy_level": 0,
+      "parent_semantic_unit_id": null,
+      "composition_slot_id": "UNIT_001",
+      "subobject_role": "CONTEXT",
+      "hierarchy_confidence": 1.0,
+      "animation_safe": true,
+      "reveal_safe": true,
+      "animation_mode": "TRANSLATE_SAFE",
+      "occlusion_class": "TOP_LEVEL_SEMANTIC_GROUP",
+      "matting": {
+        "matting_source": "NATIVE_ALPHA_REFINED",
+        "feather_px": 1.694,
+        "soft_edge_pixel_fraction": 0.27387,
+        "opaque_foreground_fraction": 0.379486,
+        "edge_halo_risk": 0.000369,
+        "stage_leak_candidate_pixels": 0,
+        "opaque_stage_leak_pixels": 0,
+        "opaque_stage_leak_fraction": 0.0,
+        "stage_leak_repair_applied": false,
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "alpha_unique_approx": 32
+      },
+      "semantic_mapping_confidence": 0.99,
+      "layer_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\.hexa_real_build_patched\\887ecb53d354_6332a4da1726\\cache\\scene_vision\\SCENE_042\\PHYS_01.png",
+      "layer_canvas_mode": "FULL_SCENE_ALPHA_CANVAS",
+      "layer_source_size_px": [
+        1672,
+        941
+      ],
+      "crop_origin_px": [
+        23,
+        25
+      ],
+      "crop_size_px": [
+        1649,
+        907
+      ],
+      "fifth_element_overlay": false,
+      "occlusion_reveal_risk": 0.0,
+      "translation_safe_after_occlusion": true
+    }
+  ],
+  "artifacts": {
+    "mask": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\.hexa_real_build_patched\\887ecb53d354_6332a4da1726\\cache\\scene_vision\\SCENE_042\\foreground_mask.png",
+    "reconstruction": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\.hexa_real_build_patched\\887ecb53d354_6332a4da1726\\cache\\scene_vision\\SCENE_042\\reconstruction.png",
+    "background": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\.hexa_real_build_patched\\887ecb53d354_6332a4da1726\\cache\\scene_vision\\SCENE_042\\background.png",
+    "grouped_detail_count": 4,
+    "layers": [
+      {
+        "path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\.hexa_real_build_patched\\887ecb53d354_6332a4da1726\\cache\\scene_vision\\SCENE_042\\PHYS_01.png",
+        "origin_px": [
+          0,
+          0
+        ],
+        "size_px": [
+          1672,
+          941
+        ],
+        "content_origin_px": [
+          23,
+          25
+        ],
+        "content_size_px": [
+          1649,
+          907
+        ],
+        "canvas_mode": "FULL_SCENE_ALPHA_CANVAS"
+      }
+    ],
+    "hierarchy_decisions": [
+      {
+        "semantic_unit_id": "UNIT_001",
+        "composition_slot_id": "UNIT_001",
+        "accepted": false,
+        "reason": "V31_SUBOBJECT_CUTOUTS_FORBIDDEN__TOP_LEVEL_GROUP_PRESERVED",
+        "decomposition_mode": "NONE",
+        "child_count": 0
+      }
+    ],
+    "fifth_element_overlay": null,
+    "matting_summary": {
+      "layer_count": 1,
+      "mean_soft_edge_pixel_fraction": 0.27387,
+      "max_edge_halo_risk": 0.000369,
+      "max_opaque_stage_leak_fraction": 0.0,
+      "stage_leak_repair_layers": 0,
+      "stage_leak_hard_gate": true,
+      "soft_alpha_required": true,
+      "binary_alpha_layers": 0
+    },
+    "occlusion_graph": {
+      "schema": "HEXA_OCCLUSION_SAFETY_GRAPH_V31",
+      "version": "1.0",
+      "nodes": [
+        {
+          "physical_id": "PHYS_01",
+          "composition_slot_id": "UNIT_001",
+          "hierarchy_level": 0,
+          "animation_mode": "TRANSLATE_SAFE",
+          "semantic_type": "GROUP",
+          "semantic_role": "PRIMARY"
+        }
+      ],
+      "edges": [],
+      "translation_safe_nodes": [
+        "PHYS_01"
+      ],
+      "translation_blocked_nodes": [],
+      "unknown_z_order_edges": 0,
+      "policy": "NO_TRANSLATION_THAT_CAN_REVEAL_UNSEEN_PIXELS"
+    }
+  }
+}

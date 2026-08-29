@@ -1,0 +1,27 @@
+{
+  "cache_signature": "226c67c6606a61a7a990c82c157508a2d2814b502da856a3fc918f3fed95e973",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "de57e298c667be20b34a0a04d6be43bbe6647653c0c5111d73d842d8a77ca617",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "raise_online_limit",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_RAISE_ONLINE_LIMIT",
+        "appear_trigger": {
+          "phrase": "أو رفع حد الشراء الإلكتروني،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1069,
+          "global_char_end": 1097
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "cache_signature": "b69ad4264b4bbd170c7c15c1998279b9be70c7ceb1b33e6e1de2aadcc3e59f9e",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "c4281a8bc408d3d34ce65dfcb77e1f0264387a2031eea1c33699b19cb1bc6f04",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "authorization_block",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_AUTHORIZATION_BLOCK",
+        "appear_trigger": {
+          "phrase": "ما يسمح بتمريرها.",
+          "occurrence_in_scene": 1,
+          "global_char_start": 791,
+          "global_char_end": 808
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ]
+  }
+}

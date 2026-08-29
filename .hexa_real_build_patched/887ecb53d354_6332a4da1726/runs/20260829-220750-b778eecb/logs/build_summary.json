@@ -1,0 +1,22 @@
+{
+  "build_id": "20260829-220750-b778eecb",
+  "status": "FAIL",
+  "completed_at": "2026-08-29T22:15:23.592+03:00",
+  "counts": {
+    "DEBUG": 0,
+    "INFO": 59,
+    "PASS": 57,
+    "WARNING": 0,
+    "ERROR": 1
+  },
+  "phase": "USER_PRESET_STORY_LOCK",
+  "scene_id": null,
+  "unit_id": null,
+  "reason": "Semantic timeline coverage gates failed",
+  "build_root": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\.hexa_real_build_patched\\887ecb53d354_6332a4da1726\\runs\\20260829-220750-b778eecb",
+  "project_cache": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\.hexa_real_build_patched\\887ecb53d354_6332a4da1726\\cache",
+  "diagnostic_id": "V31-20260829-220750-b778eecb-GLOBAL",
+  "artifact_preserved": false,
+  "quality_review_required": false,
+  "failure_bundle": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\.hexa_real_build_patched\\887ecb53d354_6332a4da1726\\runs\\20260829-220750-b778eecb\\diagnostics\\HEXA_V31_FAILURE_BUNDLE.zip"
+}

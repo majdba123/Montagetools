@@ -1,0 +1,27 @@
+{
+  "cache_signature": "d57337fe1e95b1efc67fb106105e013e490e3e2eabd14a1347a5b2b801e3c1ee",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "e59b7f8f43652b277eb54953e4f8d2a634186d87edc3ce08f02b0e22f5afd9d0",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "currency_recognition",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_CURRENCY_RECOGNITION",
+        "appear_trigger": {
+          "phrase": "والعملة",
+          "occurrence_in_scene": 1,
+          "global_char_start": 738,
+          "global_char_end": 745
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ]
+  }
+}

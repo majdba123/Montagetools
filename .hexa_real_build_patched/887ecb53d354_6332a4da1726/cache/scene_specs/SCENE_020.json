@@ -1,0 +1,68 @@
+{
+  "scene_id": "SCENE_020",
+  "order": 20,
+  "image": "scenes/SCENE_020.png",
+  "script_span": {
+    "global_char_start": 475,
+    "global_char_end": 493,
+    "text": "للشراء الإلكتروني،"
+  },
+  "purpose": "تجسيد المعنى السردي للمقطع: للشراء الإلكتروني،",
+  "visual_concept": "مسار الشراء الإلكتروني له مقياسه المستقل.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "online_purchase_limit",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "EXPLAIN_ONLINE_PURCHASE_LIMIT",
+      "appear_trigger": {
+        "phrase": "للشراء الإلكتروني،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 475,
+        "global_char_end": 493
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_002",
+      "semantic_name": "adult_secondary_customer",
+      "type": "SECONDARY_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+      "appear_trigger": {
+        "phrase": "للشراء الإلكتروني،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 475,
+        "global_char_end": 493
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "INTRODUCE",
+      "interaction_target": "UNIT_001",
+      "relationship": "CONTEXT_FOR"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "للشراء الإلكتروني،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 475,
+        "global_char_end": 493
+      },
+      "action": "EXPLAIN",
+      "targets": [
+        "UNIT_001",
+        "UNIT_002"
+      ]
+    }
+  ]
+}

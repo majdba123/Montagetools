@@ -1,0 +1,68 @@
+{
+  "scene_id": "SCENE_040",
+  "order": 40,
+  "image": "scenes/SCENE_040.png",
+  "script_span": {
+    "global_char_start": 943,
+    "global_char_end": 987,
+    "text": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات"
+  },
+  "purpose": "تجسيد المعنى السردي للمقطع: وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+  "visual_concept": "الشخصية تضغط زر الدفع عشر مرات مع عداد واضح.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "ten_retries",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "EXPLAIN_TEN_RETRIES",
+      "appear_trigger": {
+        "phrase": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+        "occurrence_in_scene": 1,
+        "global_char_start": 943,
+        "global_char_end": 987
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_002",
+      "semantic_name": "adult_secondary_customer",
+      "type": "SECONDARY_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+      "appear_trigger": {
+        "phrase": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+        "occurrence_in_scene": 1,
+        "global_char_start": 943,
+        "global_char_end": 987
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "REACTION",
+      "interaction_target": "UNIT_001",
+      "relationship": "REACTS_TO"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+        "occurrence_in_scene": 1,
+        "global_char_start": 943,
+        "global_char_end": 987
+      },
+      "action": "EXPLAIN",
+      "targets": [
+        "UNIT_001",
+        "UNIT_002"
+      ]
+    }
+  ]
+}

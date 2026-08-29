@@ -1,0 +1,3046 @@
+{
+  "schema_name": "HEXA_V20_SCENE_PLAN",
+  "schema_version": "1.0",
+  "project_id": "HEXA_INSUFFICIENT_BALANCE_AR",
+  "project_slug": "hexa_insufficient_balance_ar",
+  "language": "ar",
+  "scene_count": 49,
+  "builder_target": "HEXA_VIDEO_BUILDER_V20",
+  "timing_authority": "FINAL_VOICE_OVER_SEPARATE_INPUT",
+  "script_audio_relationship": "EXACT_MATCH",
+  "visual_authority": "FINAL_FULL_SCENE_IMAGES",
+  "worker_metadata_authority": "ORIGINAL_PRODUCTION_DECISIONS",
+  "canonical_script": {
+    "text": "الرصيد أو الحد غير الكافي. تخيل عندك محفظة فيها ألف ريال، لكن ثلاثمئة منها محجوزة لعملية سابقة، والبنك محدد لك إنك ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم. من الخارج تشوف إن عندك مبلغ كافي، لكن وقت الدفع النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط، بل للمبلغ المتاح فعليًا ضمن نوع العملية اللي تحاول تسويها. نفس الشيء يصير مع البطاقات الائتمانية. ممكن يكون الحد الأساسي مرتفع، لكن مشتريات سابقة أو أقساط أو حجوزات مؤقتة أخذت جزءًا منه. وبعض البنوك تحط حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب، وحتى عدد العمليات خلال فترة معينة. عشان كذا ممكن البطاقة تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني. هنا كثير ناس يظنون إن الموقع فيه مشكلة، مع إن طلب الدفع وصل للبنك بشكل طبيعي، والبنك فهم قيمة العملية والعملة والبطاقة، لكنه قرر إن الحساب بالحالة الحالية ما يسمح بتمريرها. المشكلة إن المتجر غالبًا ما يعرف الرصيد الحقيقي للعميل، والبنك ما يرسل له كل التفاصيل حفاظًا على الخصوصية، لذلك يرجع فقط رمز رفض عام. وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء، لأن نفس الشروط ما تغيرت. الحل يكون بمراجعة المبلغ المتاح فعلًا، أو رفع حد الشراء الإلكتروني، أو تخفيض قيمة الطلب، أو استخدام وسيلة ثانية. الفرق هنا إن الدفع ما فشل لأن الطريق مقطوع، بل لأن السيارة وصلت للبوابة، لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه."
+  },
+  "scenes": [
+    {
+      "scene_id": "SCENE_001",
+      "order": 1,
+      "image": "scenes/SCENE_001.png",
+      "script_span": {
+        "global_char_start": 0,
+        "global_char_end": 26,
+        "text": "الرصيد أو الحد غير الكافي."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: الرصيد أو الحد غير الكافي.",
+      "visual_concept": "HEXA يقدّم مشكلة الرصيد أو الحد غير الكافي عبر محفظة وبوابة حد.",
+      "relation_to_previous": null,
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "insufficient_balance_or_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_INSUFFICIENT_BALANCE_OR_LIMIT",
+          "appear_trigger": {
+            "phrase": "الرصيد أو الحد غير الكافي.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 0,
+            "global_char_end": 26
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "الرصيد أو الحد غير الكافي.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 0,
+            "global_char_end": 26
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "الرصيد أو الحد غير الكافي.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 0,
+            "global_char_end": 26
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_002",
+      "order": 2,
+      "image": "scenes/SCENE_002.png",
+      "script_span": {
+        "global_char_start": 27,
+        "global_char_end": 42,
+        "text": "تخيل عندك محفظة"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: تخيل عندك محفظة",
+      "visual_concept": "الشخصية الثانوية تتخيل محفظة باعتبارها نموذجًا مبسطًا للحساب.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "wallet_model",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_WALLET_MODEL",
+          "appear_trigger": {
+            "phrase": "تخيل عندك محفظة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 27,
+            "global_char_end": 42
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "تخيل عندك محفظة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 27,
+            "global_char_end": 42
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "تخيل عندك محفظة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 27,
+            "global_char_end": 42
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_003",
+      "order": 3,
+      "image": "scenes/SCENE_003.png",
+      "script_span": {
+        "global_char_start": 43,
+        "global_char_end": 57,
+        "text": "فيها ألف ريال،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: فيها ألف ريال،",
+      "visual_concept": "محفظة ممتلئة توضح الرصيد الإجمالي ألف ريال.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "total_balance",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_TOTAL_BALANCE",
+          "appear_trigger": {
+            "phrase": "فيها ألف ريال،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 43,
+            "global_char_end": 57
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "فيها ألف ريال،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 43,
+            "global_char_end": 57
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "فيها ألف ريال،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 43,
+            "global_char_end": 57
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_004",
+      "order": 4,
+      "image": "scenes/SCENE_004.png",
+      "script_span": {
+        "global_char_start": 58,
+        "global_char_end": 95,
+        "text": "لكن ثلاثمئة منها محجوزة لعملية سابقة،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: لكن ثلاثمئة منها محجوزة لعملية سابقة،",
+      "visual_concept": "جزء بقيمة ثلاثمئة محجوز في كبسولة مقفلة لعملية سابقة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "reserved_funds",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_RESERVED_FUNDS",
+          "appear_trigger": {
+            "phrase": "لكن ثلاثمئة منها محجوزة لعملية سابقة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 58,
+            "global_char_end": 95
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "لكن ثلاثمئة منها محجوزة لعملية سابقة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 58,
+            "global_char_end": 95
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "لكن ثلاثمئة منها محجوزة لعملية سابقة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 58,
+            "global_char_end": 95
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_005",
+      "order": 5,
+      "image": "scenes/SCENE_005.png",
+      "script_span": {
+        "global_char_start": 96,
+        "global_char_end": 110,
+        "text": "والبنك محدد لك"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: والبنك محدد لك",
+      "visual_concept": "HEXA يشرح أن البنك هو من يضبط قاعدة الحد.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "bank_rule",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_BANK_RULE",
+          "appear_trigger": {
+            "phrase": "والبنك محدد لك",
+            "occurrence_in_scene": 1,
+            "global_char_start": 96,
+            "global_char_end": 110
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "والبنك محدد لك",
+            "occurrence_in_scene": 1,
+            "global_char_start": 96,
+            "global_char_end": 110
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "والبنك محدد لك",
+            "occurrence_in_scene": 1,
+            "global_char_start": 96,
+            "global_char_end": 110
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_006",
+      "order": 6,
+      "image": "scenes/SCENE_006.png",
+      "script_span": {
+        "global_char_start": 111,
+        "global_char_end": 147,
+        "text": "إنك ما تقدر تصرف أكثر من خمسمئة ريال"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: إنك ما تقدر تصرف أكثر من خمسمئة ريال",
+      "visual_concept": "مقياس إنفاق مادي يتوقف عند خمسمئة ريال.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "online_spending_cap",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_ONLINE_SPENDING_CAP",
+          "appear_trigger": {
+            "phrase": "إنك ما تقدر تصرف أكثر من خمسمئة ريال",
+            "occurrence_in_scene": 1,
+            "global_char_start": 111,
+            "global_char_end": 147
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "إنك ما تقدر تصرف أكثر من خمسمئة ريال",
+            "occurrence_in_scene": 1,
+            "global_char_start": 111,
+            "global_char_end": 147
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_007",
+      "order": 7,
+      "image": "scenes/SCENE_007.png",
+      "script_span": {
+        "global_char_start": 148,
+        "global_char_end": 163,
+        "text": "أونلاين باليوم."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: أونلاين باليوم.",
+      "visual_concept": "الهاتف ودورة اليوم يوضحان أن الحد أونلاين يومي.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "daily_online_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_DAILY_ONLINE_LIMIT",
+          "appear_trigger": {
+            "phrase": "أونلاين باليوم.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 148,
+            "global_char_end": 163
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "أونلاين باليوم.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 148,
+            "global_char_end": 163
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_008",
+      "order": 8,
+      "image": "scenes/SCENE_008.png",
+      "script_span": {
+        "global_char_start": 164,
+        "global_char_end": 197,
+        "text": "من الخارج تشوف إن عندك مبلغ كافي،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: من الخارج تشوف إن عندك مبلغ كافي،",
+      "visual_concept": "المحفظة تبدو كافية عند النظر الخارجي.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "visible_sufficient_balance",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_VISIBLE_SUFFICIENT_BALANCE",
+          "appear_trigger": {
+            "phrase": "من الخارج تشوف إن عندك مبلغ كافي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 164,
+            "global_char_end": 197
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "من الخارج تشوف إن عندك مبلغ كافي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 164,
+            "global_char_end": 197
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "من الخارج تشوف إن عندك مبلغ كافي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 164,
+            "global_char_end": 197
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_009",
+      "order": 9,
+      "image": "scenes/SCENE_009.png",
+      "script_span": {
+        "global_char_start": 198,
+        "global_char_end": 211,
+        "text": "لكن وقت الدفع"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: لكن وقت الدفع",
+      "visual_concept": "HEXA ينفذ لحظة الدفع عند جهاز الاتصال اللاتلامسي.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "payment_moment",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_PAYMENT_MOMENT",
+          "appear_trigger": {
+            "phrase": "لكن وقت الدفع",
+            "occurrence_in_scene": 1,
+            "global_char_start": 198,
+            "global_char_end": 211
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "لكن وقت الدفع",
+            "occurrence_in_scene": 1,
+            "global_char_start": 198,
+            "global_char_end": 211
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "لكن وقت الدفع",
+            "occurrence_in_scene": 1,
+            "global_char_start": 198,
+            "global_char_end": 211
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_010",
+      "order": 10,
+      "image": "scenes/SCENE_010.png",
+      "script_span": {
+        "global_char_start": 212,
+        "global_char_end": 257,
+        "text": "النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط،",
+      "visual_concept": "فلتر النظام لا يعتمد على رقم الرصيد الكبير وحده.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "system_filter",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_SYSTEM_FILTER",
+          "appear_trigger": {
+            "phrase": "النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 212,
+            "global_char_end": 257
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 212,
+            "global_char_end": 257
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 212,
+            "global_char_end": 257
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_011",
+      "order": 11,
+      "image": "scenes/SCENE_011.png",
+      "script_span": {
+        "global_char_start": 258,
+        "global_char_end": 281,
+        "text": "بل للمبلغ المتاح فعليًا"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: بل للمبلغ المتاح فعليًا",
+      "visual_concept": "الفلتر يخرج فقط المبلغ المتاح فعليًا.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "actual_available_amount",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_ACTUAL_AVAILABLE_AMOUNT",
+          "appear_trigger": {
+            "phrase": "بل للمبلغ المتاح فعليًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 258,
+            "global_char_end": 281
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "بل للمبلغ المتاح فعليًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 258,
+            "global_char_end": 281
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "بل للمبلغ المتاح فعليًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 258,
+            "global_char_end": 281
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_012",
+      "order": 12,
+      "image": "scenes/SCENE_012.png",
+      "script_span": {
+        "global_char_start": 282,
+        "global_char_end": 316,
+        "text": "ضمن نوع العملية اللي تحاول تسويها."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: ضمن نوع العملية اللي تحاول تسويها.",
+      "visual_concept": "موزّع مسارات يربط كل عملية بنوعها الخاص.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "transaction_type_routing",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_TRANSACTION_TYPE_ROUTING",
+          "appear_trigger": {
+            "phrase": "ضمن نوع العملية اللي تحاول تسويها.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 282,
+            "global_char_end": 316
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "ضمن نوع العملية اللي تحاول تسويها.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 282,
+            "global_char_end": 316
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_013",
+      "order": 13,
+      "image": "scenes/SCENE_013.png",
+      "script_span": {
+        "global_char_start": 317,
+        "global_char_end": 355,
+        "text": "نفس الشيء يصير مع البطاقات الائتمانية."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: نفس الشيء يصير مع البطاقات الائتمانية.",
+      "visual_concept": "HEXA ينقل المبدأ نفسه إلى البطاقة الائتمانية.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "credit_card_parallel",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_CREDIT_CARD_PARALLEL",
+          "appear_trigger": {
+            "phrase": "نفس الشيء يصير مع البطاقات الائتمانية.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 317,
+            "global_char_end": 355
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "نفس الشيء يصير مع البطاقات الائتمانية.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 317,
+            "global_char_end": 355
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "نفس الشيء يصير مع البطاقات الائتمانية.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 317,
+            "global_char_end": 355
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_014",
+      "order": 14,
+      "image": "scenes/SCENE_014.png",
+      "script_span": {
+        "global_char_start": 356,
+        "global_char_end": 385,
+        "text": "ممكن يكون الحد الأساسي مرتفع،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: ممكن يكون الحد الأساسي مرتفع،",
+      "visual_concept": "بطاقة أمام خزان حد أساسي مرتفع.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "high_base_credit_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_HIGH_BASE_CREDIT_LIMIT",
+          "appear_trigger": {
+            "phrase": "ممكن يكون الحد الأساسي مرتفع،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 356,
+            "global_char_end": 385
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "ممكن يكون الحد الأساسي مرتفع،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 356,
+            "global_char_end": 385
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "ممكن يكون الحد الأساسي مرتفع،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 356,
+            "global_char_end": 385
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_015",
+      "order": 15,
+      "image": "scenes/SCENE_015.png",
+      "script_span": {
+        "global_char_start": 386,
+        "global_char_end": 403,
+        "text": "لكن مشتريات سابقة"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: لكن مشتريات سابقة",
+      "visual_concept": "مشتريات سابقة تسحب أجزاء من سعة البطاقة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "prior_purchases",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_PRIOR_PURCHASES",
+          "appear_trigger": {
+            "phrase": "لكن مشتريات سابقة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 386,
+            "global_char_end": 403
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "لكن مشتريات سابقة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 386,
+            "global_char_end": 403
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "لكن مشتريات سابقة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 386,
+            "global_char_end": 403
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_016",
+      "order": 16,
+      "image": "scenes/SCENE_016.png",
+      "script_span": {
+        "global_char_start": 404,
+        "global_char_end": 412,
+        "text": "أو أقساط"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: أو أقساط",
+      "visual_concept": "عملية واحدة موزعة إلى دفعات مجدولة عبر الزمن.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "installments",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_INSTALLMENTS",
+          "appear_trigger": {
+            "phrase": "أو أقساط",
+            "occurrence_in_scene": 1,
+            "global_char_start": 404,
+            "global_char_end": 412
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "أو أقساط",
+            "occurrence_in_scene": 1,
+            "global_char_start": 404,
+            "global_char_end": 412
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_017",
+      "order": 17,
+      "image": "scenes/SCENE_017.png",
+      "script_span": {
+        "global_char_start": 413,
+        "global_char_end": 428,
+        "text": "أو حجوزات مؤقتة"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: أو حجوزات مؤقتة",
+      "visual_concept": "HEXA يوضح حجزًا مؤقتًا بقفل ومؤقت.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "temporary_holds",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_TEMPORARY_HOLDS",
+          "appear_trigger": {
+            "phrase": "أو حجوزات مؤقتة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 413,
+            "global_char_end": 428
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "أو حجوزات مؤقتة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 413,
+            "global_char_end": 428
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "أو حجوزات مؤقتة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 413,
+            "global_char_end": 428
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_018",
+      "order": 18,
+      "image": "scenes/SCENE_018.png",
+      "script_span": {
+        "global_char_start": 429,
+        "global_char_end": 444,
+        "text": "أخذت جزءًا منه."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: أخذت جزءًا منه.",
+      "visual_concept": "خزان البطاقة يظهر أن الالتزامات أخذت جزءًا من السعة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "occupied_credit_capacity",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_OCCUPIED_CREDIT_CAPACITY",
+          "appear_trigger": {
+            "phrase": "أخذت جزءًا منه.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 429,
+            "global_char_end": 444
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "أخذت جزءًا منه.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 429,
+            "global_char_end": 444
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_019",
+      "order": 19,
+      "image": "scenes/SCENE_019.png",
+      "script_span": {
+        "global_char_start": 445,
+        "global_char_end": 474,
+        "text": "وبعض البنوك تحط حدودًا منفصلة"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: وبعض البنوك تحط حدودًا منفصلة",
+      "visual_concept": "البنك يوزع السعة على حدود مستقلة متعددة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "separate_bank_limits",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_SEPARATE_BANK_LIMITS",
+          "appear_trigger": {
+            "phrase": "وبعض البنوك تحط حدودًا منفصلة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 445,
+            "global_char_end": 474
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "وبعض البنوك تحط حدودًا منفصلة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 445,
+            "global_char_end": 474
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "وبعض البنوك تحط حدودًا منفصلة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 445,
+            "global_char_end": 474
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_020",
+      "order": 20,
+      "image": "scenes/SCENE_020.png",
+      "script_span": {
+        "global_char_start": 475,
+        "global_char_end": 493,
+        "text": "للشراء الإلكتروني،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: للشراء الإلكتروني،",
+      "visual_concept": "مسار الشراء الإلكتروني له مقياسه المستقل.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "online_purchase_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_ONLINE_PURCHASE_LIMIT",
+          "appear_trigger": {
+            "phrase": "للشراء الإلكتروني،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 475,
+            "global_char_end": 493
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "للشراء الإلكتروني،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 475,
+            "global_char_end": 493
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "للشراء الإلكتروني،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 475,
+            "global_char_end": 493
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_021",
+      "order": 21,
+      "image": "scenes/SCENE_021.png",
+      "script_span": {
+        "global_char_start": 494,
+        "global_char_end": 509,
+        "text": "والشراء الدولي،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: والشراء الدولي،",
+      "visual_concept": "HEXA يوضح حد الشراء الدولي عند بوابة عابرة للحدود.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "international_purchase_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_INTERNATIONAL_PURCHASE_LIMIT",
+          "appear_trigger": {
+            "phrase": "والشراء الدولي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 494,
+            "global_char_end": 509
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "والشراء الدولي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 494,
+            "global_char_end": 509
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "والشراء الدولي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 494,
+            "global_char_end": 509
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_022",
+      "order": 22,
+      "image": "scenes/SCENE_022.png",
+      "script_span": {
+        "global_char_start": 510,
+        "global_char_end": 517,
+        "text": "والسحب،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: والسحب،",
+      "visual_concept": "الصراف الآلي مرتبط بحد سحب مستقل.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "withdrawal_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_WITHDRAWAL_LIMIT",
+          "appear_trigger": {
+            "phrase": "والسحب،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 510,
+            "global_char_end": 517
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "والسحب،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 510,
+            "global_char_end": 517
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "والسحب،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 510,
+            "global_char_end": 517
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_023",
+      "order": 23,
+      "image": "scenes/SCENE_023.png",
+      "script_span": {
+        "global_char_start": 518,
+        "global_char_end": 552,
+        "text": "وحتى عدد العمليات خلال فترة معينة."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: وحتى عدد العمليات خلال فترة معينة.",
+      "visual_concept": "عداد عمليات مرتبط بنافذة زمنية.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "transaction_count_window",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_TRANSACTION_COUNT_WINDOW",
+          "appear_trigger": {
+            "phrase": "وحتى عدد العمليات خلال فترة معينة.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 518,
+            "global_char_end": 552
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "وحتى عدد العمليات خلال فترة معينة.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 518,
+            "global_char_end": 552
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_024",
+      "order": 24,
+      "image": "scenes/SCENE_024.png",
+      "script_span": {
+        "global_char_start": 553,
+        "global_char_end": 588,
+        "text": "عشان كذا ممكن البطاقة تشتغل قبل شوي"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: عشان كذا ممكن البطاقة تشتغل قبل شوي",
+      "visual_concept": "عملية بطاقة ناجحة قبل لحظات عند جهاز دفع.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "recent_success",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_RECENT_SUCCESS",
+          "appear_trigger": {
+            "phrase": "عشان كذا ممكن البطاقة تشتغل قبل شوي",
+            "occurrence_in_scene": 1,
+            "global_char_start": 553,
+            "global_char_end": 588
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "عشان كذا ممكن البطاقة تشتغل قبل شوي",
+            "occurrence_in_scene": 1,
+            "global_char_start": 553,
+            "global_char_end": 588
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "عشان كذا ممكن البطاقة تشتغل قبل شوي",
+            "occurrence_in_scene": 1,
+            "global_char_start": 553,
+            "global_char_end": 588
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_025",
+      "order": 25,
+      "image": "scenes/SCENE_025.png",
+      "script_span": {
+        "global_char_start": 589,
+        "global_char_end": 602,
+        "text": "في متجر عادي،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: في متجر عادي،",
+      "visual_concept": "HEXA يشير إلى نقطة بيع فعلية في متجر عادي.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "physical_store_purchase",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_PHYSICAL_STORE_PURCHASE",
+          "appear_trigger": {
+            "phrase": "في متجر عادي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 589,
+            "global_char_end": 602
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "في متجر عادي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 589,
+            "global_char_end": 602
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "في متجر عادي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 589,
+            "global_char_end": 602
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_026",
+      "order": 26,
+      "image": "scenes/SCENE_026.png",
+      "script_span": {
+        "global_char_start": 603,
+        "global_char_end": 615,
+        "text": "وبعدها تنرفض"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: وبعدها تنرفض",
+      "visual_concept": "البطاقة نفسها تصطدم لاحقًا بإشارة رفض.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "subsequent_decline",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_SUBSEQUENT_DECLINE",
+          "appear_trigger": {
+            "phrase": "وبعدها تنرفض",
+            "occurrence_in_scene": 1,
+            "global_char_start": 603,
+            "global_char_end": 615
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "وبعدها تنرفض",
+            "occurrence_in_scene": 1,
+            "global_char_start": 603,
+            "global_char_end": 615
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REACTION",
+          "interaction_target": "UNIT_001",
+          "relationship": "REACTS_TO"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "وبعدها تنرفض",
+            "occurrence_in_scene": 1,
+            "global_char_start": 603,
+            "global_char_end": 615
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_027",
+      "order": 27,
+      "image": "scenes/SCENE_027.png",
+      "script_span": {
+        "global_char_start": 616,
+        "global_char_end": 635,
+        "text": "داخل موقع إلكتروني."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: داخل موقع إلكتروني.",
+      "visual_concept": "الرفض يظهر داخل إطار موقع إلكتروني.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "website_decline",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_WEBSITE_DECLINE",
+          "appear_trigger": {
+            "phrase": "داخل موقع إلكتروني.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 616,
+            "global_char_end": 635
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "داخل موقع إلكتروني.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 616,
+            "global_char_end": 635
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "داخل موقع إلكتروني.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 616,
+            "global_char_end": 635
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_028",
+      "order": 28,
+      "image": "scenes/SCENE_028.png",
+      "script_span": {
+        "global_char_start": 636,
+        "global_char_end": 675,
+        "text": "هنا كثير ناس يظنون إن الموقع فيه مشكلة،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: هنا كثير ناس يظنون إن الموقع فيه مشكلة،",
+      "visual_concept": "الشخصية تشتبه خطأً بوجود عطل في الموقع.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "website_blame",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_WEBSITE_BLAME",
+          "appear_trigger": {
+            "phrase": "هنا كثير ناس يظنون إن الموقع فيه مشكلة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 636,
+            "global_char_end": 675
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "هنا كثير ناس يظنون إن الموقع فيه مشكلة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 636,
+            "global_char_end": 675
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REACTION",
+          "interaction_target": "UNIT_001",
+          "relationship": "REACTS_TO"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "هنا كثير ناس يظنون إن الموقع فيه مشكلة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 636,
+            "global_char_end": 675
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_029",
+      "order": 29,
+      "image": "scenes/SCENE_029.png",
+      "script_span": {
+        "global_char_start": 676,
+        "global_char_end": 713,
+        "text": "مع إن طلب الدفع وصل للبنك بشكل طبيعي،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: مع إن طلب الدفع وصل للبنك بشكل طبيعي،",
+      "visual_concept": "HEXA يوضح أن طلب الدفع وصل إلى البنك عبر مسار سليم.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "request_reaches_bank",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_REQUEST_REACHES_BANK",
+          "appear_trigger": {
+            "phrase": "مع إن طلب الدفع وصل للبنك بشكل طبيعي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 676,
+            "global_char_end": 713
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "مع إن طلب الدفع وصل للبنك بشكل طبيعي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 676,
+            "global_char_end": 713
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "مع إن طلب الدفع وصل للبنك بشكل طبيعي،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 676,
+            "global_char_end": 713
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_030",
+      "order": 30,
+      "image": "scenes/SCENE_030.png",
+      "script_span": {
+        "global_char_start": 714,
+        "global_char_end": 737,
+        "text": "والبنك فهم قيمة العملية"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: والبنك فهم قيمة العملية",
+      "visual_concept": "ماسح البنك يقرأ قيمة العملية بنجاح.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "transaction_value_recognition",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_TRANSACTION_VALUE_RECOGNITION",
+          "appear_trigger": {
+            "phrase": "والبنك فهم قيمة العملية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 714,
+            "global_char_end": 737
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "والبنك فهم قيمة العملية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 714,
+            "global_char_end": 737
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "والبنك فهم قيمة العملية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 714,
+            "global_char_end": 737
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_031",
+      "order": 31,
+      "image": "scenes/SCENE_031.png",
+      "script_span": {
+        "global_char_start": 738,
+        "global_char_end": 745,
+        "text": "والعملة"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: والعملة",
+      "visual_concept": "ماسح يطابق عملة العملية مع رمزها.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "currency_recognition",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_CURRENCY_RECOGNITION",
+          "appear_trigger": {
+            "phrase": "والعملة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 738,
+            "global_char_end": 745
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "والعملة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 738,
+            "global_char_end": 745
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_032",
+      "order": 32,
+      "image": "scenes/SCENE_032.png",
+      "script_span": {
+        "global_char_start": 746,
+        "global_char_end": 755,
+        "text": "والبطاقة،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: والبطاقة،",
+      "visual_concept": "قارئ تقني يتعرف إلى البطاقة وخصائصها.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "card_recognition",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_CARD_RECOGNITION",
+          "appear_trigger": {
+            "phrase": "والبطاقة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 746,
+            "global_char_end": 755
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "والبطاقة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 746,
+            "global_char_end": 755
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_033",
+      "order": 33,
+      "image": "scenes/SCENE_033.png",
+      "script_span": {
+        "global_char_start": 756,
+        "global_char_end": 790,
+        "text": "لكنه قرر إن الحساب بالحالة الحالية"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: لكنه قرر إن الحساب بالحالة الحالية",
+      "visual_concept": "HEXA يعرض لقطة الحالة الحالية للحساب وقيوده.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "current_account_state",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_CURRENT_ACCOUNT_STATE",
+          "appear_trigger": {
+            "phrase": "لكنه قرر إن الحساب بالحالة الحالية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 756,
+            "global_char_end": 790
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "لكنه قرر إن الحساب بالحالة الحالية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 756,
+            "global_char_end": 790
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "لكنه قرر إن الحساب بالحالة الحالية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 756,
+            "global_char_end": 790
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_034",
+      "order": 34,
+      "image": "scenes/SCENE_034.png",
+      "script_span": {
+        "global_char_start": 791,
+        "global_char_end": 808,
+        "text": "ما يسمح بتمريرها."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: ما يسمح بتمريرها.",
+      "visual_concept": "بوابة التفويض الداخلية تمنع حزمة الدفع من المرور.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "authorization_block",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_AUTHORIZATION_BLOCK",
+          "appear_trigger": {
+            "phrase": "ما يسمح بتمريرها.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 791,
+            "global_char_end": 808
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "ما يسمح بتمريرها.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 791,
+            "global_char_end": 808
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_035",
+      "order": 35,
+      "image": "scenes/SCENE_035.png",
+      "script_span": {
+        "global_char_start": 809,
+        "global_char_end": 833,
+        "text": "المشكلة إن المتجر غالبًا"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: المشكلة إن المتجر غالبًا",
+      "visual_concept": "المشهد يعرّف جهة المتجر التي تستقبل الحالة المختصرة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "merchant_side",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_MERCHANT_SIDE",
+          "appear_trigger": {
+            "phrase": "المشكلة إن المتجر غالبًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 809,
+            "global_char_end": 833
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "المشكلة إن المتجر غالبًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 809,
+            "global_char_end": 833
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "المشكلة إن المتجر غالبًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 809,
+            "global_char_end": 833
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_036",
+      "order": 36,
+      "image": "scenes/SCENE_036.png",
+      "script_span": {
+        "global_char_start": 834,
+        "global_char_end": 864,
+        "text": "ما يعرف الرصيد الحقيقي للعميل،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: ما يعرف الرصيد الحقيقي للعميل،",
+      "visual_concept": "المتجر يحاول رؤية رصيد حقيقي مخفي عنه.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "merchant_balance_blindness",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_MERCHANT_BALANCE_BLINDNESS",
+          "appear_trigger": {
+            "phrase": "ما يعرف الرصيد الحقيقي للعميل،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 834,
+            "global_char_end": 864
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "ما يعرف الرصيد الحقيقي للعميل،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 834,
+            "global_char_end": 864
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REACTION",
+          "interaction_target": "UNIT_001",
+          "relationship": "REACTS_TO"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "ما يعرف الرصيد الحقيقي للعميل،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 834,
+            "global_char_end": 864
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_037",
+      "order": 37,
+      "image": "scenes/SCENE_037.png",
+      "script_span": {
+        "global_char_start": 865,
+        "global_char_end": 894,
+        "text": "والبنك ما يرسل له كل التفاصيل"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: والبنك ما يرسل له كل التفاصيل",
+      "visual_concept": "HEXA يوضح بقاء التفاصيل داخل البنك وخروج ظرف مختصر فقط.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "bank_withholds_details",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_BANK_WITHHOLDS_DETAILS",
+          "appear_trigger": {
+            "phrase": "والبنك ما يرسل له كل التفاصيل",
+            "occurrence_in_scene": 1,
+            "global_char_start": 865,
+            "global_char_end": 894
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "والبنك ما يرسل له كل التفاصيل",
+            "occurrence_in_scene": 1,
+            "global_char_start": 865,
+            "global_char_end": 894
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "والبنك ما يرسل له كل التفاصيل",
+            "occurrence_in_scene": 1,
+            "global_char_start": 865,
+            "global_char_end": 894
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_038",
+      "order": 38,
+      "image": "scenes/SCENE_038.png",
+      "script_span": {
+        "global_char_start": 895,
+        "global_char_end": 915,
+        "text": "حفاظًا على الخصوصية،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: حفاظًا على الخصوصية،",
+      "visual_concept": "درع وقفل يحميان بيانات الحساب التفصيلية.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "privacy_protection",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_PRIVACY_PROTECTION",
+          "appear_trigger": {
+            "phrase": "حفاظًا على الخصوصية،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 895,
+            "global_char_end": 915
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "حفاظًا على الخصوصية،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 895,
+            "global_char_end": 915
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_039",
+      "order": 39,
+      "image": "scenes/SCENE_039.png",
+      "script_span": {
+        "global_char_start": 916,
+        "global_char_end": 942,
+        "text": "لذلك يرجع فقط رمز رفض عام."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: لذلك يرجع فقط رمز رفض عام.",
+      "visual_concept": "أسباب داخلية متعددة تُضغط إلى رمز رفض عام واحد.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "generic_decline_code",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_GENERIC_DECLINE_CODE",
+          "appear_trigger": {
+            "phrase": "لذلك يرجع فقط رمز رفض عام.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 916,
+            "global_char_end": 942
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "لذلك يرجع فقط رمز رفض عام.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 916,
+            "global_char_end": 942
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_040",
+      "order": 40,
+      "image": "scenes/SCENE_040.png",
+      "script_span": {
+        "global_char_start": 943,
+        "global_char_end": 987,
+        "text": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+      "visual_concept": "الشخصية تضغط زر الدفع عشر مرات مع عداد واضح.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "ten_retries",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_TEN_RETRIES",
+          "appear_trigger": {
+            "phrase": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+            "occurrence_in_scene": 1,
+            "global_char_start": 943,
+            "global_char_end": 987
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+            "occurrence_in_scene": 1,
+            "global_char_start": 943,
+            "global_char_end": 987
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REACTION",
+          "interaction_target": "UNIT_001",
+          "relationship": "REACTS_TO"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+            "occurrence_in_scene": 1,
+            "global_char_start": 943,
+            "global_char_end": 987
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_041",
+      "order": 41,
+      "image": "scenes/SCENE_041.png",
+      "script_span": {
+        "global_char_start": 988,
+        "global_char_end": 1004,
+        "text": "ما راح تغير شيء،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: ما راح تغير شيء،",
+      "visual_concept": "حلقة المحاولة تعيد النتيجة نفسها بلا تغيير.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "unchanged_result",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_UNCHANGED_RESULT",
+          "appear_trigger": {
+            "phrase": "ما راح تغير شيء،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 988,
+            "global_char_end": 1004
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "ما راح تغير شيء،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 988,
+            "global_char_end": 1004
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_042",
+      "order": 42,
+      "image": "scenes/SCENE_042.png",
+      "script_span": {
+        "global_char_start": 1005,
+        "global_char_end": 1029,
+        "text": "لأن نفس الشروط ما تغيرت."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: لأن نفس الشروط ما تغيرت.",
+      "visual_concept": "قيود الحساب مثبتة في مواقعها ولذلك يبقى الرفض.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "unchanged_conditions",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_UNCHANGED_CONDITIONS",
+          "appear_trigger": {
+            "phrase": "لأن نفس الشروط ما تغيرت.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1005,
+            "global_char_end": 1029
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "لأن نفس الشروط ما تغيرت.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1005,
+            "global_char_end": 1029
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_043",
+      "order": 43,
+      "image": "scenes/SCENE_043.png",
+      "script_span": {
+        "global_char_start": 1030,
+        "global_char_end": 1068,
+        "text": "الحل يكون بمراجعة المبلغ المتاح فعلًا،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: الحل يكون بمراجعة المبلغ المتاح فعلًا،",
+      "visual_concept": "HEXA يفحص المبلغ المتاح الحقيقي بعد الحجوزات والحدود.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "review_available_amount",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_REVIEW_AVAILABLE_AMOUNT",
+          "appear_trigger": {
+            "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1030,
+            "global_char_end": 1068
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1030,
+            "global_char_end": 1068
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1030,
+            "global_char_end": 1068
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_044",
+      "order": 44,
+      "image": "scenes/SCENE_044.png",
+      "script_span": {
+        "global_char_start": 1069,
+        "global_char_end": 1097,
+        "text": "أو رفع حد الشراء الإلكتروني،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: أو رفع حد الشراء الإلكتروني،",
+      "visual_concept": "يد ترفع مقياس حد الشراء الإلكتروني.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "raise_online_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_RAISE_ONLINE_LIMIT",
+          "appear_trigger": {
+            "phrase": "أو رفع حد الشراء الإلكتروني،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1069,
+            "global_char_end": 1097
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "أو رفع حد الشراء الإلكتروني،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1069,
+            "global_char_end": 1097
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_045",
+      "order": 45,
+      "image": "scenes/SCENE_045.png",
+      "script_span": {
+        "global_char_start": 1098,
+        "global_char_end": 1118,
+        "text": "أو تخفيض قيمة الطلب،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: أو تخفيض قيمة الطلب،",
+      "visual_concept": "الشخصية تزيل عنصرًا لتخفيض قيمة الطلب.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "reduce_order_value",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_REDUCE_ORDER_VALUE",
+          "appear_trigger": {
+            "phrase": "أو تخفيض قيمة الطلب،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1098,
+            "global_char_end": 1118
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "أو تخفيض قيمة الطلب،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1098,
+            "global_char_end": 1118
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "أو تخفيض قيمة الطلب،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1098,
+            "global_char_end": 1118
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_046",
+      "order": 46,
+      "image": "scenes/SCENE_046.png",
+      "script_span": {
+        "global_char_start": 1119,
+        "global_char_end": 1142,
+        "text": "أو استخدام وسيلة ثانية."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: أو استخدام وسيلة ثانية.",
+      "visual_concept": "الشخصية تختار وسيلة دفع بديلة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "alternate_payment_method",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_ALTERNATE_PAYMENT_METHOD",
+          "appear_trigger": {
+            "phrase": "أو استخدام وسيلة ثانية.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1119,
+            "global_char_end": 1142
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "adult_secondary_customer",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+          "appear_trigger": {
+            "phrase": "أو استخدام وسيلة ثانية.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1119,
+            "global_char_end": 1142
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "INTRODUCE",
+          "interaction_target": "UNIT_001",
+          "relationship": "CONTEXT_FOR"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "أو استخدام وسيلة ثانية.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1119,
+            "global_char_end": 1142
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_047",
+      "order": 47,
+      "image": "scenes/SCENE_047.png",
+      "script_span": {
+        "global_char_start": 1143,
+        "global_char_end": 1186,
+        "text": "الفرق هنا إن الدفع ما فشل لأن الطريق مقطوع،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: الفرق هنا إن الدفع ما فشل لأن الطريق مقطوع،",
+      "visual_concept": "طريق الدفع كامل وغير مقطوع وصولًا إلى البوابة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "intact_payment_route",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_INTACT_PAYMENT_ROUTE",
+          "appear_trigger": {
+            "phrase": "الفرق هنا إن الدفع ما فشل لأن الطريق مقطوع،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1143,
+            "global_char_end": 1186
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "الفرق هنا إن الدفع ما فشل لأن الطريق مقطوع،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1143,
+            "global_char_end": 1186
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_048",
+      "order": 48,
+      "image": "scenes/SCENE_048.png",
+      "script_span": {
+        "global_char_start": 1187,
+        "global_char_end": 1215,
+        "text": "بل لأن السيارة وصلت للبوابة،"
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: بل لأن السيارة وصلت للبوابة،",
+      "visual_concept": "السيارة تصل فعليًا إلى نقطة فحص البوابة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "vehicle_reaches_gate",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_VEHICLE_REACHES_GATE",
+          "appear_trigger": {
+            "phrase": "بل لأن السيارة وصلت للبوابة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1187,
+            "global_char_end": 1215
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "بل لأن السيارة وصلت للبوابة،",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1187,
+            "global_char_end": 1215
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001"
+          ]
+        }
+      ]
+    },
+    {
+      "scene_id": "SCENE_049",
+      "order": 49,
+      "image": "scenes/SCENE_049.png",
+      "script_span": {
+        "global_char_start": 1216,
+        "global_char_end": 1266,
+        "text": "لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه."
+      },
+      "purpose": "تجسيد المعنى السردي للمقطع: لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه.",
+      "visual_concept": "HEXA يوضح أن حمولة السيارة تتجاوز الحد المسموح للبوابة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "load_exceeds_gate_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "EXPLAIN_LOAD_EXCEEDS_GATE_LIMIT",
+          "appear_trigger": {
+            "phrase": "لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1216,
+            "global_char_end": 1266
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1216,
+            "global_char_end": 1266
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "EXPLAIN",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه.",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1216,
+            "global_char_end": 1266
+          },
+          "action": "EXPLAIN",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ]
+    }
+  ]
+}

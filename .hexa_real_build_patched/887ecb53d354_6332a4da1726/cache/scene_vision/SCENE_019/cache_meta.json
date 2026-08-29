@@ -1,0 +1,45 @@
+{
+  "cache_signature": "ce6cd222b428999efcaee42c4c17ad52c2cb0051fe99e67db40fe1fb16b8bb9f",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "0248d8ed74c08589a36697a34c9c1884d1e3eb7ab6dee5fa3e3cdb38d5df6d1f",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "separate_bank_limits",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_SEPARATE_BANK_LIMITS",
+        "appear_trigger": {
+          "phrase": "وبعض البنوك تحط حدودًا منفصلة",
+          "occurrence_in_scene": 1,
+          "global_char_start": 445,
+          "global_char_end": 474
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "adult_secondary_customer",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+        "appear_trigger": {
+          "phrase": "وبعض البنوك تحط حدودًا منفصلة",
+          "occurrence_in_scene": 1,
+          "global_char_start": 445,
+          "global_char_end": 474
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "INTRODUCE",
+        "interaction_target": "UNIT_001",
+        "relationship": "CONTEXT_FOR"
+      }
+    ]
+  }
+}

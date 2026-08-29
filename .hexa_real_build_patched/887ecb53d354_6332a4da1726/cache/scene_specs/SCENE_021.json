@@ -1,0 +1,68 @@
+{
+  "scene_id": "SCENE_021",
+  "order": 21,
+  "image": "scenes/SCENE_021.png",
+  "script_span": {
+    "global_char_start": 494,
+    "global_char_end": 509,
+    "text": "والشراء الدولي،"
+  },
+  "purpose": "تجسيد المعنى السردي للمقطع: والشراء الدولي،",
+  "visual_concept": "HEXA يوضح حد الشراء الدولي عند بوابة عابرة للحدود.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "international_purchase_limit",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "EXPLAIN_INTERNATIONAL_PURCHASE_LIMIT",
+      "appear_trigger": {
+        "phrase": "والشراء الدولي،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 494,
+        "global_char_end": 509
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_002",
+      "semantic_name": "hexa_main_character",
+      "type": "MAIN_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "والشراء الدولي،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 494,
+        "global_char_end": 509
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": "UNIT_001",
+      "relationship": "EXPLAINS"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "والشراء الدولي،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 494,
+        "global_char_end": 509
+      },
+      "action": "EXPLAIN",
+      "targets": [
+        "UNIT_001",
+        "UNIT_002"
+      ]
+    }
+  ]
+}
