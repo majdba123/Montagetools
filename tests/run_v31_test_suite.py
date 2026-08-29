@@ -26,6 +26,7 @@ run([sys.executable,ROOT/'tests'/'test_v31_0_3_visual_density.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_projected_visible_ink.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_hierarchical_asset_decomposer.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_typography_director_v2.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_appear_high_scale_fraction_contract.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_0_4_audio_semantic_design.py'],timeout=480)
 # Platform/runtime regression guards remain part of the V31 shipping suite.
 for f in ['test_v31_install_path_hotfix.py','test_v31_runtime_import_path_contract.py','test_v31_media_probe_fallback.py']:
