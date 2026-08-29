@@ -36,6 +36,12 @@ class BuildFailure(RuntimeError):
         self.payload=payload or {}
 
 
+def semantic_story_lock_status(report:dict)->dict:
+    hard=list(report.get('hard_failures') or [])
+    coverage=bool(report.get('coverage_gates_pass'))
+    return {'semantic_story_lock_pass':coverage and not hard,'semantic_story_lock_review_required':not coverage and not hard,'semantic_story_lock_hard_failure':bool(hard),'semantic_hard_failures':hard}
+
+
 def _default_runtime_cfg(extension_root:pathlib.Path):
     cfg_candidates=[]
     env=os.environ.get('HEXA_V31_RUNTIME_CONFIG') or os.environ.get('HEXA_V20_RUNTIME_CONFIG')
@@ -218,8 +224,15 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         # Graphics remain limited to explicit package directives; no inferred arrows are allowed.
         title_plan=build_title_plan(pkg,alignment,vision,motion,alignment_director)
         alignment_director=finalize_anchor_coverage(alignment_director,title_plan)
+        story_lock=semantic_story_lock_status(alignment_director)
+        alignment_director.update(story_lock)
         write_json(root/'HEXA_V31_AUDIO_VISUAL_ALIGNMENT_REPORT.json',alignment_director)
-        if not alignment_director.get('pass'):raise BuildFailure('Semantic timeline coverage gates failed')
+        if story_lock['semantic_story_lock_hard_failure']:
+            raise BuildFailure('Semantic timeline contains hard timing failures')
+        if story_lock['semantic_story_lock_review_required']:
+            coverage=alignment_director.get('coverage') or {}
+            log.log('WARNING','USER_PRESET_STORY_LOCK_REVIEW_REQUIRED',physical_event_percent=coverage.get('physical_event_percent'),title_only_percent=coverage.get('title_only_percent'),deferred_percent=coverage.get('deferred_percent'),high_confidence_p95_frames=coverage.get('high_confidence_p95_frames'),targets=coverage.get('targets'),deferred_anchor_count=alignment_director.get('deferred_anchor_count'))
+        else: log.log('PASS','USER_PRESET_STORY_LOCK_PASS',event_count=alignment_director.get('event_count'))
         support_text_plan=build_text_plan(pkg,alignment,vision,motion,logger=log)
         text_plan=merge_support_typography(title_plan,support_text_plan)
         graphics_plan=build_graphics_plan(pkg.plan,alignment,vision,logger=log)
@@ -300,7 +313,7 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         production_cert=certify_production(str(production_mp4),float(audio['duration_seconds']),str(ext),str(root),runtime_cfg)
         if not production_cert.get('artifact_integrity_pass'):
             raise BuildFailure('V31 final MP4 artifact integrity failed: '+','.join(production_cert.get('failed_media_gates',[])+production_cert.get('failed_visual_guard_gates',[])+production_cert.get('failed_preview_parity_gates',[])))
-        quality_review_required=not bool(production_cert.get('reference_promotion_gate_pass')) or not bool(perceptual.get('pass')) or not bool(reference_score_10.get('pass_8_plus')) or (physical_acting.get('planned_physical_actions',0)>0 and not bool(physical_acting.get('pass')))
+        quality_review_required=story_lock['semantic_story_lock_review_required'] or not bool(production_cert.get('reference_promotion_gate_pass')) or not bool(perceptual.get('pass')) or not bool(reference_score_10.get('pass_8_plus')) or (physical_acting.get('planned_physical_actions',0)>0 and not bool(physical_acting.get('pass')))
         if quality_review_required:
             log.log('WARNING','REFERENCE_PROMOTION_REVIEW_REQUIRED',failed_gates=production_cert.get('failed_reference_gates'),mp4=str(production_mp4),note='Artifact preserved for human comparison; production promotion remains blocked.')
         log.phase('QUALITY_ASSURANCE')
@@ -319,6 +332,9 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         log.log('PASS','FINAL_MP4_READY_PREMIERE_PROJECT_PENDING',mp4=str(production_mp4),project=str(project_save_path),mp4_bytes=assembled.get('bytes'))
 
         result={'status':'PREMIERE_PENDING','build_id':log.build_id,'project_id':pkg.plan.get('project_id'),'build_root':str(root),'project_cache':str(cache_root),'production_mp4':str(production_mp4),'production_mp4_planned':str(production_mp4),'documents_export_dir':str(export_dir),'premiere_project_path':str(project_save_path),'timeline_xml':prem['timeline_xml'],'edit_map':prem['edit_map'],'qa_report':str(root/'HEXA_V31_QA_REPORT.json'),'alignment':str(align_path),'motion_plan':str(root/'HEXA_MOTION_PLAN_V31.json'),'selective_typography_plan':str(root/'HEXA_V31_SELECTIVE_TYPOGRAPHY_PLAN.json'),'semantic_graphics_plan':str(root/'HEXA_V31_SEMANTIC_GRAPHICS_PLAN.json'),'animated_scene_media_manifest':str(root/'HEXA_V31_ANIMATED_SCENE_MEDIA_MANIFEST.json'),'layer_render_map':render_map['edit_map'],'premiere_execution_mode':prem.get('execution_mode'),'pre_rendered_motion_event_count':scene_media.get('motion_event_count'),'selective_text_event_count':text_plan.get('text_event_count'),'semantic_graphic_event_count':graphics_plan.get('event_count'),'reference_preview':str(production_mp4),'reference_preview_metrics':str(root/'HEXA_V31_REFERENCE_PREVIEW_METRICS.json'),'reference_preview_score':str(root/'HEXA_V31_REFERENCE_PREVIEW_SCORE.json'),'reference_score_10':str(root/'HEXA_V31_REFERENCE_SCORE_10.json'),'reference_score_10_value':reference_score_10.get('score_10'),'reference_autocalibration':str(root/'HEXA_V31_REFERENCE_AUTOCALIBRATION.json'),'reference_quality_status':qa['reference_quality_status'],'premiere_export_pending':False,'premiere_project_pending':True,'production_promotion_allowed':bool(preview_score.get('pass') and perceptual.get('pass') and physical_acting.get('pass') and reference_score_10.get('pass_8_plus')),'quality_review_required':not bool(preview_score.get('pass') and perceptual.get('pass') and physical_acting.get('pass') and reference_score_10.get('pass_8_plus')),'presentation_budget_report':str(root/'HEXA_V31_PRESENTATION_BUDGET_REPORT.json'),'storytelling_render_verification':str(root/'HEXA_V31_STORYTELLING_RENDER_VERIFICATION.json'),'physical_acting_verification':str(root/'HEXA_V31_PHYSICAL_ACTING_VERIFICATION.json'),'perceptual_story_qa':str(root/'HEXA_V31_PERCEPTUAL_STORY_QA.json'),'spike_attribution':str(root/'HEXA_V31_SPIKE_ATTRIBUTION.json'),'production_expected_duration_seconds':float(audio['duration_seconds']),'production_certification':str(root/'HEXA_V31_PRODUCTION_CERTIFICATION.json'),'premiere_runtime_report':str(pathlib.Path(prem['runtime_report']).resolve()) if prem.get('runtime_report') else None,'physical_certification':str((root/'HEXA_V31_PHYSICAL_CERTIFICATION.json').resolve())}
+        result.update(story_lock)
+        result['production_promotion_allowed']=bool(result.get('production_promotion_allowed')) and story_lock['semantic_story_lock_pass']
+        result['quality_review_required']=not result['production_promotion_allowed']
         write_json(root/'HEXA_V31_BUILD_RESULT.json',result); log.finalize('PREMIERE_PENDING',**{k:v for k,v in result.items() if k!='status'}); return result
     except Exception as e:
         log.exception('BUILD_FAILURE',e)
