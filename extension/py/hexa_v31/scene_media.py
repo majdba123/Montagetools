@@ -1,5 +1,5 @@
 from __future__ import annotations
-import hashlib, json, math, os, pathlib, subprocess, shutil
+import hashlib, inspect, json, math, os, pathlib, subprocess, shutil
 import cv2
 cv2.setNumThreads(1)
 try: cv2.ocl.setUseOpenCL(False)
@@ -233,7 +233,13 @@ def _scene_signature(scene_row,events,text_events,graphic_events,vision_scene,wi
     return hashlib.sha256(json.dumps(payload,sort_keys=True,ensure_ascii=False,default=str).encode('utf-8')).hexdigest()
 
 
-def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,graphics_plan,out_dir,cache_dir,width=1920,height=1080,fps=30.0,logger=None):
+def _render_scene_media_per_scene_legacy(render_edit_map,motion_plan,vision_results,text_plan,graphics_plan,out_dir,cache_dir,width=1920,height=1080,fps=30.0,logger=None):
+    """Retained forensic per-scene renderer; never the production entry point.
+
+    The continuous-story renderer below is the sole public production authority.
+    Keeping this implementation explicitly private preserves old cache inspection
+    capability without allowing Python definition order to select it accidentally.
+    """
     out=ensure_dir(out_dir);cache=ensure_dir(cache_dir);vis={str(v.get('scene_id')):v for v in vision_results};scene_rows=motion_plan.get('scenes') or [];all_events=render_edit_map.get('events') or [];text_events=text_plan.get('events') or [];graphic_events=(graphics_plan or {}).get('events') or []
     ebs={};tbs={};gbs={}
     # A render scene owns its source image, not every visible physical layer.
@@ -349,12 +355,13 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
     text_events=list((text_plan or {}).get('events') or [])
     graphic_events=list((graphics_plan or {}).get('events') or [])
 
-    # Cache authority includes the renderer implementation itself.  Event-plan
-    # equivalence alone is insufficient: a visual renderer correction (for
-    # example, how an already-approved typography panel occupies its solved
-    # geometry) must never reuse a pre-correction MP4.
+    # Cache authority includes the one public renderer implementation itself.
+    # Event-plan equivalence alone is insufficient: a renderer correction must
+    # never reuse a pre-correction MP4.  Hash the actual callable rather than
+    # this complete module, so private forensic helpers do not masquerade as
+    # production-renderer changes.
     try:
-        renderer_source_sha256=hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()
+        renderer_source_sha256=hashlib.sha256(inspect.getsource(render_scene_media).encode('utf-8')).hexdigest()
         typography_source_sha256=hashlib.sha256(pathlib.Path(render_text_rgba.__code__.co_filename).read_bytes()).hexdigest()
         compositor_source_sha256=hashlib.sha256(pathlib.Path(_apply.__code__.co_filename).read_bytes()).hexdigest()
     except OSError:
@@ -362,7 +369,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
     # Cache signature is tied to the exact user preset authority, complete event
     # plan, and implementation that rasterizes it.
     sig_payload={
-        'version':'HEXA_SCENE_MEDIA_V31_RENDERER_AUTHORITY_1',
+        'version':'HEXA_SCENE_MEDIA_V31_RENDERER_AUTHORITY_2',
         'renderer_source_sha256':renderer_source_sha256,
         'typography_source_sha256':typography_source_sha256,
         'compositor_source_sha256':compositor_source_sha256,

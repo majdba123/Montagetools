@@ -23,6 +23,7 @@ for f in ['test_v31_0_1_large_support_fallback.py','test_v31_0_1_atomic_characte
 for f in ['test_v31_0_2_spatiotemporal_phase_contract.py','test_v31_0_2_cache_invalidation.py']:
     run([sys.executable,ROOT/'tests'/f],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_0_3_visual_density.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_projected_visible_ink.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_0_4_audio_semantic_design.py'],timeout=480)
 # Platform/runtime regression guards remain part of the V31 shipping suite.
 for f in ['test_v31_install_path_hotfix.py','test_v31_runtime_import_path_contract.py','test_v31_media_probe_fallback.py']:

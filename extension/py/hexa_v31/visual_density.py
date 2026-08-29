@@ -2,6 +2,7 @@ from __future__ import annotations
 import statistics
 from .composition_qa import _state
 from .composition_solver import SAFE_X, SAFE_Y
+from .projected_visible_ink import ProjectedVisibleInkModel
 
 SAFE_AREA=(SAFE_X[1]-SAFE_X[0])*(SAFE_Y[1]-SAFE_Y[0])
 
@@ -45,6 +46,7 @@ def _islands(rects,gap=0.065):
 def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
     cards=list((motion_plan.get('visual_cards') or {}).get('cards') or []);events=list(motion_plan.get('events') or [])
     active=[e for e in events if not e.get('suppressed_by_card_density')]
+    model=ProjectedVisibleInkModel()
     rows=[];all_cov=[];all_ink=[];all_pop=[];all_islands=[];near_blank=0.0;static=0;transitions=0
     for card in cards:
         cid=str(card.get('card_id'));cs=float(card.get('start_seconds',0));ce=float(card.get('end_seconds',cs))
@@ -65,8 +67,9 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
             rects=[r for _,r,_,_ in states];cov=_union_area(rects)/SAFE_AREA if rects else 0.0
             ink=0.0;pa=sa=0.0
             for e,r,op,_ in states:
-                fill=float((e.get('matting') or {}).get('opaque_foreground_fraction') or 0.62)
-                a=r[2]*r[3]*max(0.12,min(1.0,fill))*op/SAFE_AREA;ink+=a
+                # Projected alpha/mask support is the density authority; rectangle
+                # union above remains only a collision/layout measurement.
+                a=model.project(e,r,op,clip_rect=(SAFE_X[0],SAFE_Y[0],SAFE_X[1]-SAFE_X[0],SAFE_Y[1]-SAFE_Y[0]))/SAFE_AREA;ink+=a
                 if str(e.get('attention_priority') or '').upper()=='PRIMARY':pa+=a
                 else:sa+=a
             pop=sum(1 for _,_,op,_ in states if op>0.22);isl=_islands(rects)
@@ -82,11 +85,11 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
             prev=sig;t+=sample_step
         median_cov=statistics.median(covs) if covs else 0.0;median_ink=statistics.median(inks) if inks else 0.0;peak=max(pops or [0])
         multi=total_valid>=2
-        rows.append({'card_id':cid,'archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'source_valid_object_count':total_valid,'active_object_count':len(evs),'peak_visible_object_count':peak,'mean_temporal_population':round(statistics.mean(pops) if pops else 0.0,4),'median_safe_frame_union_coverage':round(median_cov,6),'median_estimated_alpha_coverage':round(median_ink,6),'negative_space_ratio':round(1.0-median_cov,6),'largest_object_dominance':round(max((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs),default=0.0)/max(1e-9,sum((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs))),6),'mean_visual_island_count':round(statistics.mean(islands) if islands else 0.0,4),'max_visual_island_count':max(islands or [0]),'primary_secondary_balance':round(statistics.mean(primary_area)/max(1e-9,statistics.mean(primary_area)+statistics.mean(support_area)),6) if primary_area else 0.0,'near_blank_duration_seconds':round(min(max(0.0,ce-cs),blank),3),'hard_under_density':bool(multi and peak<2),'soft_under_density':bool(multi and median_cov<0.24)})
+        rows.append({'card_id':cid,'archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'source_valid_object_count':total_valid,'active_object_count':len(evs),'peak_visible_object_count':peak,'mean_temporal_population':round(statistics.mean(pops) if pops else 0.0,4),'median_safe_frame_union_coverage':round(median_cov,6),'median_estimated_alpha_coverage':round(median_ink,6),'negative_space_ratio':round(1.0-median_cov,6),'largest_object_dominance':round(max((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs),default=0.0)/max(1e-9,sum((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs))),6),'mean_visual_island_count':round(statistics.mean(islands) if islands else 0.0,4),'max_visual_island_count':max(islands or [0]),'primary_secondary_balance':round(statistics.mean(primary_area)/max(1e-9,statistics.mean(primary_area)+statistics.mean(support_area)),6) if primary_area else 0.0,'near_blank_duration_seconds':round(min(max(0.0,ce-cs),blank),3),'hard_under_density':bool(multi and peak<2),'soft_under_density':bool(multi and median_ink<0.24)})
         all_cov.extend(covs);all_ink.extend(inks);all_pop.extend(pops);all_islands.extend(islands);near_blank+=blank
     severe=[r['card_id'] for r in rows if r['hard_under_density']]
     soft=[r['card_id'] for r in rows if r['soft_under_density']]
-    return {'schema':'HEXA_V31_VISUAL_DENSITY_REPORT','version':'31.0.25','sample_step_seconds':sample_step,'card_count':len(cards),'active_object_count':len(active),'source_object_count':len(events),'median_safe_frame_union_coverage':round(statistics.median(all_cov) if all_cov else 0.0,6),'median_estimated_alpha_coverage':round(statistics.median(all_ink) if all_ink else 0.0,6),'mean_temporal_population':round(statistics.mean(all_pop) if all_pop else 0.0,6),'mean_visual_island_count':round(statistics.mean(all_islands) if all_islands else 0.0,6),'near_blank_duration_seconds':round(near_blank,3),'near_blank_ratio':round(near_blank/max(1e-9,sum(float(c.get('duration_seconds') or 0) for c in cards)),6),'static_hold_ratio':round(static/max(1,transitions),6),'hard_under_density_cards':severe,'soft_under_density_cards':soft,'cards':rows,'pass':not severe}
+    return {'schema':'HEXA_V31_VISUAL_DENSITY_REPORT','version':'31.0.25','visible_ink_authority':model.algorithm_version,'sample_step_seconds':sample_step,'card_count':len(cards),'active_object_count':len(active),'source_object_count':len(events),'median_safe_frame_union_coverage':round(statistics.median(all_cov) if all_cov else 0.0,6),'median_estimated_alpha_coverage':round(statistics.median(all_ink) if all_ink else 0.0,6),'mean_temporal_population':round(statistics.mean(all_pop) if all_pop else 0.0,6),'mean_visual_island_count':round(statistics.mean(all_islands) if all_islands else 0.0,6),'near_blank_duration_seconds':round(near_blank,3),'near_blank_ratio':round(near_blank/max(1e-9,sum(float(c.get('duration_seconds') or 0) for c in cards)),6),'static_hold_ratio':round(static/max(1,transitions),6),'hard_under_density_cards':severe,'soft_under_density_cards':soft,'cards':rows,'pass':not severe}
 
 def temporal_population_report(density_report:dict)->dict:
     return {'schema':'HEXA_V31_TEMPORAL_POPULATION_REPORT','version':'31.0.25','mean_temporal_population':density_report.get('mean_temporal_population'),'near_blank_duration_seconds':density_report.get('near_blank_duration_seconds'),'near_blank_ratio':density_report.get('near_blank_ratio'),'static_hold_ratio':density_report.get('static_hold_ratio'),'cards':[{'card_id':r.get('card_id'),'source_valid_object_count':r.get('source_valid_object_count'),'active_object_count':r.get('active_object_count'),'peak_visible_object_count':r.get('peak_visible_object_count'),'mean_temporal_population':r.get('mean_temporal_population'),'near_blank_duration_seconds':r.get('near_blank_duration_seconds')} for r in density_report.get('cards') or []]}

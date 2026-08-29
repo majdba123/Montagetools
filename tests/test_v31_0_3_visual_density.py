@@ -15,7 +15,10 @@ card={'card_id':'C1','start_seconds':0.0,'end_seconds':4.0,'duration_seconds':4.
 events=[event('A',[.08,.16,.38,.56]),event('B',[.54,.20,.36,.50])]
 plan={'visual_cards':{'cards':[card]},'events':events}
 a=build_visual_density_report(plan);b=build_visual_density_report(plan)
-assert a==b and a['version']=='31.0.9' and a['pass']
+assert a==b,(a,b)
+assert a['version']=='31.0.25',a
+assert a['visible_ink_authority']=='HEXA_PROJECTED_VISIBLE_INK_V1',a
+assert a['pass'],a
 assert a['active_object_count']==2 and a['cards'][0]['peak_visible_object_count']==2
 assert a['cards'][0]['median_safe_frame_union_coverage']>=.35
 under={'visual_cards':{'cards':[card]},'events':[events[0],dict(events[1],suppressed_by_card_density=True)]}

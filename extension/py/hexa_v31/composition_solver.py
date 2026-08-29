@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import itertools, math
 from .preset_authority import duration as preset_duration, preset as preset_def
+from .projected_visible_ink import ProjectedVisibleInkModel
 
 SAFE_X=(0.08,0.92)
 SAFE_Y=(0.10,0.90)
@@ -18,6 +19,7 @@ MIN_PRIMARY_LAYOUT_SCALE=0.40
 MIN_SUPPORT_LAYOUT_SCALE=0.32
 MIN_ATOMIC_LAYOUT_SCALE=0.30
 MAX_PHASE_OBJECTS=5
+_VISIBLE_INK_MODEL=ProjectedVisibleInkModel()
 
 @dataclass(frozen=True)
 class Footprint:
@@ -43,7 +45,9 @@ def _fp(e:dict)->Footprint:
     w=max(0.035,min(0.92,float(b[2])));h=max(0.035,min(0.90,float(b[3])))
     cam=max(0.55,min(1.15,float(e.get('reference_camera_scale') or 1.0)))
     w*=cam;h*=cam
-    fill=max(0.18,min(1.0,float((e.get('matting') or {}).get('opaque_foreground_fraction') or 0.62)))
+    # Collision geometry remains a bbox concern, while the solver's density
+    # objective uses the source-backed visible support inside that geometry.
+    fill=max(0.02,min(1.0,_VISIBLE_INK_MODEL.visible_fraction(e)))
     area=w*h
     visible_area=area*fill
     detail=int(e.get('source_grouped_detail_count') or 0)
