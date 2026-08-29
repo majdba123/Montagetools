@@ -1,0 +1,27 @@
+{
+  "cache_signature": "1eb9923f1bbd52277e6ebd31fa81de9e1cf03c6a5cccf829e85f98653defe7b0",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "a79e497ab592ac43ba0deafcb0a65307510b93ff6565f745dd5bfa4d10a6a58b",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "intact_payment_route",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_INTACT_PAYMENT_ROUTE",
+        "appear_trigger": {
+          "phrase": "الفرق هنا إن الدفع ما فشل لأن الطريق مقطوع،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1143,
+          "global_char_end": 1186
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ]
+  }
+}

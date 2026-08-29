@@ -1,0 +1,68 @@
+{
+  "scene_id": "SCENE_045",
+  "order": 45,
+  "image": "scenes/SCENE_045.png",
+  "script_span": {
+    "global_char_start": 1098,
+    "global_char_end": 1118,
+    "text": "أو تخفيض قيمة الطلب،"
+  },
+  "purpose": "تجسيد المعنى السردي للمقطع: أو تخفيض قيمة الطلب،",
+  "visual_concept": "الشخصية تزيل عنصرًا لتخفيض قيمة الطلب.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "reduce_order_value",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "EXPLAIN_REDUCE_ORDER_VALUE",
+      "appear_trigger": {
+        "phrase": "أو تخفيض قيمة الطلب،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1098,
+        "global_char_end": 1118
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_002",
+      "semantic_name": "adult_secondary_customer",
+      "type": "SECONDARY_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+      "appear_trigger": {
+        "phrase": "أو تخفيض قيمة الطلب،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1098,
+        "global_char_end": 1118
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "INTRODUCE",
+      "interaction_target": "UNIT_001",
+      "relationship": "CONTEXT_FOR"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "أو تخفيض قيمة الطلب،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1098,
+        "global_char_end": 1118
+      },
+      "action": "EXPLAIN",
+      "targets": [
+        "UNIT_001",
+        "UNIT_002"
+      ]
+    }
+  ]
+}

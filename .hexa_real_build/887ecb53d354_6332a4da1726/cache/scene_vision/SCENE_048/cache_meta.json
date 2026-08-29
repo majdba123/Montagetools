@@ -1,0 +1,27 @@
+{
+  "cache_signature": "293057718ea367d6e856763e8b5ad60896a2e2d88345ca1c987ca5331c0914d9",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "b191d86c5ad6752d3fbf6bdd5dfad5b9c904066d1ff250f977152aef1f966e19",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "vehicle_reaches_gate",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_VEHICLE_REACHES_GATE",
+        "appear_trigger": {
+          "phrase": "بل لأن السيارة وصلت للبوابة،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1187,
+          "global_char_end": 1215
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ]
+  }
+}

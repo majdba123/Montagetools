@@ -1,0 +1,49 @@
+{
+  "scene_id": "SCENE_041",
+  "order": 41,
+  "image": "scenes/SCENE_041.png",
+  "script_span": {
+    "global_char_start": 988,
+    "global_char_end": 1004,
+    "text": "ما راح تغير شيء،"
+  },
+  "purpose": "تجسيد المعنى السردي للمقطع: ما راح تغير شيء،",
+  "visual_concept": "حلقة المحاولة تعيد النتيجة نفسها بلا تغيير.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "unchanged_result",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "EXPLAIN_UNCHANGED_RESULT",
+      "appear_trigger": {
+        "phrase": "ما راح تغير شيء،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 988,
+        "global_char_end": 1004
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": null,
+      "relationship": null
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "ما راح تغير شيء،",
+        "occurrence_in_scene": 1,
+        "global_char_start": 988,
+        "global_char_end": 1004
+      },
+      "action": "EXPLAIN",
+      "targets": [
+        "UNIT_001"
+      ]
+    }
+  ]
+}

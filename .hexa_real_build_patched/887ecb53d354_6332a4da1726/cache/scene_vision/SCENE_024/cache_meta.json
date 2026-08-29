@@ -1,0 +1,45 @@
+{
+  "cache_signature": "e63717bd4ba0b2719704654d2914ae985e93fbd0802210b742ffeb24b9645e77",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "2d2500c55b365e180dde8ab2ecfcd752704e177966933f8daee82982a447c76f",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "recent_success",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_RECENT_SUCCESS",
+        "appear_trigger": {
+          "phrase": "عشان كذا ممكن البطاقة تشتغل قبل شوي",
+          "occurrence_in_scene": 1,
+          "global_char_start": 553,
+          "global_char_end": 588
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "adult_secondary_customer",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+        "appear_trigger": {
+          "phrase": "عشان كذا ممكن البطاقة تشتغل قبل شوي",
+          "occurrence_in_scene": 1,
+          "global_char_start": 553,
+          "global_char_end": 588
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "INTRODUCE",
+        "interaction_target": "UNIT_001",
+        "relationship": "CONTEXT_FOR"
+      }
+    ]
+  }
+}

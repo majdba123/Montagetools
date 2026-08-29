@@ -1,0 +1,45 @@
+{
+  "cache_signature": "78be9a98acea1376d6c2132c46e5f19fd072d4b9c01743f21b2820b56fbb7aa2",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "2b0bdc9c7db38b9ec30d62eae74bf3a7e9d1a57cfcc6463a61f7182e31bc5630",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "merchant_balance_blindness",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_MERCHANT_BALANCE_BLINDNESS",
+        "appear_trigger": {
+          "phrase": "ما يعرف الرصيد الحقيقي للعميل،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 834,
+          "global_char_end": 864
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "adult_secondary_customer",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+        "appear_trigger": {
+          "phrase": "ما يعرف الرصيد الحقيقي للعميل،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 834,
+          "global_char_end": 864
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "REACTION",
+        "interaction_target": "UNIT_001",
+        "relationship": "REACTS_TO"
+      }
+    ]
+  }
+}

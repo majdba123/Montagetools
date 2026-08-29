@@ -1,0 +1,45 @@
+{
+  "cache_signature": "0b6d922dba4e8b190d9fe9e4608e7c91e4d2c1ed47aa5607e9332cb8794f11aa",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "fe2e42bb7f3e67a8c5fee0b44d39b14e45b7c41dc70127192b4bf63db6ba1244",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "reduce_order_value",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_REDUCE_ORDER_VALUE",
+        "appear_trigger": {
+          "phrase": "أو تخفيض قيمة الطلب،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1098,
+          "global_char_end": 1118
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "adult_secondary_customer",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+        "appear_trigger": {
+          "phrase": "أو تخفيض قيمة الطلب،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1098,
+          "global_char_end": 1118
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "INTRODUCE",
+        "interaction_target": "UNIT_001",
+        "relationship": "CONTEXT_FOR"
+      }
+    ]
+  }
+}

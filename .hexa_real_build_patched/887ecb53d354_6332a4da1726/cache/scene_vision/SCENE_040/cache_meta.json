@@ -1,0 +1,45 @@
+{
+  "cache_signature": "160e1ba450791f06d02b85d991922cdb5b243ed4b6b507c629d0bc45f98c39af",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "71e31183d541057e3cc870b9c8c1138051ae456daff15651066b9a13fd117f3e",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "ten_retries",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_TEN_RETRIES",
+        "appear_trigger": {
+          "phrase": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+          "occurrence_in_scene": 1,
+          "global_char_start": 943,
+          "global_char_end": 987
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "adult_secondary_customer",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+        "appear_trigger": {
+          "phrase": "وبهالمرحلة إعادة الضغط على زر الدفع عشر مرات",
+          "occurrence_in_scene": 1,
+          "global_char_start": 943,
+          "global_char_end": 987
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "REACTION",
+        "interaction_target": "UNIT_001",
+        "relationship": "REACTS_TO"
+      }
+    ]
+  }
+}

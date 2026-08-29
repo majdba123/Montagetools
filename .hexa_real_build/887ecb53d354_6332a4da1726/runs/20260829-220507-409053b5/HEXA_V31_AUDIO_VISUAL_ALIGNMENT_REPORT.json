@@ -1,0 +1,4851 @@
+{
+  "schema": "HEXA_V31_PERCEPTUAL_SEMANTIC_HIT_AUDIT",
+  "version": "31.0.25",
+  "fps": 30.0,
+  "event_count": 65,
+  "events": [
+    {
+      "anchor_id": "ANCHOR_001",
+      "scene_id": "SCENE_002",
+      "visual_card_id": "VCARD_001",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "adult_secondary_customer",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_002_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_002_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "TITLE_001",
+      "event_id": "SCENE_002_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 0.0,
+      "before_state": "NO_HEADING",
+      "event_type": "TITLE_HIT",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "HERO_TEXT_RELATED_SETTLE_V31_0_25",
+      "preset_start": 0.0,
+      "perceptual_hit": 0.0,
+      "delta_frames": 0.0,
+      "perceptual_change_type": "EXACT_CONCEPT_HEADING",
+      "after_state": "HEADING_READABLE",
+      "salience_reason": "stable exact-copy heading supports the current concept",
+      "satisfaction": "TITLE",
+      "result": "DEFERRED",
+      "defer_reason": null,
+      "final_classification": "STARTUP_NO_PREROLL",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 0.0,
+        "event_ids": [
+          "SCENE_001_PHYS_01",
+          "SCENE_001_PHYS_02"
+        ],
+        "current_hit_frames": [
+          16.8,
+          16.8
+        ],
+        "target_start_seconds": -0.56,
+        "legal_start_min_seconds": 0.0,
+        "legal_start_max_seconds": 4.729523809523809,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_002",
+      "scene_id": "SCENE_002",
+      "visual_card_id": "VCARD_001",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "wallet_model",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_002_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_002_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "TITLE_001",
+      "event_id": "SCENE_002_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 0.0,
+      "before_state": "NO_HEADING",
+      "event_type": "TITLE_HIT",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "HERO_TEXT_RELATED_SETTLE_V31_0_25",
+      "preset_start": 0.0,
+      "perceptual_hit": 0.0,
+      "delta_frames": 0.0,
+      "perceptual_change_type": "EXACT_CONCEPT_HEADING",
+      "after_state": "HEADING_READABLE",
+      "salience_reason": "stable exact-copy heading supports the current concept",
+      "satisfaction": "TITLE",
+      "result": "DEFERRED",
+      "defer_reason": null,
+      "final_classification": "STARTUP_NO_PREROLL",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 0.0,
+        "event_ids": [
+          "SCENE_001_PHYS_01",
+          "SCENE_001_PHYS_02"
+        ],
+        "current_hit_frames": [
+          16.8,
+          16.8
+        ],
+        "target_start_seconds": -0.56,
+        "legal_start_min_seconds": 0.0,
+        "legal_start_max_seconds": 4.729523809523809,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_003",
+      "scene_id": "SCENE_003",
+      "visual_card_id": "VCARD_001",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "total_balance",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_003_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_003_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "TITLE_001",
+      "event_id": "SCENE_003_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 1.32,
+      "before_state": "NO_HEADING",
+      "event_type": "TITLE_HIT",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "HERO_TEXT_RELATED_SETTLE_V31_0_25",
+      "preset_start": 1.32,
+      "perceptual_hit": 1.32,
+      "delta_frames": 0.0,
+      "perceptual_change_type": "EXACT_CONCEPT_HEADING",
+      "after_state": "HEADING_READABLE",
+      "salience_reason": "stable exact-copy heading supports the current concept",
+      "satisfaction": "TITLE",
+      "result": "DEFERRED",
+      "defer_reason": null,
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 1.333333,
+        "event_ids": [
+          "SCENE_003_PHYS_02"
+        ],
+        "current_hit_frames": [
+          20.0
+        ],
+        "target_start_seconds": 0.773333,
+        "legal_start_min_seconds": 0.0,
+        "legal_start_max_seconds": 4.729523809523809,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_004",
+      "scene_id": "SCENE_004",
+      "visual_card_id": "VCARD_001",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "reserved_funds",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_004_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_004_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "TITLE_001",
+      "event_id": "SCENE_004_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 2.34,
+      "before_state": "NO_HEADING",
+      "event_type": "TITLE_HIT",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "HERO_TEXT_RELATED_SETTLE_V31_0_25",
+      "preset_start": 2.34,
+      "perceptual_hit": 2.34,
+      "delta_frames": 0.0,
+      "perceptual_change_type": "EXACT_CONCEPT_HEADING",
+      "after_state": "HEADING_READABLE",
+      "salience_reason": "stable exact-copy heading supports the current concept",
+      "satisfaction": "TITLE",
+      "result": "DEFERRED",
+      "defer_reason": null,
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 2.333333,
+        "event_ids": [
+          "SCENE_004_PHYS_02"
+        ],
+        "current_hit_frames": [
+          15.2
+        ],
+        "target_start_seconds": 1.773333,
+        "legal_start_min_seconds": 0.0,
+        "legal_start_max_seconds": 4.729523809523809,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_005",
+      "scene_id": "SCENE_005",
+      "visual_card_id": "VCARD_002",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_005_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_005_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_005_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 5.58,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 5.02,
+      "perceptual_hit": 5.46,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_006",
+      "scene_id": "SCENE_005",
+      "visual_card_id": "VCARD_002",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "bank_rule",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_005_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_005_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_005_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 5.58,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 5.02,
+      "perceptual_hit": 5.46,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_007",
+      "scene_id": "SCENE_006",
+      "visual_card_id": "VCARD_002",
+      "spoken_text": "       ",
+      "canonical_semantic_span": "online_spending_cap",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_006_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_006_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_006_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 7.04,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 6.48,
+      "perceptual_hit": 6.92,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_008",
+      "scene_id": "SCENE_007",
+      "visual_card_id": "VCARD_003",
+      "spoken_text": " ",
+      "canonical_semantic_span": "daily_online_limit",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_007_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_007_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_007_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 9.86,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 9.306667,
+      "perceptual_hit": 9.746667,
+      "delta_frames": -3.4,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 9.866667,
+        "event_ids": [
+          "SCENE_007_PHYS_01"
+        ],
+        "current_hit_frames": [
+          4.571
+        ],
+        "target_start_seconds": 9.306667,
+        "legal_start_min_seconds": 9.292381,
+        "legal_start_max_seconds": 14.188571428571429,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 0.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION",
+          "DENSITY_OR_NO_BLANK_CONSTRAINT"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_009",
+      "scene_id": "SCENE_008",
+      "visual_card_id": "VCARD_003",
+      "spoken_text": "      ",
+      "canonical_semantic_span": "adult_secondary_customer",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_008_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_008_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_008_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 11.02,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 10.5,
+      "perceptual_hit": 10.94,
+      "delta_frames": -2.4,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_010",
+      "scene_id": "SCENE_008",
+      "visual_card_id": "VCARD_003",
+      "spoken_text": "      ",
+      "canonical_semantic_span": "visible_sufficient_balance",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_008_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_008_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_008_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 11.02,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 10.56,
+      "perceptual_hit": 11.0,
+      "delta_frames": -0.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_011",
+      "scene_id": "SCENE_009",
+      "visual_card_id": "VCARD_003",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_009_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_009_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_009_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 13.76,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 13.173333,
+      "perceptual_hit": 13.613333,
+      "delta_frames": -4.4,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 13.766667,
+        "event_ids": [
+          "SCENE_009_PHYS_01",
+          "SCENE_009_PHYS_02"
+        ],
+        "current_hit_frames": [
+          -4.743,
+          -4.743
+        ],
+        "target_start_seconds": 13.206667,
+        "legal_start_min_seconds": 9.292381,
+        "legal_start_max_seconds": 14.188571428571429,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 2.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION",
+          "DENSITY_OR_NO_BLANK_CONSTRAINT"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_012",
+      "scene_id": "SCENE_009",
+      "visual_card_id": "VCARD_003",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "payment_moment",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_009_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_009_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_009_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 13.76,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 13.173333,
+      "perceptual_hit": 13.613333,
+      "delta_frames": -4.4,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 13.766667,
+        "event_ids": [
+          "SCENE_009_PHYS_01",
+          "SCENE_009_PHYS_02"
+        ],
+        "current_hit_frames": [
+          -4.743,
+          -4.743
+        ],
+        "target_start_seconds": 13.206667,
+        "legal_start_min_seconds": 9.292381,
+        "legal_start_max_seconds": 14.188571428571429,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 2.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION",
+          "DENSITY_OR_NO_BLANK_CONSTRAINT"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_013",
+      "scene_id": "SCENE_010",
+      "visual_card_id": "VCARD_004",
+      "spoken_text": "        ",
+      "canonical_semantic_span": "adult_secondary_customer",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_010_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_010_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_010_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 15.16,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 14.6,
+      "perceptual_hit": 15.04,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_014",
+      "scene_id": "SCENE_010",
+      "visual_card_id": "VCARD_004",
+      "spoken_text": "        ",
+      "canonical_semantic_span": "system_filter",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_010_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_010_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_010_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 15.16,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 14.6,
+      "perceptual_hit": 15.04,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_015",
+      "scene_id": "SCENE_011",
+      "visual_card_id": "VCARD_004",
+      "spoken_text": "   ",
+      "canonical_semantic_span": "actual_available_amount",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_011_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_011_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_011_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 18.32,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 17.76,
+      "perceptual_hit": 18.2,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_016",
+      "scene_id": "SCENE_012",
+      "visual_card_id": "VCARD_005",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "transaction_type_routing",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_012_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_012_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_012_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 20.372,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 19.812,
+      "perceptual_hit": 20.252,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_017",
+      "scene_id": "SCENE_013",
+      "visual_card_id": "VCARD_005",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_013_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_013_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_013_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 22.66,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 22.1,
+      "perceptual_hit": 22.54,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_018",
+      "scene_id": "SCENE_013",
+      "visual_card_id": "VCARD_005",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "credit_card_parallel",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_013_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_013_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_013_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 22.66,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 22.1,
+      "perceptual_hit": 22.54,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_019",
+      "scene_id": "SCENE_014",
+      "visual_card_id": "VCARD_006",
+      "spoken_text": "    ",
+      "canonical_semantic_span": "adult_secondary_customer",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_014_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_014_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_014_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 25.68,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 25.12,
+      "perceptual_hit": 25.56,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_020",
+      "scene_id": "SCENE_014",
+      "visual_card_id": "VCARD_006",
+      "spoken_text": "    ",
+      "canonical_semantic_span": "high_base_credit_limit",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_014_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_014_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_014_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 25.68,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 25.12,
+      "perceptual_hit": 25.56,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_021",
+      "scene_id": "SCENE_015",
+      "visual_card_id": "VCARD_006",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "prior_purchases",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_015_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_015_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_015_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 28.2,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 27.573333,
+      "perceptual_hit": 28.013333,
+      "delta_frames": -5.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 28.2,
+        "event_ids": [
+          "SCENE_015_PHYS_01"
+        ],
+        "current_hit_frames": [
+          -12.086
+        ],
+        "target_start_seconds": 27.64,
+        "legal_start_min_seconds": 23.647619047619045,
+        "legal_start_max_seconds": 28.44381,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 2.0,
+        "rejection_constraints": [
+          "NO_IMPROVING_LEGAL_CANDIDATE"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_022",
+      "scene_id": "SCENE_016",
+      "visual_card_id": "VCARD_007",
+      "spoken_text": " ",
+      "canonical_semantic_span": "installments",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_016_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_016_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "TITLE_002",
+      "event_id": "SCENE_016_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 29.9,
+      "before_state": "NO_HEADING",
+      "event_type": "TITLE_HIT",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "HERO_TEXT_RELATED_SETTLE_V31_0_25",
+      "preset_start": 29.9,
+      "perceptual_hit": 29.9,
+      "delta_frames": 0.0,
+      "perceptual_change_type": "EXACT_CONCEPT_HEADING",
+      "after_state": "HEADING_READABLE",
+      "salience_reason": "stable exact-copy heading supports the current concept",
+      "satisfaction": "TITLE",
+      "result": "DEFERRED",
+      "defer_reason": null,
+      "final_classification": "SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 29.9,
+        "event_ids": [
+          "SCENE_016_PHYS_01"
+        ],
+        "current_hit_frames": [
+          -9.9
+        ],
+        "target_start_seconds": 29.34,
+        "legal_start_min_seconds": 28.44381,
+        "legal_start_max_seconds": 32.84,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 9.9,
+        "rejection_constraints": [
+          "DENSITY_OR_NO_BLANK_CONSTRAINT"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_023",
+      "scene_id": "SCENE_017",
+      "visual_card_id": "VCARD_007",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_017_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_017_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_017_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 30.7,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 30.21,
+      "perceptual_hit": 30.65,
+      "delta_frames": -1.5,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_024",
+      "scene_id": "SCENE_017",
+      "visual_card_id": "VCARD_007",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "temporary_holds",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_017_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_017_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_017_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 30.7,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 30.27,
+      "perceptual_hit": 30.71,
+      "delta_frames": 0.3,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_025",
+      "scene_id": "SCENE_018",
+      "visual_card_id": "VCARD_007",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "occupied_credit_capacity",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_018_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_018_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_018_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 32.06,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 31.5,
+      "perceptual_hit": 31.94,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_026",
+      "scene_id": "SCENE_019",
+      "visual_card_id": "VCARD_008",
+      "spoken_text": "    ",
+      "canonical_semantic_span": "adult_secondary_customer",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_019_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_019_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_019_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 33.2,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 32.84,
+      "perceptual_hit": 33.28,
+      "delta_frames": 2.4,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 33.2,
+        "event_ids": [
+          "SCENE_019_PHYS_01",
+          "SCENE_019_PHYS_02"
+        ],
+        "current_hit_frames": [
+          14.0,
+          15.8
+        ],
+        "target_start_seconds": 32.64,
+        "legal_start_min_seconds": 32.84,
+        "legal_start_max_seconds": 37.836190476190474,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 12.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_027",
+      "scene_id": "SCENE_019",
+      "visual_card_id": "VCARD_008",
+      "spoken_text": "    ",
+      "canonical_semantic_span": "separate_bank_limits",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_019_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_019_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_019_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 33.2,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 32.84,
+      "perceptual_hit": 33.28,
+      "delta_frames": 2.4,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 33.2,
+        "event_ids": [
+          "SCENE_019_PHYS_01",
+          "SCENE_019_PHYS_02"
+        ],
+        "current_hit_frames": [
+          14.0,
+          15.8
+        ],
+        "target_start_seconds": 32.64,
+        "legal_start_min_seconds": 32.84,
+        "legal_start_max_seconds": 37.836190476190474,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 12.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_028",
+      "scene_id": "SCENE_020",
+      "visual_card_id": "VCARD_008",
+      "spoken_text": " ",
+      "canonical_semantic_span": "online_purchase_limit",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_020_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_020_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_020_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 35.92,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 35.36,
+      "perceptual_hit": 35.8,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_029",
+      "scene_id": "SCENE_021",
+      "visual_card_id": "VCARD_008",
+      "spoken_text": " ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_021_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_021_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "TITLE_003",
+      "event_id": "SCENE_021_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 37.34,
+      "before_state": "NO_HEADING",
+      "event_type": "TITLE_HIT",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "HERO_TEXT_RELATED_SETTLE_V31_0_25",
+      "preset_start": 37.34,
+      "perceptual_hit": 37.34,
+      "delta_frames": 0.0,
+      "perceptual_change_type": "EXACT_CONCEPT_HEADING",
+      "after_state": "HEADING_READABLE",
+      "salience_reason": "stable exact-copy heading supports the current concept",
+      "satisfaction": "TITLE",
+      "result": "DEFERRED",
+      "defer_reason": null,
+      "final_classification": "SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_030",
+      "scene_id": "SCENE_021",
+      "visual_card_id": "VCARD_008",
+      "spoken_text": " ",
+      "canonical_semantic_span": "international_purchase_limit",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_021_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_021_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_021_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 37.34,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 36.69619,
+      "perceptual_hit": 37.13619,
+      "delta_frames": -6.114,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_031",
+      "scene_id": "SCENE_022",
+      "visual_card_id": "VCARD_009",
+      "spoken_text": "",
+      "canonical_semantic_span": "adult_secondary_customer",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_022_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_022_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_022_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 38.46,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 37.9,
+      "perceptual_hit": 38.34,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_032",
+      "scene_id": "SCENE_022",
+      "visual_card_id": "VCARD_009",
+      "spoken_text": "",
+      "canonical_semantic_span": "withdrawal_limit",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_022_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_022_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_022_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 38.46,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 37.83619,
+      "perceptual_hit": 38.27619,
+      "delta_frames": -5.514,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_033",
+      "scene_id": "SCENE_023",
+      "visual_card_id": "VCARD_009",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "transaction_count_window",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_023_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_023_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_023_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 39.16,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 38.73,
+      "perceptual_hit": 39.17,
+      "delta_frames": 0.3,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_034",
+      "scene_id": "SCENE_024",
+      "visual_card_id": "VCARD_009",
+      "spoken_text": "      ",
+      "canonical_semantic_span": "recent_success",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_024_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_024_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_024_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 41.98,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "ENTRY_LEFT_TO_MIDDLE",
+      "preset_start": 40.684,
+      "perceptual_hit": 41.7208,
+      "delta_frames": -7.776,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_035",
+      "scene_id": "SCENE_025",
+      "visual_card_id": "VCARD_010",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_025_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_025_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_025_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 44.74,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 44.18,
+      "perceptual_hit": 44.62,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 44.733333,
+        "event_ids": [
+          "SCENE_025_PHYS_01",
+          "SCENE_025_PHYS_02"
+        ],
+        "current_hit_frames": [
+          0.2,
+          -6.1
+        ],
+        "target_start_seconds": 44.173333,
+        "legal_start_min_seconds": 42.565714285714286,
+        "legal_start_max_seconds": 47.29523809523809,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 8.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION",
+          "DENSITY_OR_NO_BLANK_CONSTRAINT"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_036",
+      "scene_id": "SCENE_025",
+      "visual_card_id": "VCARD_010",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "physical_store_purchase",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_025_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_025_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_025_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 44.74,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 43.97,
+      "perceptual_hit": 44.41,
+      "delta_frames": -9.9,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 44.733333,
+        "event_ids": [
+          "SCENE_025_PHYS_01",
+          "SCENE_025_PHYS_02"
+        ],
+        "current_hit_frames": [
+          0.2,
+          -6.1
+        ],
+        "target_start_seconds": 44.173333,
+        "legal_start_min_seconds": 42.565714285714286,
+        "legal_start_max_seconds": 47.29523809523809,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 8.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION",
+          "DENSITY_OR_NO_BLANK_CONSTRAINT"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_037",
+      "scene_id": "SCENE_026",
+      "visual_card_id": "VCARD_010",
+      "spoken_text": " ",
+      "canonical_semantic_span": "subsequent_decline",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_026_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_026_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_026_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 45.66,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 45.23,
+      "perceptual_hit": 45.67,
+      "delta_frames": 0.3,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_038",
+      "scene_id": "SCENE_027",
+      "visual_card_id": "VCARD_010",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "adult_secondary_customer",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_027_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_027_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_027_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 46.88,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 46.27,
+      "perceptual_hit": 46.71,
+      "delta_frames": -5.1,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_039",
+      "scene_id": "SCENE_027",
+      "visual_card_id": "VCARD_010",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "website_decline",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_027_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_027_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_027_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 46.88,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 46.315238,
+      "perceptual_hit": 46.755238,
+      "delta_frames": -3.743,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_040",
+      "scene_id": "SCENE_028",
+      "visual_card_id": "VCARD_011",
+      "spoken_text": "       ",
+      "canonical_semantic_span": "website_blame",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_028_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_028_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_028_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 48.52,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 47.96,
+      "perceptual_hit": 48.4,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_041",
+      "scene_id": "SCENE_029",
+      "visual_card_id": "VCARD_011",
+      "spoken_text": "       ",
+      "canonical_semantic_span": "request_reaches_bank",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_029_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_029_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_029_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 51.54,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 50.884762,
+      "perceptual_hit": 51.324762,
+      "delta_frames": -6.457,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_042",
+      "scene_id": "SCENE_030",
+      "visual_card_id": "VCARD_012",
+      "spoken_text": "   ",
+      "canonical_semantic_span": "adult_secondary_customer",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_030_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_030_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_030_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 54.7,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 54.14,
+      "perceptual_hit": 54.58,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_043",
+      "scene_id": "SCENE_030",
+      "visual_card_id": "VCARD_012",
+      "spoken_text": "   ",
+      "canonical_semantic_span": "transaction_value_recognition",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_030_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_030_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_030_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 54.7,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 54.14,
+      "perceptual_hit": 54.58,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_044",
+      "scene_id": "SCENE_031",
+      "visual_card_id": "VCARD_012",
+      "spoken_text": "",
+      "canonical_semantic_span": "currency_recognition",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_031_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_031_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_031_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 56.36,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 55.806667,
+      "perceptual_hit": 56.246667,
+      "delta_frames": -3.4,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 56.366667,
+        "event_ids": [
+          "SCENE_031_PHYS_01"
+        ],
+        "current_hit_frames": [
+          -4.7
+        ],
+        "target_start_seconds": 55.806667,
+        "legal_start_min_seconds": 52.0247619047619,
+        "legal_start_max_seconds": 56.587619,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 0.0,
+        "rejection_constraints": [
+          "NO_IMPROVING_LEGAL_CANDIDATE"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_045",
+      "scene_id": "SCENE_032",
+      "visual_card_id": "VCARD_013",
+      "spoken_text": "",
+      "canonical_semantic_span": "card_recognition",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_032_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_032_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_032_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 56.86,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 56.754286,
+      "perceptual_hit": 57.194286,
+      "delta_frames": 10.029,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 56.866667,
+        "event_ids": [
+          "SCENE_032_PHYS_01"
+        ],
+        "current_hit_frames": [
+          13.429
+        ],
+        "target_start_seconds": 56.306667,
+        "legal_start_min_seconds": 56.587619,
+        "legal_start_max_seconds": 61.48380952380952,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_046",
+      "scene_id": "SCENE_033",
+      "visual_card_id": "VCARD_013",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_033_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_033_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_033_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 57.58,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 57.534286,
+      "perceptual_hit": 57.974286,
+      "delta_frames": 11.829,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 57.566667,
+        "event_ids": [
+          "SCENE_033_PHYS_01",
+          "SCENE_033_PHYS_02"
+        ],
+        "current_hit_frames": [
+          15.829,
+          17.629
+        ],
+        "target_start_seconds": 57.006667,
+        "legal_start_min_seconds": 56.587619,
+        "legal_start_max_seconds": 61.48380952380952,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_047",
+      "scene_id": "SCENE_033",
+      "visual_card_id": "VCARD_013",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "current_account_state",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_033_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_033_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_033_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 57.58,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 57.594286,
+      "perceptual_hit": 58.034286,
+      "delta_frames": 13.629,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 57.566667,
+        "event_ids": [
+          "SCENE_033_PHYS_01",
+          "SCENE_033_PHYS_02"
+        ],
+        "current_hit_frames": [
+          15.829,
+          17.629
+        ],
+        "target_start_seconds": 57.006667,
+        "legal_start_min_seconds": 56.587619,
+        "legal_start_max_seconds": 61.48380952380952,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_048",
+      "scene_id": "SCENE_034",
+      "visual_card_id": "VCARD_013",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "authorization_block",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_034_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_034_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_034_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 60.84,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 60.28,
+      "perceptual_hit": 60.72,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_049",
+      "scene_id": "SCENE_035",
+      "visual_card_id": "VCARD_014",
+      "spoken_text": "   ",
+      "canonical_semantic_span": "merchant_side",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_035_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_035_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_035_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 62.08,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 61.52,
+      "perceptual_hit": 61.96,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_050",
+      "scene_id": "SCENE_036",
+      "visual_card_id": "VCARD_014",
+      "spoken_text": "    ",
+      "canonical_semantic_span": "merchant_balance_blindness",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_036_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_036_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_036_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 63.98,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 63.42,
+      "perceptual_hit": 63.86,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_051",
+      "scene_id": "SCENE_037",
+      "visual_card_id": "VCARD_015",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_037_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_037_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_037_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 66.88,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 66.32,
+      "perceptual_hit": 66.76,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_052",
+      "scene_id": "SCENE_037",
+      "visual_card_id": "VCARD_015",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "bank_withholds_details",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_037_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_037_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_037_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 66.88,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 66.32,
+      "perceptual_hit": 66.76,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_053",
+      "scene_id": "SCENE_038",
+      "visual_card_id": "VCARD_015",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "privacy_protection",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_038_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_038_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_038_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 69.14,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 68.58,
+      "perceptual_hit": 69.02,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_054",
+      "scene_id": "SCENE_039",
+      "visual_card_id": "VCARD_015",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "generic_decline_code",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_039_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_039_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_039_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 70.92,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 70.03,
+      "perceptual_hit": 70.47,
+      "delta_frames": -13.5,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 70.933333,
+        "event_ids": [
+          "SCENE_039_PHYS_01"
+        ],
+        "current_hit_frames": [
+          -10.3
+        ],
+        "target_start_seconds": 70.373333,
+        "legal_start_min_seconds": 66.21333333333332,
+        "legal_start_max_seconds": 71.17619,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_055",
+      "scene_id": "SCENE_040",
+      "visual_card_id": "VCARD_016",
+      "spoken_text": "       ",
+      "canonical_semantic_span": "ten_retries",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_040_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_040_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_040_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 74.04,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 73.48,
+      "perceptual_hit": 73.92,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_056",
+      "scene_id": "SCENE_041",
+      "visual_card_id": "VCARD_017",
+      "spoken_text": "   ",
+      "canonical_semantic_span": "unchanged_result",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_041_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_041_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_041_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 77.2,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 76.64,
+      "perceptual_hit": 77.08,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_057",
+      "scene_id": "SCENE_042",
+      "visual_card_id": "VCARD_017",
+      "spoken_text": "    ",
+      "canonical_semantic_span": "unchanged_conditions",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_042_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_042_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_042_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 78.8,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 78.24,
+      "perceptual_hit": 78.68,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_058",
+      "scene_id": "SCENE_043",
+      "visual_card_id": "VCARD_018",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "review_available_amount",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_043_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_043_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_043_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 80.66,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 80.14,
+      "perceptual_hit": 80.58,
+      "delta_frames": -2.4,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 80.666667,
+        "event_ids": [
+          "SCENE_043_PHYS_01"
+        ],
+        "current_hit_frames": [
+          8.857
+        ],
+        "target_start_seconds": 80.106667,
+        "legal_start_min_seconds": 80.135238,
+        "legal_start_max_seconds": 85.13142857142857,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 1.0,
+        "rejection_constraints": [
+          "NO_IMPROVING_LEGAL_CANDIDATE"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_059",
+      "scene_id": "SCENE_044",
+      "visual_card_id": "VCARD_018",
+      "spoken_text": "    ",
+      "canonical_semantic_span": "raise_online_limit",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_044_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_044_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_044_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 83.36,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 82.8,
+      "perceptual_hit": 83.24,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_060",
+      "scene_id": "SCENE_045",
+      "visual_card_id": "VCARD_019",
+      "spoken_text": "   ",
+      "canonical_semantic_span": "reduce_order_value",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_045_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_045_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_045_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 85.9,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 85.34,
+      "perceptual_hit": 85.78,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_061",
+      "scene_id": "SCENE_046",
+      "visual_card_id": "VCARD_019",
+      "spoken_text": "   ",
+      "canonical_semantic_span": "alternate_payment_method",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_046_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_046_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_046_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 87.5,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 86.94,
+      "perceptual_hit": 87.38,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_062",
+      "scene_id": "SCENE_047",
+      "visual_card_id": "VCARD_019",
+      "spoken_text": "        ",
+      "canonical_semantic_span": "intact_payment_route",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_047_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_047_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_047_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 89.52,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 88.973333,
+      "perceptual_hit": 89.413333,
+      "delta_frames": -3.2,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": [],
+      "timing_feasibility": {
+        "anchor_time": 89.533333,
+        "event_ids": [
+          "SCENE_047_PHYS_01"
+        ],
+        "current_hit_frames": [
+          -7.571
+        ],
+        "target_start_seconds": 88.973333,
+        "legal_start_min_seconds": 85.13142857142857,
+        "legal_start_max_seconds": 89.86095238095237,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 0.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      }
+    },
+    {
+      "anchor_id": "ANCHOR_063",
+      "scene_id": "SCENE_048",
+      "visual_card_id": "VCARD_020",
+      "spoken_text": "    ",
+      "canonical_semantic_span": "vehicle_reaches_gate",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_048_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_048_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_048_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 92.7,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 92.14,
+      "perceptual_hit": 92.58,
+      "delta_frames": -3.6,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_064",
+      "scene_id": "SCENE_049",
+      "visual_card_id": "VCARD_021",
+      "spoken_text": "         ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_049_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_049_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_049_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 95.1,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 94.590476,
+      "perceptual_hit": 95.030476,
+      "delta_frames": -2.086,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    },
+    {
+      "anchor_id": "ANCHOR_065",
+      "scene_id": "SCENE_049",
+      "visual_card_id": "VCARD_021",
+      "spoken_text": "         ",
+      "canonical_semantic_span": "load_exceeds_gate_limit",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_049_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_049_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_049_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 95.1,
+      "before_state": "NOT_READABLE",
+      "event_type": "OBJECT_APPEARANCE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 94.650476,
+      "perceptual_hit": 95.090476,
+      "delta_frames": -0.286,
+      "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE",
+      "after_state": "READABLE_OBJECT",
+      "salience_reason": "approved entry reaches readable state at voice anchor",
+      "satisfaction": "OBJECT",
+      "result": "PHYSICAL",
+      "defer_reason": null,
+      "final_classification": null,
+      "attempted_legal_alternatives": []
+    }
+  ],
+  "deferred_anchors": [
+    {
+      "anchor_id": "ANCHOR_030",
+      "scene_id": "SCENE_021",
+      "visual_card_id": "VCARD_008",
+      "spoken_text": " ",
+      "canonical_semantic_span": "international_purchase_limit",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_021_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_021_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_021_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 37.34,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 36.69619,
+      "perceptual_hit": 37.13619,
+      "delta_frames": -6.114,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_034",
+      "scene_id": "SCENE_024",
+      "visual_card_id": "VCARD_009",
+      "spoken_text": "      ",
+      "canonical_semantic_span": "recent_success",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_024_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_024_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_024_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 41.98,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "ENTRY_LEFT_TO_MIDDLE",
+      "preset_start": 40.684,
+      "perceptual_hit": 41.7208,
+      "delta_frames": -7.776,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_036",
+      "scene_id": "SCENE_025",
+      "visual_card_id": "VCARD_010",
+      "spoken_text": "  ",
+      "canonical_semantic_span": "physical_store_purchase",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_025_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_025_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_025_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 44.74,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 43.97,
+      "perceptual_hit": 44.41,
+      "delta_frames": -9.9,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 44.733333,
+        "event_ids": [
+          "SCENE_025_PHYS_01",
+          "SCENE_025_PHYS_02"
+        ],
+        "current_hit_frames": [
+          0.2,
+          -6.1
+        ],
+        "target_start_seconds": 44.173333,
+        "legal_start_min_seconds": 42.565714285714286,
+        "legal_start_max_seconds": 47.29523809523809,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": 8.0,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION",
+          "DENSITY_OR_NO_BLANK_CONSTRAINT"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_041",
+      "scene_id": "SCENE_029",
+      "visual_card_id": "VCARD_011",
+      "spoken_text": "       ",
+      "canonical_semantic_span": "request_reaches_bank",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_029_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_029_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_029_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 51.54,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 50.884762,
+      "perceptual_hit": 51.324762,
+      "delta_frames": -6.457,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_045",
+      "scene_id": "SCENE_032",
+      "visual_card_id": "VCARD_013",
+      "spoken_text": "",
+      "canonical_semantic_span": "card_recognition",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_032_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_032_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_032_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 56.86,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 56.754286,
+      "perceptual_hit": 57.194286,
+      "delta_frames": 10.029,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 56.866667,
+        "event_ids": [
+          "SCENE_032_PHYS_01"
+        ],
+        "current_hit_frames": [
+          13.429
+        ],
+        "target_start_seconds": 56.306667,
+        "legal_start_min_seconds": 56.587619,
+        "legal_start_max_seconds": 61.48380952380952,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_046",
+      "scene_id": "SCENE_033",
+      "visual_card_id": "VCARD_013",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "hexa_main_character",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_033_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_033_PHYS_01"
+      ],
+      "semantic_role": "SUPPORTING",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_033_PHYS_01",
+      "confidence": 0.96,
+      "anchor_time": 57.58,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 57.534286,
+      "perceptual_hit": 57.974286,
+      "delta_frames": 11.829,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 57.566667,
+        "event_ids": [
+          "SCENE_033_PHYS_01",
+          "SCENE_033_PHYS_02"
+        ],
+        "current_hit_frames": [
+          15.829,
+          17.629
+        ],
+        "target_start_seconds": 57.006667,
+        "legal_start_min_seconds": 56.587619,
+        "legal_start_max_seconds": 61.48380952380952,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_047",
+      "scene_id": "SCENE_033",
+      "visual_card_id": "VCARD_013",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "current_account_state",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        },
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_033_PHYS_02"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_033_PHYS_02"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_02",
+      "event_id": "SCENE_033_PHYS_02",
+      "confidence": 0.99,
+      "anchor_time": 57.58,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 57.594286,
+      "perceptual_hit": 58.034286,
+      "delta_frames": 13.629,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 57.566667,
+        "event_ids": [
+          "SCENE_033_PHYS_01",
+          "SCENE_033_PHYS_02"
+        ],
+        "current_hit_frames": [
+          15.829,
+          17.629
+        ],
+        "target_start_seconds": 57.006667,
+        "legal_start_min_seconds": 56.587619,
+        "legal_start_max_seconds": 61.48380952380952,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    },
+    {
+      "anchor_id": "ANCHOR_054",
+      "scene_id": "SCENE_039",
+      "visual_card_id": "VCARD_015",
+      "spoken_text": "     ",
+      "canonical_semantic_span": "generic_decline_code",
+      "event_worthy_reason": "SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER",
+      "expected_visual_semantic_delta": "SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE",
+      "available_physical_assets": [
+        {
+          "physical_id": null,
+          "semantic_unit_id": null,
+          "role": null
+        }
+      ],
+      "available_builder_elements": [],
+      "available_text_value_status_marker_relation_elements": [],
+      "participating_visual_instance_ids": [
+        "INSTANCE_SCENE_039_PHYS_01"
+      ],
+      "participating_semantic_event_ids": [
+        "SEMANTIC_SCENE_039_PHYS_01"
+      ],
+      "semantic_role": "PRIMARY",
+      "visual_id": "PHYS_01",
+      "event_id": "SCENE_039_PHYS_01",
+      "confidence": 0.99,
+      "anchor_time": 70.92,
+      "before_state": "UNCHANGED_OR_UNSAFE",
+      "event_type": "NONE",
+      "expected_event_type": "ENTRY_OR_SOURCE_BACKED_STATE_DELTA",
+      "preset": "APPEAR_HIGH_SCALE",
+      "preset_start": 70.03,
+      "perceptual_hit": 70.47,
+      "delta_frames": -13.5,
+      "perceptual_change_type": null,
+      "after_state": "NO_VERIFIED_DELTA",
+      "salience_reason": null,
+      "satisfaction": "DEFERRED",
+      "result": "DEFERRED",
+      "defer_reason": "COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW",
+      "final_classification": "SOURCE_EVENT_AVAILABLE_LAYOUT_BLOCKED",
+      "attempted_legal_alternatives": [
+        "ANCHOR_OWNED_PHASE",
+        "ATOMIC_HANDOFF",
+        "CROSS_CARD_HANDOFF",
+        "SOURCE_BACKED_PERSISTENCE"
+      ],
+      "timing_feasibility": {
+        "anchor_time": 70.933333,
+        "event_ids": [
+          "SCENE_039_PHYS_01"
+        ],
+        "current_hit_frames": [
+          -10.3
+        ],
+        "target_start_seconds": 70.373333,
+        "legal_start_min_seconds": 66.21333333333332,
+        "legal_start_max_seconds": 71.17619,
+        "candidate_count": 13,
+        "best_candidate_delta_frames": null,
+        "rejection_constraints": [
+          "CARD_OR_PATH_COLLISION"
+        ]
+      },
+      "defer_root_cause": "COMMITTED_HANDOFF_CONSTRAINT"
+    }
+  ],
+  "deferred_anchor_count": 8,
+  "high_confidence_event_count": 57,
+  "hard_failures": [],
+  "coverage": {
+    "semantic_satisfied_percent": 87.692,
+    "physical_event_percent": 78.462,
+    "title_only_percent": 9.231,
+    "deferred_percent": 12.308,
+    "high_confidence_p95_frames": 5.1,
+    "targets": {
+      "physical_min_percent": 80,
+      "title_max_percent": 10,
+      "deferred_max_percent": 10,
+      "p95_max_frames": 4,
+      "hard_max_frames": 6
+    }
+  },
+  "coverage_gates_pass": false,
+  "pass": false,
+  "policy": "ANCHOR_FIRST__PERCEPTUAL_DELTA_REQUIRED__NO_PASSIVE_VISIBLE_SUPPORT",
+  "state_topology": [
+    {
+      "visual_card_id": "VCARD_001",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_001",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_002",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_003",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_3",
+          "anchor_id": "ANCHOR_004",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_002",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_005",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_006",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_007",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_003",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_008",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_009",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_010",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_3",
+          "anchor_id": "ANCHOR_011",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_4",
+          "anchor_id": "ANCHOR_012",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_004",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_013",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_014",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_015",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_005",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_016",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_017",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_018",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_006",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_019",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_020",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_021",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_007",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_022",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_023",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_024",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_3",
+          "anchor_id": "ANCHOR_025",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_008",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_026",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_027",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_028",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_3",
+          "anchor_id": "ANCHOR_029",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_4",
+          "anchor_id": "ANCHOR_030",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_009",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_031",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_032",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_033",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_3",
+          "anchor_id": "ANCHOR_034",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_010",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_035",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_036",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_037",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_3",
+          "anchor_id": "ANCHOR_038",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_4",
+          "anchor_id": "ANCHOR_039",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_011",
+      "grammar": "SINGLE_FOCUS",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_040",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_041",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_012",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_042",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_043",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_044",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_013",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_045",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_046",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_047",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        },
+        {
+          "state_id": "STATE_3",
+          "anchor_id": "ANCHOR_048",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_014",
+      "grammar": "SINGLE_FOCUS",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_049",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_050",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_015",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_051",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_052",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_053",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_3",
+          "anchor_id": "ANCHOR_054",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": null
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_016",
+      "grammar": "SINGLE_FOCUS",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_055",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_017",
+      "grammar": "SINGLE_FOCUS",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_056",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_057",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_018",
+      "grammar": "SINGLE_FOCUS",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_058",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_059",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_019",
+      "grammar": "PROGRESSIVE_CONSTRAINT",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_060",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_061",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_2",
+          "anchor_id": "ANCHOR_062",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_020",
+      "grammar": "SINGLE_FOCUS",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_063",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    },
+    {
+      "visual_card_id": "VCARD_021",
+      "grammar": "SINGLE_FOCUS",
+      "reveal_slots": [
+        "PRIMARY_SLOT",
+        "SUPPORT_A",
+        "SUPPORT_B",
+        "RESULT_SLOT",
+        "MARKER_SLOT"
+      ],
+      "states": [
+        {
+          "state_id": "STATE_0",
+          "anchor_id": "ANCHOR_064",
+          "entering_visual_id": "PHYS_01",
+          "focal_target": "SUPPORTING",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        },
+        {
+          "state_id": "STATE_1",
+          "anchor_id": "ANCHOR_065",
+          "entering_visual_id": "PHYS_02",
+          "focal_target": "PRIMARY",
+          "perceptual_change_type": "NEW_RELEVANT_OBJECT_READABLE"
+        }
+      ]
+    }
+  ],
+  "post_schedule_audit_mutation_count": 0,
+  "motion_plan_hash_before_audit": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a",
+  "motion_plan_hash_after_audit": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a",
+  "semantic_plan_hash": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a",
+  "density_plan_hash": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a",
+  "continuity_plan_hash": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a",
+  "collision_plan_hash": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a",
+  "motion_qa_plan_hash": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a",
+  "final_plan_hash": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a",
+  "audit_mutation_count": 0,
+  "density_stabilization": {
+    "near_blank_duration_seconds": 0.9,
+    "near_blank_ratio": 0.009062,
+    "restored_event_ids": []
+  }
+}

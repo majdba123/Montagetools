@@ -1,0 +1,179 @@
+{
+  "schema": "HEXA_V31_TEMPORAL_POPULATION_REPORT",
+  "version": "31.0.25",
+  "mean_temporal_population": 1.647705,
+  "near_blank_duration_seconds": 0.9,
+  "near_blank_ratio": 0.009062,
+  "static_hold_ratio": 0.517839,
+  "cards": [
+    {
+      "card_id": "VCARD_001",
+      "source_valid_object_count": 8,
+      "active_object_count": 6,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.8125,
+      "near_blank_duration_seconds": 0.2
+    },
+    {
+      "card_id": "VCARD_002",
+      "source_valid_object_count": 3,
+      "active_object_count": 5,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.913,
+      "near_blank_duration_seconds": 0.1
+    },
+    {
+      "card_id": "VCARD_003",
+      "source_valid_object_count": 5,
+      "active_object_count": 7,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.6735,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_004",
+      "source_valid_object_count": 3,
+      "active_object_count": 5,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.7083,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_005",
+      "source_valid_object_count": 3,
+      "active_object_count": 5,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.4583,
+      "near_blank_duration_seconds": 0.1
+    },
+    {
+      "card_id": "VCARD_006",
+      "source_valid_object_count": 3,
+      "active_object_count": 5,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.8125,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_007",
+      "source_valid_object_count": 4,
+      "active_object_count": 6,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.5909,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_008",
+      "source_valid_object_count": 6,
+      "active_object_count": 8,
+      "peak_visible_object_count": 4,
+      "mean_temporal_population": 1.82,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_009",
+      "source_valid_object_count": 4,
+      "active_object_count": 6,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.7708,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_010",
+      "source_valid_object_count": 5,
+      "active_object_count": 7,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.7708,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_011",
+      "source_valid_object_count": 2,
+      "active_object_count": 4,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.3542,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_012",
+      "source_valid_object_count": 3,
+      "active_object_count": 5,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.8696,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_013",
+      "source_valid_object_count": 4,
+      "active_object_count": 6,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.4898,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_014",
+      "source_valid_object_count": 2,
+      "active_object_count": 4,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.5625,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_015",
+      "source_valid_object_count": 4,
+      "active_object_count": 6,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.8,
+      "near_blank_duration_seconds": 0.1
+    },
+    {
+      "card_id": "VCARD_016",
+      "source_valid_object_count": 1,
+      "active_object_count": 3,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.4889,
+      "near_blank_duration_seconds": 0.1
+    },
+    {
+      "card_id": "VCARD_017",
+      "source_valid_object_count": 2,
+      "active_object_count": 3,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.3556,
+      "near_blank_duration_seconds": 0.1
+    },
+    {
+      "card_id": "VCARD_018",
+      "source_valid_object_count": 2,
+      "active_object_count": 4,
+      "peak_visible_object_count": 3,
+      "mean_temporal_population": 1.5,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_019",
+      "source_valid_object_count": 3,
+      "active_object_count": 5,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.5,
+      "near_blank_duration_seconds": 0.0
+    },
+    {
+      "card_id": "VCARD_020",
+      "source_valid_object_count": 1,
+      "active_object_count": 4,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.4375,
+      "near_blank_duration_seconds": 0.1
+    },
+    {
+      "card_id": "VCARD_021",
+      "source_valid_object_count": 2,
+      "active_object_count": 3,
+      "peak_visible_object_count": 2,
+      "mean_temporal_population": 1.8958,
+      "near_blank_duration_seconds": 0.1
+    }
+  ],
+  "committed_plan_hash": "dafdcd87676d5a2633560e699caeb7ad878bce2286023720f6600d2ce7deab2a"
+}

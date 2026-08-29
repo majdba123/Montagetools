@@ -1,0 +1,45 @@
+{
+  "cache_signature": "06a6c5d82b13e2013f28c81b3bbfd7d3401b459128b34af2a7ede87a9e9f287b",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "740cc950b045d1670791d70b5673a70dd3836c0a56de32b47e4457a20182f823",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "request_reaches_bank",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_REQUEST_REACHES_BANK",
+        "appear_trigger": {
+          "phrase": "مع إن طلب الدفع وصل للبنك بشكل طبيعي،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 676,
+          "global_char_end": 713
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "hexa_main_character",
+        "type": "MAIN_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "مع إن طلب الدفع وصل للبنك بشكل طبيعي،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 676,
+          "global_char_end": 713
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": "UNIT_001",
+        "relationship": "EXPLAINS"
+      }
+    ]
+  }
+}
