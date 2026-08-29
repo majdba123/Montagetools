@@ -1,0 +1,17 @@
+HEXA V31.0.1 VALIDATION - SEGMENTED EXECUTION PASS
+
+Syntax / panel / JSX: PASS
+Legacy V31 functional suite through composition/motion/no-hardcoding: PASS
+Generalization layout stress: 350/350 PASS
+V31.0.1 large geometry stress: 560/560 PASS
+Large SUPPORT geometry fallback: PASS
+Atomic character/composite phase split: PASS
+Adaptive phase recovery: PASS
+Installer path hotfix: PASS
+Runtime import-path contract: PASS
+Media probe fallback: PASS
+Premiere 2022 host mock: PASS
+Windows path contract: PASS
+Runtime selftest: PASS
+
+The suite was executed in deterministic segments because the sandbox imposes a per-process wall-clock cap. Every shipping test was executed and passed; no failed test was omitted.

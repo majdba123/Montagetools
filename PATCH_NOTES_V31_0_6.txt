@@ -1,0 +1,21 @@
+HEXA Video Builder V31.0.5 — Semantic Timeline Compiler
+
+V31.0.4 audited semantic timing after phase timing had already been fixed, producing 59
+deferred anchors on the cached production input. V31.0.5 compiles event-worthy anchors first:
+anchor time -> approved preset perceptual hit -> visibility interval -> collision-safe timing.
+
+When a retime threatens collision, it is rejected. When a retime creates a nonblank-continuity
+regression, the minimum affected events are restored. The audit records OBJECT,
+VISIBLE_SUPPORT, TITLE, or DEFERRED satisfaction with exact reason; no anchor is silently
+promoted.
+
+Exact cached production-plan result:
+- semantic satisfied 85.714%
+- physical object/support 73.016%
+- title-only 12.698%
+- deferred 14.286%
+- high-confidence timing p95 4.686 frames
+- motion/collision QA PASS
+- exact-copy, top-safe titles 17
+
+Cache/runtime surfaces are invalidated for 31.0.5. All 31.0.2–31.0.4 protections remain hard.

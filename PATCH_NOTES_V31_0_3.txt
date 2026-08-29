@@ -1,0 +1,43 @@
+HEXA Video Builder V31.0.3 - Density Story Choreography
+
+Engine: HEXA_VIDEO_BUILDER_V31_0_3_DENSITY_STORY_CHOREOGRAPHY
+
+Root failure fixed:
+- Scene-local semantic IDs were compared globally inside merged visual cards, collapsing
+  distinct source objects into one identity.
+- Phase planning serialized valid objects and treated atomic composites as exclusive rather
+  than merely indivisible.
+- The layout objective rewarded small footprints and penalized the occupancy range required
+  for an intentional editorial composition.
+- Disappearance opacity reached zero before phase boundaries, creating blank handoff troughs.
+
+Generalized changes:
+- Semantic identities and explicit relationship endpoints are scoped by source scene.
+- Grammar-aware, simultaneous-first phases retain valid objects and use bounded waves when
+  the two-primary concurrency rule requires temporal progression.
+- Atomic assets remain intact but may coexist when the exact motion envelopes are safe.
+- Density-aware scale/layout search targets meaningful safe-frame occupation and keeps both
+  density-optimal and compact recovery branches.
+- Disappearance zero-opacity is aligned to the phase boundary; singleton cards start with a
+  safe anchored appearance instead of an offscreen blank lead-in.
+- Visual-density and temporal-population diagnostics are emitted before rendering and become
+  QA authority for multi-object serialization, near-blank duration, occupancy, balance and
+  visual-island count.
+- Continuous render/cache namespaces are invalidated for 31.0.3.
+
+Exact cached production-plan comparison (31.0.2 -> 31.0.3):
+- Active objects: 35/70 -> 63/70
+- Median safe-frame union coverage: 27.137% -> 38.491%
+- Mean temporal population: 0.909 -> 1.837
+- Mean visual-island count: 0.881 -> 1.308
+- Near-blank duration: 12.3s -> 2.1s
+- Static-hold ratio: 64.134% -> 55.117%
+- Hard under-density cards: 20 -> 0
+- Plan QA: PASS, zero failures, zero warnings
+
+Protected:
+- Exact user preset names/curves and family permissions
+- 3-5 second cards and maximum two concurrent primaries
+- Collision, safe-frame, motion-path, matte/stage-leak and no-white-wash gates
+- No speculative sub-object cutouts, invented arrows, arbitrary drift, or topic branches
+- Stable CEP bundle ID and V31 runtime/cache roots

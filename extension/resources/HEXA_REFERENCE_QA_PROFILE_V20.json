@@ -1,0 +1,107 @@
+{
+  "authority_id": "HEXA_REFERENCE_VIDEO_DNA_V20",
+  "status": "LOCKED_FROM_PHYSICAL_REFERENCE_EVIDENCE",
+  "sources": [
+    {
+      "name": "confirmation_bias_reference",
+      "sha256": "8d1f014258ba0a029ba9c1b8f270f682212d2ec8a997536655ff82bbba53300d",
+      "duration_seconds": 79.333333,
+      "fps": 30.0,
+      "resolution": [
+        854,
+        480
+      ],
+      "reviewed_visual_change_regions": 49
+    },
+    {
+      "name": "bystander_effect_reference",
+      "sha256": "6d576b807d9bb81108f13aed7c09539f60df6a06b8358a0f6b1e5cfcc09af227",
+      "duration_seconds": 72.92,
+      "fps": 25.0,
+      "resolution": [
+        854,
+        480
+      ],
+      "reviewed_visual_change_regions": 44
+    }
+  ],
+  "grammar": {
+    "default_stage": "WHITE_OR_NEAR_WHITE",
+    "dominant_subject_with_negative_space": true,
+    "normal_major_units": [
+      1,
+      3
+    ],
+    "natural_max_major_units": 4,
+    "fifth_is_temporary_overlay_only": true,
+    "progressive_build": true,
+    "preserve_base_then_add_semantic_support": true,
+    "replacement_over_accumulation_when_context_changes": true,
+    "complex_illustration_force_split": false,
+    "directional_replacement_motion_blur": true,
+    "semantic_add_opacity_small_scale": true,
+    "blur_dim_are_focus_tools": true,
+    "true_static_holds_allowed_when_semantically_justified": true,
+    "micro_motion_allowed_when_no_new_asset_but_visual_energy_needed": true,
+    "topic_specific_reference_copying": false,
+    "preserve_worker_final_composition_as_rest_state": true,
+    "avoid_global_density_rescaling": true,
+    "avoid_untriggered_micro_emphasis": true
+  },
+  "motion_recipes": [
+    "SEMANTIC_ADD",
+    "DIRECTIONAL_REPLACEMENT",
+    "FOCUS_OVERLAY",
+    "TRUE_STATIC_HOLD",
+    "MICRO_EMPHASIS",
+    "NARRATOR_EXPLAINS_OBJECT",
+    "SECONDARY_SCENARIO",
+    "METAPHOR_OR_OBJECT_REVEAL"
+  ],
+  "quality_floor": {
+    "motion_mean": {
+      "target_min": 0.02,
+      "target_max": 0.025
+    },
+    "low_motion_percent": {
+      "target_max": 48.0,
+      "preferred_max": 42.0
+    },
+    "static_run_mean_seconds": {
+      "target_max": 0.65,
+      "preferred_max": 0.58
+    },
+    "static_run_p90_seconds": {
+      "target_max": 1.35
+    },
+    "static_run_max_seconds": {
+      "target_max": 2.5,
+      "preferred_max": 2.0
+    },
+    "nonwhite_occupancy_median_percent": {
+      "target_min": 20.0,
+      "target_max": 29.0,
+      "preferred_min": 22.0,
+      "preferred_max": 26.0
+    },
+    "major_av_sync_frames": {
+      "target_max": 3,
+      "preferred_max": 1
+    },
+    "reference_fidelity_score_target_percent": 100.0,
+    "motion_p95": {
+      "target_max": 0.12,
+      "reference_bias": 0.0886,
+      "reference_bystander": 0.0846,
+      "target_min": 0.075,
+      "preferred_min": 0.082,
+      "preferred_max": 0.098
+    },
+    "severe_isolated_motion_spikes_per_minute": {
+      "target_max": 3.0,
+      "reference_bias": 2.3,
+      "reference_bystander": 1.6
+    }
+  },
+  "acceptance_law": "REFERENCE_VIDEOS_ARE_MINIMUM_QUALITY_FLOOR_NOT_TOPIC_TEMPLATES"
+}

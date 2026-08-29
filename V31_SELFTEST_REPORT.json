@@ -1,0 +1,26 @@
+{
+  "schema": "HEXA_V31_RUNTIME_SELFTEST",
+  "version": "31.0.20",
+  "status": "PASS",
+  "checks": {
+    "vision_reconstruction_pass": true,
+    "vision_mode": "CLEAN_LAYERED",
+    "top_level_only": true,
+    "edge_matting_ready": true,
+    "opaque_stage_leak_fraction": 0.0,
+    "opaque_stage_leak_hard_gate": true,
+    "preset_motion_qa_pass": true,
+    "preset_story_qa_pass": true,
+    "composition_constraint_qa_pass": true,
+    "composition_constraint_authority": "V31_CONSTRAINT_SOLVED_COMPOSITION__SETTLED_AND_MOTION_PATH_HARD_GATE",
+    "visual_card_count": 1,
+    "preset_authority_ready": true,
+    "legacy_motion_disabled": true,
+    "continuous_clip_count": 1,
+    "visual_card_count_rendered": 1,
+    "frame_blends": 0,
+    "premiere_execution_mode": "PREMIERE_2022_ANIMATED_SCENE_MEDIA_ASSEMBLY",
+    "premiere_final_events_count": 0,
+    "host_no_apply_motion_stage": true
+  }
+}

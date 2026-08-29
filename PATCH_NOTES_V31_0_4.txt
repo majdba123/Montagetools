@@ -1,0 +1,17 @@
+HEXA Video Builder V31.0.4 — Audio Semantic Design Director
+
+Voice alignment is now treated as a first-class editorial authority. The director records
+perceptual preset-hit timing for certifiable semantic object events, and defers anchors that
+cannot fit inside collision-safe object phases to exact, independent title events rather than
+making a false timing claim or breaking the composition.
+
+Titles are separate rendered layers: explicit display title, authored semantic label, then an
+exact contiguous canonical-script phrase. They use existing Windows Arabic/English typography,
+RTL shaping, title-safe top placement, and approved appearance behavior. They are not baked into
+source images. Relationship graphics remain explicit-directive-only.
+
+New reports: audio_visual_alignment, title_layout, semantic_design_qa, duplicate semantic roles,
+semantic cohesion, progressive reveal, optical balance and title-safe-zone audit.
+
+All V31.0.3 collision, matte, density, deterministic, cache, offline-install and Premiere 2022
+contracts remain protected. Cache namespace and runtime/UI versions are invalidated for 31.0.4.

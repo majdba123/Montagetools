@@ -1,0 +1,27 @@
+﻿<!doctype html>
+<html><head><meta charset="utf-8"><title>HEXA Video Builder V31.0.25</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+  <main>
+    <header><div class="brand">HEXA</div><div><h1>Video Builder V31.0.25</h1><p>Production Hardened - Spatiotemporal Feasibility - Exact User Presets - Build 31.0.25</p></div></header>
+    <section class="status-grid">
+      <div><span>Exact Version</span><b>31.0.25</b></div>
+      <div><span>Runtime</span><b id="runtimeState">CHECKING</b></div>
+      <div><span>Premiere</span><b>2022</b></div>
+      <div><span>Network during Build</span><b>OFF</b></div>
+    </section>
+    <section class="card">
+      <label>Scene Package ZIP</label>
+      <div class="picker"><input id="packageInput" type="file" accept=".zip"><span id="packageName">Select HEXA scene package</span></div>
+      <label>Final Voice Over</label>
+      <div class="picker"><input id="voiceInput" type="file" accept="audio/*,.mp3,.wav,.m4a"><span id="voiceName">Select MP3 / WAV</span></div>
+      <button id="buildBtn" disabled>BUILD</button>
+      <p class="hint">BUILD runs exact validation, audio alignment, 3â€“5s visual-card compilation, top-level cutout recovery, the supplied Premiere preset choreography, continuous story rendering, final MP4 reference QA and native Premiere project assembly.</p>
+    </section>
+    <section class="card progress"><div class="row"><strong id="phase">IDLE</strong><span id="progressText">0 / 0</span></div><div class="bar"><i id="barFill"></i></div></section>
+    <section class="card output-card"><div class="row"><strong>Output MP4</strong><button class="small" id="openOutput" disabled>Open Folder</button></div><div id="outputPath" class="output-path">Not built yet</div></section>
+    <section class="card log-card"><div class="row"><strong>Live Log</strong><button class="small" id="openDiag">Open Diagnostics</button></div><pre id="log"></pre></section>
+  </main>
+<script src="js/main.js"></script>
+</body></html>
+
+

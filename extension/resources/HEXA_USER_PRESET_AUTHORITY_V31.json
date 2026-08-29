@@ -1,0 +1,637 @@
+{
+  "schema": "HEXA_USER_PRESET_AUTHORITY",
+  "version": "31.0.9",
+  "status": "HARD_LOCK",
+  "precedence": "LATEST_USER_RULES_OVER_LEGACY_HEXA_MOTION_HEURISTICS",
+  "source_files": {
+    "rules_pdf_sha256": "8a6789fe9056b3a95b085af042861c78e4a3f4b9ac3674fa61f459b2fdd11668",
+    "prfpset_sha256": "9db9fc3e96590e92d60637f4392e1f742817d1a869957d7dfa587da330df5b14",
+    "samples_rar_sha256": "44189a16b2517ad3b03693db4fa8c8cde13b2917813bc7b658712a44ab07b2dc"
+  },
+  "scene_rules": {
+    "primary_min": 1,
+    "primary_max": 2,
+    "secondary_min": 3,
+    "secondary_max": 8,
+    "visual_card_min_seconds": 3.0,
+    "visual_card_max_seconds": 5.0
+  },
+  "usage_rules": {
+    "ENTRY_EXIT": "PRIMARY_ONLY",
+    "WITHIN_FRAME": "ANY_ELEMENT",
+    "APPEARANCE": "PREFER_SECONDARY__PRIMARY_ONLY_WHEN_NEEDED",
+    "DISAPPEARANCE": "ANY_ELEMENT"
+  },
+  "primary_definition": "CHARACTER_OR_STANDALONE_KEYWORD_ELEMENT__NOT_COMPLEMENT_OF_ANOTHER_ELEMENT",
+  "secondary_definition": "EXPLANATORY_OR_COMPLEMENTARY_ELEMENT",
+  "forbidden_motion_families": [
+    "ARBITRARY_DRIFT",
+    "ARBITRARY_DIAGONAL_TRAVEL",
+    "FULL_FRAME_GHOST_BLEND",
+    "MASK_WIPE_REVEAL",
+    "UNAUTHORED_SCALE_PULSE",
+    "AUTO_RELATIONSHIP_ARROW"
+  ],
+  "preset_motion": {
+    "ENTRY_LEFT_TO_MIDDLE": {
+      "family": "ENTRY_EXIT",
+      "source_name": "left to midel",
+      "duration_seconds": 1.44,
+      "start_norm": [
+        -0.5457847714424133,
+        0.5
+      ],
+      "end_norm": [
+        0.5,
+        0.5
+      ],
+      "curve": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.027297,
+        0.102079,
+        0.250866,
+        0.392283,
+        0.501228,
+        0.587012,
+        0.654642,
+        0.710674,
+        0.756975,
+        0.797013,
+        0.830052,
+        0.858643,
+        0.883167,
+        0.904948,
+        0.92326,
+        0.938964,
+        0.95242,
+        0.963942,
+        0.973392,
+        0.981233,
+        0.987483,
+        0.99242,
+        0.996049,
+        0.998377,
+        0.999586,
+        0.99997,
+        1.0
+      ]
+    },
+    "ENTRY_RIGHT_TO_MIDDLE": {
+      "family": "ENTRY_EXIT",
+      "source_name": "right to midel",
+      "duration_seconds": 1.4,
+      "start_norm": [
+        1.6446220874786377,
+        0.5
+      ],
+      "end_norm": [
+        0.5,
+        0.5
+      ],
+      "curve": [
+        0.0,
+        0.0,
+        0.0,
+        0.005909,
+        0.118062,
+        0.295626,
+        0.439181,
+        0.547976,
+        0.633203,
+        0.698892,
+        0.752917,
+        0.798816,
+        0.836553,
+        0.86861,
+        0.895568,
+        0.918082,
+        0.937023,
+        0.952586,
+        0.965643,
+        0.976412,
+        0.984605,
+        0.990888,
+        0.995544,
+        0.998395,
+        0.999809,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "EXIT_MIDDLE_TO_RIGHT": {
+      "family": "ENTRY_EXIT",
+      "source_name": "midel to right",
+      "duration_seconds": 1.48,
+      "start_norm": [
+        0.5,
+        0.5
+      ],
+      "end_norm": [
+        1.6293604373931885,
+        0.5
+      ],
+      "curve": [
+        0.0,
+        0.0,
+        4e-06,
+        9e-06,
+        0.000109,
+        0.0008,
+        0.002427,
+        0.005134,
+        0.008942,
+        0.013972,
+        0.020184,
+        0.028368,
+        0.038197,
+        0.049916,
+        0.063773,
+        0.080616,
+        0.101072,
+        0.125598,
+        0.155337,
+        0.191128,
+        0.235691,
+        0.294545,
+        0.3734,
+        0.489497,
+        0.669141,
+        0.87709,
+        0.943428,
+        0.974522,
+        0.994522,
+        1.0,
+        1.0
+      ]
+    },
+    "EXIT_MIDDLE_TO_LEFT": {
+      "family": "ENTRY_EXIT",
+      "source_name": "midel to out left",
+      "duration_seconds": 1.16,
+      "start_norm": [
+        0.5290697813034058,
+        0.5
+      ],
+      "end_norm": [
+        -0.5857558250427246,
+        0.5
+      ],
+      "curve": [
+        0.0,
+        0.0,
+        0.000782,
+        0.002431,
+        0.005007,
+        0.008468,
+        0.012837,
+        0.018396,
+        0.025259,
+        0.033543,
+        0.043296,
+        0.054583,
+        0.067445,
+        0.08204,
+        0.098666,
+        0.117583,
+        0.139535,
+        0.164625,
+        0.193005,
+        0.22532,
+        0.262859,
+        0.306795,
+        0.357513,
+        0.418428,
+        0.492418,
+        0.582604,
+        0.697386,
+        0.831186,
+        0.947969,
+        1.0,
+        1.0
+      ]
+    },
+    "WITHIN_LEFT_TO_MIDDLE": {
+      "family": "WITHIN_FRAME",
+      "source_name": "left to midel",
+      "duration_seconds": 0.9,
+      "start_norm": [
+        0.183,
+        0.493
+      ],
+      "end_norm": [
+        0.487,
+        0.493
+      ],
+      "curve": [
+        0.0,
+        0.0,
+        0.007695,
+        0.025839,
+        0.060121,
+        0.127101,
+        0.224332,
+        0.343827,
+        0.462316,
+        0.554942,
+        0.630857,
+        0.692142,
+        0.738697,
+        0.77774,
+        0.811819,
+        0.842141,
+        0.866704,
+        0.888563,
+        0.907756,
+        0.923956,
+        0.938042,
+        0.950344,
+        0.961,
+        0.970135,
+        0.977587,
+        0.983907,
+        0.989192,
+        0.993203,
+        0.996276,
+        0.998538,
+        1.0
+      ],
+      "raw_prfpset_start_norm": [
+        0.11555241793394089,
+        0.5
+      ],
+      "raw_prfpset_end_norm": [
+        0.5,
+        0.5
+      ],
+      "endpoint_authority": "VISUAL_SAMPLE_PAIRED_MIDDLE_TO_LEFT_REVERSE",
+      "endpoint_execution_mode": "VISUAL_SAMPLE_CALIBRATED_WITH_PRFPSET_CURVE"
+    },
+    "WITHIN_RIGHT_TO_MIDDLE": {
+      "family": "WITHIN_FRAME",
+      "source_name": "right to midel",
+      "duration_seconds": 0.9,
+      "start_norm": [
+        0.833,
+        0.493
+      ],
+      "end_norm": [
+        0.487,
+        0.493
+      ],
+      "curve": [
+        0.0,
+        0.0,
+        0.007695,
+        0.025839,
+        0.060121,
+        0.127101,
+        0.224332,
+        0.343827,
+        0.462316,
+        0.554942,
+        0.630857,
+        0.692142,
+        0.738697,
+        0.77774,
+        0.811819,
+        0.842141,
+        0.866704,
+        0.888563,
+        0.907756,
+        0.923956,
+        0.938042,
+        0.950344,
+        0.961,
+        0.970135,
+        0.977587,
+        0.983907,
+        0.989192,
+        0.993203,
+        0.996276,
+        0.998538,
+        1.0
+      ],
+      "raw_prfpset_start_norm": [
+        0.8960756659507751,
+        0.5
+      ],
+      "raw_prfpset_end_norm": [
+        0.5,
+        0.5
+      ],
+      "endpoint_authority": "VISUAL_SAMPLE_PAIRED_MIDDLE_TO_RIGHT_REVERSE",
+      "endpoint_execution_mode": "VISUAL_SAMPLE_CALIBRATED_WITH_PRFPSET_CURVE"
+    },
+    "WITHIN_MIDDLE_TO_RIGHT": {
+      "family": "WITHIN_FRAME",
+      "source_name": "midel to right",
+      "duration_seconds": 0.9,
+      "start_norm": [
+        0.487,
+        0.493
+      ],
+      "end_norm": [
+        0.833,
+        0.493
+      ],
+      "curve": [
+        0.0,
+        0.010899,
+        0.033848,
+        0.070555,
+        0.135596,
+        0.23149,
+        0.340697,
+        0.452336,
+        0.538,
+        0.609967,
+        0.669444,
+        0.714655,
+        0.754289,
+        0.788897,
+        0.818457,
+        0.843368,
+        0.865511,
+        0.88538,
+        0.902737,
+        0.918279,
+        0.931958,
+        0.943809,
+        0.954388,
+        0.9638,
+        0.971937,
+        0.978746,
+        0.984698,
+        0.989841,
+        0.99385,
+        0.997223,
+        1.0
+      ],
+      "raw_prfpset_start_norm": [
+        0.5,
+        0.5
+      ],
+      "raw_prfpset_end_norm": [
+        1.1075581312179565,
+        0.5
+      ],
+      "endpoint_authority": "VISUAL_SAMPLE_MIDDLE_TO_RIGHT",
+      "endpoint_execution_mode": "VISUAL_SAMPLE_CALIBRATED_WITH_PRFPSET_CURVE"
+    },
+    "WITHIN_MIDDLE_TO_LEFT": {
+      "family": "WITHIN_FRAME",
+      "source_name": "midel to left",
+      "duration_seconds": 0.9,
+      "start_norm": [
+        0.487,
+        0.493
+      ],
+      "end_norm": [
+        0.269,
+        0.493
+      ],
+      "curve": [
+        0.0,
+        0.044475,
+        0.140839,
+        0.299789,
+        0.455309,
+        0.573324,
+        0.658844,
+        0.724357,
+        0.775988,
+        0.81769,
+        0.853497,
+        0.882526,
+        0.906993,
+        0.926976,
+        0.94378,
+        0.957962,
+        0.969877,
+        0.979484,
+        0.98678,
+        0.992705,
+        0.997026,
+        0.999344,
+        0.999962,
+        0.999962,
+        0.999962,
+        0.999962,
+        0.999962,
+        0.999962,
+        0.999962,
+        0.999962,
+        1.0
+      ],
+      "raw_prfpset_start_norm": [
+        0.5,
+        0.5
+      ],
+      "raw_prfpset_end_norm": [
+        -0.03415698930621147,
+        0.5
+      ],
+      "endpoint_authority": "VISUAL_SAMPLE_PAIRED_LEFT_TO_MIDDLE_REVERSE",
+      "endpoint_execution_mode": "VISUAL_SAMPLE_CALIBRATED_WITH_PRFPSET_CURVE"
+    },
+    "WITHIN_MIDDLE_TO_UP": {
+      "family": "WITHIN_FRAME",
+      "source_name": "midel to up",
+      "duration_seconds": 0.9,
+      "start_norm": [
+        0.487,
+        0.493
+      ],
+      "end_norm": [
+        0.487,
+        0.213
+      ],
+      "curve": [
+        0.0,
+        0.403259,
+        0.489914,
+        0.50544,
+        0.534569,
+        0.582049,
+        0.653387,
+        0.721941,
+        0.775993,
+        0.819133,
+        0.852419,
+        0.877399,
+        0.899136,
+        0.91646,
+        0.931113,
+        0.943669,
+        0.954386,
+        0.963471,
+        0.971345,
+        0.977756,
+        0.98315,
+        0.987635,
+        0.991305,
+        0.994276,
+        0.996718,
+        0.998236,
+        0.999226,
+        0.999767,
+        0.999977,
+        1.0,
+        1.0
+      ],
+      "raw_prfpset_start_norm": [
+        0.5,
+        0.5
+      ],
+      "raw_prfpset_end_norm": [
+        0.5,
+        0.009114583022892475
+      ],
+      "endpoint_authority": "VISUAL_SAMPLE_MIDDLE_TO_UP__IGNORE_PREFRAME_OUTLIER",
+      "endpoint_execution_mode": "VISUAL_SAMPLE_CALIBRATED_WITH_PRFPSET_CURVE"
+    },
+    "WITHIN_MIDDLE_TO_DOWN": {
+      "family": "WITHIN_FRAME",
+      "source_name": "midel to down",
+      "duration_seconds": 1.28,
+      "start_norm": [
+        0.487,
+        0.493
+      ],
+      "end_norm": [
+        0.487,
+        0.748
+      ],
+      "curve": [
+        0.0,
+        0.006134,
+        0.017743,
+        0.036841,
+        0.066575,
+        0.111224,
+        0.192668,
+        0.287914,
+        0.38491,
+        0.474398,
+        0.549912,
+        0.610135,
+        0.662751,
+        0.707988,
+        0.746641,
+        0.78007,
+        0.808946,
+        0.834693,
+        0.857634,
+        0.878181,
+        0.896832,
+        0.912726,
+        0.927345,
+        0.940523,
+        0.952309,
+        0.96297,
+        0.972245,
+        0.980465,
+        0.987814,
+        0.994349,
+        1.0
+      ],
+      "raw_prfpset_start_norm": [
+        0.5,
+        0.5
+      ],
+      "raw_prfpset_end_norm": [
+        0.5,
+        0.9583333134651184
+      ],
+      "endpoint_authority": "VISUAL_SAMPLE_MIDDLE_TO_DOWN",
+      "endpoint_execution_mode": "VISUAL_SAMPLE_CALIBRATED_WITH_PRFPSET_CURVE"
+    },
+    "APPEAR_HIGH_SCALE": {
+      "family": "APPEARANCE",
+      "source_name": "high scale",
+      "duration_seconds": 0.8,
+      "scale_keyframes": [
+        [
+          0.0,
+          0.8
+        ],
+        [
+          0.704,
+          1.1
+        ],
+        [
+          1.0,
+          1.1
+        ]
+      ],
+      "opacity_keyframes": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.264,
+          1.0
+        ],
+        [
+          1.0,
+          1.0
+        ]
+      ]
+    },
+    "DISAPPEAR_DOWN_SCALE": {
+      "family": "DISAPPEARANCE",
+      "source_name": "down scale",
+      "duration_seconds": 0.6,
+      "scale_keyframes": [
+        [
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.9
+        ]
+      ],
+      "opacity_keyframes": [
+        [
+          0.0,
+          1.0
+        ],
+        [
+          0.6,
+          0.0
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "position_delta_norm": [
+        0.0,
+        0.0
+      ],
+      "raw_prfpset_position_delta_norm": [
+        0.0,
+        0.892938494682312
+      ],
+      "position_authority": "VISUAL_SAMPLE_CENTER_STABLE__SCALE_OPACITY_ONLY",
+      "position_execution_mode": "NO_SYNTHETIC_TRANSLATION"
+    }
+  },
+  "sample_authority_note": "Visual examples are the physical execution authority for within-frame endpoints and disappearance behavior; raw PRFPSET values are preserved in raw_prfpset_* audit fields. Exact PRFPSET timing/curve families remain locked.",
+  "v31_calibration": {
+    "mode": "USER_VISUAL_SAMPLE_ENDPOINT_CALIBRATION",
+    "reason": "Raw PRFPSET position values are clip-space values and previously produced out-of-frame/overshoot motion when treated as normalized Program Monitor coordinates.",
+    "within_frame_execution": "CALIBRATED_VISIBLE_ENDPOINTS",
+    "disappearance_execution": "SCALE_OPACITY_ONLY__NO_LARGE_POSITION_DELTA",
+    "topic_specific": false
+  }
+}

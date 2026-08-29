@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.hexaterminal.videobuilder.v31_0_1" ExtensionBundleVersion="31.0.25" ExtensionBundleName="HEXA Video Builder V31">
+  <ExtensionList><Extension Id="com.hexaterminal.videobuilder.v31_0_1.panel" Version="31.0.25"/></ExtensionList>
+  <ExecutionEnvironment>
+    <HostList><Host Name="PPRO" Version="[22.0,23.0]"/></HostList>
+    <LocaleList><Locale Code="All"/></LocaleList>
+    <RequiredRuntimeList><RequiredRuntime Name="CSXS" Version="11.0"/></RequiredRuntimeList>
+  </ExecutionEnvironment>
+  <DispatchInfoList>
+    <Extension Id="com.hexaterminal.videobuilder.v31_0_1.panel">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./index.html</MainPath>
+          <ScriptPath>./jsx/host.jsx</ScriptPath>
+          <CEFCommandLine>
+            <Parameter>--enable-nodejs</Parameter>
+            <Parameter>--mixed-context</Parameter>
+            <Parameter>--allow-file-access</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
+        <UI>
+          <Type>Panel</Type><Menu>HEXA Video Builder V31</Menu>
+          <Geometry><Size><Width>560</Width><Height>760</Height></Size><MinSize><Width>460</Width><Height>620</Height></MinSize><MaxSize><Width>1600</Width><Height>1400</Height></MaxSize></Geometry>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>
+

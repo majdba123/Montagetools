@@ -1,0 +1,70 @@
+{
+  "authority_id": "HEXA_EDITING_ENGINE_RULES_V20",
+  "source_pdf_sha256": "90b1e2b147c8c942ed98b8efaf7c01940fd7b6aa7cdd97a68a6ba5c86108424c",
+  "policy": "HARD_CONSTRAINTS",
+  "priority_order": [
+    "APPEAR_DISAPPEAR",
+    "TRANSFORM_EFFECT",
+    "CHARACTERS",
+    "SAFE_MARGINS",
+    "DISTRIBUTION",
+    "POSITION",
+    "SCALE",
+    "SECONDARY_AESTHETICS"
+  ],
+  "screen": {
+    "center_vertical_guide": 0.5,
+    "center_horizontal_guide": 0.5,
+    "standard_visible_elements_max": 4,
+    "five_element_mode": "FIFTH_ELEMENT_OVERLAY",
+    "more_than_five_simultaneous": "FORBIDDEN"
+  },
+  "layout": {
+    "three_elements": [0.5, 0.25, 0.25],
+    "four_elements": "ONE_PER_QUADRANT",
+    "two_primary_plus_two_supporting": "TWO_VERTICAL_HALVES_WITH_SUPPORT",
+    "no_unintended_touching": true,
+    "physical_relationship_touching_exception": true
+  },
+  "fifth_element_overlay": {
+    "black_video_opacity_percent_min": 40,
+    "black_video_opacity_percent_max": 45,
+    "default_black_video_opacity_percent": 42,
+    "adjustment_layer_blur_percent": 16,
+    "base_four_must_persist": true
+  },
+  "characters": {
+    "secondary_character_vertical_half_screen_approx": true,
+    "secondary_inside_safe_margins": true,
+    "main_narrator_safe_margin_exception": true,
+    "main_narrator_allowed_entries": ["LEFT", "RIGHT", "BOTTOM"],
+    "main_narrator_top_entry": "FORBIDDEN",
+    "main_narrator_top_exit": "FORBIDDEN",
+    "main_and_secondary_opposite_halves_when_needed": true
+  },
+  "position": {
+    "animation_engine": "EFFECTS_TRANSFORM_POSITION",
+    "basic_motion_position_animation": "FORBIDDEN",
+    "interpolation": "BEZIER",
+    "ease_in": true,
+    "ease_out": true,
+    "minimum_frames": 12,
+    "velocity_shape": "FAST_MOTION_SMOOTH_DECELERATION_SOFT_ARRIVAL"
+  },
+  "scale": {
+    "supporting_pop_percent": [100, 110, 100],
+    "pop_interpolation": "BEZIER_EASE_IN_OUT",
+    "continuous_image_percent": [110, 100],
+    "continuous_image_min_seconds": 3.0,
+    "scale_exit": "FORBIDDEN"
+  },
+  "visibility": {
+    "allowed_appearance": ["POSITION_ENTRY", "SCALE_POP", "OPACITY_FADE_IN"],
+    "allowed_disappearance": ["POSITION_EXIT", "OPACITY_FADE_OUT"],
+    "pdf_opacity_concealment_enter_percent": [100, 0],
+    "pdf_opacity_concealment_exit_percent": [0, 100],
+    "premiere_opacity_conversion": "PREMIERE_OPACITY = 100 - CONCEALMENT_PERCENT",
+    "hard_cut_appearance_disappearance": "FORBIDDEN"
+  },
+  "core_principle": "CONSISTENCY_OVER_UNNECESSARY_VARIATION"
+}

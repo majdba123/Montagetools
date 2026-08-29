@@ -1,0 +1,69 @@
+{
+  "schema": "HEXA_V20_DEPENDENCY_MANIFEST",
+  "version": "1.1",
+  "build_download_policy": "FORBIDDEN",
+  "setup_download_policy": "ONLY_IF_MISSING_OR_INVALID",
+  "python_packages": [
+    {
+      "import": "numpy",
+      "pip": "numpy>=1.24,<3",
+      "required": true,
+      "purpose": "vision/audio arrays"
+    },
+    {
+      "import": "PIL",
+      "pip": "Pillow>=10,<13",
+      "required": true,
+      "purpose": "scene PNG IO"
+    },
+    {
+      "import": "cv2",
+      "pip": "opencv-python-headless>=4.8,<5",
+      "required": true,
+      "purpose": "foreground graph/reconstruction"
+    },
+    {
+      "import": "faster_whisper",
+      "pip": "faster-whisper>=1.0,<2",
+      "required": false,
+      "strongly_recommended": true,
+      "purpose": "observed word timestamps reconciled to exact canonical script"
+    },
+    {
+      "import": "arabic_reshaper",
+      "pip": "arabic-reshaper>=3,<4",
+      "required": false,
+      "strongly_recommended": true,
+      "purpose": "Arabic on-screen typography fallback shaping when Pillow RAQM is unavailable"
+    },
+    {
+      "import": "bidi",
+      "pip": "python-bidi>=0.6,<1",
+      "required": false,
+      "strongly_recommended": true,
+      "purpose": "Arabic RTL on-screen typography fallback bidi ordering"
+    }
+  ],
+  "executables": [
+    {
+      "name": "ffmpeg",
+      "required": true
+    },
+    {
+      "name": "ffprobe",
+      "required": false,
+      "supported_fallback": "FFMPEG_STDERR_MEDIA_PROBE",
+      "purpose": "preferred structured metadata probe; V31.0.1 supports ffmpeg-only fallback"
+    }
+  ],
+  "models": [
+    {
+      "id": "FASTER_WHISPER_SMALL",
+      "required_for_word_level_alignment": true,
+      "reuse_first": true,
+      "download_only_during_setup": true,
+      "known_family": "Systran/faster-whisper-small"
+    }
+  ],
+  "media_probe_policy": "FFPROBE_PREFERRED__FFMPEG_FALLBACK_CERTIFIED"
+}

@@ -1,0 +1,9 @@
+{
+  "downloads_during_build": false,
+  "allow_whisper": false,
+  "cpu_threads": 4,
+  "motion_engine": "PRE_RENDERED_ANIMATED_SCENE_MEDIA",
+  "text_engine": "PRE_RENDERED_SELECTIVE_TYPOGRAPHY",
+  "python_import_roots": [],
+  "python_import_contract_sha256": "DEV_RUNTIME_ONLY"
+}

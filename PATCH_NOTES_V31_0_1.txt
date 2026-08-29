@@ -1,0 +1,11 @@
+HEXA Video Builder V31.0.1 - Adaptive Composition Recovery
+
+Real-build failure class fixed: NO_COLLISION_FREE_PHASE_AWARE_LAYOUT.
+
+Generic changes:
+- Geometry-adaptive fallback anchors after semantic anchors.
+- Physical fit-derived scale candidates; no fixed role-slot dead end.
+- Atomic+atomic phase prevention including character companions.
+- Adaptive phase repacking prioritizes primaries and explicit relationship endpoints.
+- Cross-phase appearance pre-roll reduced to 0.06s to lower motion-path collisions.
+- No project, script, scene ID, or topic-specific branches.

@@ -1,0 +1,21 @@
+{
+  "authority_id": "HEXA_V20_LEGACY_FAILURE_REGRESSION_MATRIX",
+  "policy": "EVERY_CONFIRMED_OLD_FAILURE_BECOMES_PERMANENT_REGRESSION",
+  "cases": [
+    {"id":"REG-001","failure":"project-specific fix regressed another project","v20_invariant":"NO_PROJECT_SPECIFIC_BRANCHES_OR_HARDCODED_SCENE_COUNTS"},
+    {"id":"REG-002","failure":"white removal damaged faces/cards/icons","v20_invariant":"NO_WHITE_CHROMA_KEY; MASK_EDGE_CONTOUR_ALPHA_ONLY"},
+    {"id":"REG-003","failure":"wrong cache family used despite valid prepared model","v20_invariant":"CENTRAL_RUNTIME_REGISTRY_WITH_PHYSICAL_PROBES"},
+    {"id":"REG-004","failure":"CUDA reported usable then cublas DLL missing","v20_invariant":"GPU_READY_REQUIRES_REAL_INFERENCE_PROBE"},
+    {"id":"REG-005","failure":"ASR semantic anchors unresolved","v20_invariant":"CANONICAL_SCRIPT_IS_TEXT_AUTHORITY; OBSERVED_AUDIO_ONLY_RESOLVES_TIME"},
+    {"id":"REG-006","failure":"download attempted during build","v20_invariant":"BUILD_NETWORK_DOWNLOADS_FORBIDDEN"},
+    {"id":"REG-007","failure":"single strict scene failure killed project","v20_invariant":"CLEAN_LAYERED_TO_GROUPED_TO_HYBRID_TO_FLAT_FALLBACK"},
+    {"id":"REG-008","failure":"layout invented from independent assets","v20_invariant":"FINAL_FULL_SCENE_IMAGE_IS_SPATIAL_AUTHORITY"},
+    {"id":"REG-009","failure":"static slides underperformed references","v20_invariant":"REFERENCE_MOTION_STATIC_OCCUPANCY_GATES"},
+    {"id":"REG-010","failure":"old CEP versions can collide","v20_invariant":"INSTALLER_REMOVES_ALL_HEXA_VIDEO_BUILDER_EXTENSIONS_BEFORE_INSTALL"},
+    {"id":"REG-011","failure":"file-presence PASS hid broken runtime","v20_invariant":"READY_REQUIRES_IMPORT_AND_FUNCTIONAL_PROBE"},
+    {"id":"REG-012","failure":"heavy workers competed on low-RAM machine","v20_invariant":"SEQUENTIAL_HEAVY_PHASES_AND_RELEASE_BETWEEN_PHASES"},
+    {"id":"REG-013","failure":"rebuild repeated expensive work","v20_invariant":"CONTENT_HASHED_PROJECT_CACHE"},
+    {"id":"REG-014","failure":"motion technically valid but robotic","v20_invariant":"REFERENCE_DNA_DRIVEN_MOTION_DIRECTOR_AND_HUMAN_PROMOTION_GATE"},
+    {"id":"REG-015","failure":"false production PASS before real Premiere execution","v20_invariant":"OFFLINE_PASS_SEPARATE_FROM_REAL_PREMIERE_2022_PROMOTION"}
+  ]
+}

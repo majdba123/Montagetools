@@ -1,0 +1,17 @@
+HEXA Video Builder V31.0.2 - Production Hardened
+
+Latest physical failure fixed: relationship motion escaped its source phase and remained
+visible during the target handoff, producing motion-path overlaps in otherwise legal layouts.
+
+Generalized changes:
+- Phase intervals are now the physical visibility authority; cross-phase pre-roll is forbidden.
+- Relationship motion preserves the source phase exit instead of extending to card end.
+- Exact preset curves and animated envelopes are checked before card plans are committed.
+- Unsafe relationship travel deterministically becomes an honest temporal handoff.
+- Unsafe position travel falls back to the user's appearance/disappearance presets at the
+  constraint-solved semantic anchor; story-critical objects are retained.
+- Grouped scene detail no longer falsely marks every independently extracted object atomic.
+- Each event records visibility interval, z-order, and collision envelope.
+- Motion/render/cache schemas and continuous compositor cache keys are versioned for 31.0.2.
+- Stable V31 CEP bundle/runtime locations are preserved for idempotent reinstall.
+- No project, scene ID, script text, or topic-specific production branches were added.
