@@ -13,6 +13,22 @@ GENERIC_SEMANTIC_ACTIONS=('LIMIT','FAIL','REJECT','STATUS','ERROR','BLOCK','WARN
 WEAK_WORDS={'و','أو','او','بس','لكن','لأن','لان','إذا','اذا','حتى','مع','من','في','على','عن','هذا','هذه','هذي','ذلك','تلك','اللي','إنه','انه','ثم','بعد','قبل','عند','كان','كانت','يكون','تكون','هو','هي','هم','ما','مو','مش','لا','لم','لن','قد','كل','أي','اي','أكثر','اقل','أقل'}
 
 
+_CONNECTOR_RE=re.compile(r'^(?:and|or|but|because|if|then|with|from|to|of|the|a|an|this|that|it|they|he|she|we|i)$',re.I)
+
+class TypographyDirectorV2:
+    """Deterministic literal-copy selection and physical treatment authority."""
+    version='HEXA_TYPOGRAPHY_DIRECTOR_V2'
+    @staticmethod
+    def phrase_complete(value):
+        words=[_word_clean(x) for x in _clean(value).split()]
+        if not words:return False
+        first,last=words[0].lower(),words[-1].lower()
+        if first in WEAK_WORDS or last in WEAK_WORDS:return False
+        if _CONNECTOR_RE.match(first) or _CONNECTOR_RE.match(last):return False
+        return len(words)>1 or bool(_DIGIT_RE.search(value)) or len(words[0])>=4
+    @staticmethod
+    def treatment(value):return str(value or 'FREE_KEYWORD').upper()
+
 def _scene_timing(alignment):
     return {str(x.get('scene_id')):x for x in (alignment.get('scene_timings') or [])}
 
@@ -76,7 +92,7 @@ def _strip_weak_prefix(s):
 
 def _phrase_quality(s):
     s=_clean(s)
-    if not _is_displayable(s):return -999.0
+    if not _is_displayable(s) or not TypographyDirectorV2.phrase_complete(s):return -999.0
     words=s.split(); clean=[_word_clean(w) for w in words]
     content=[w for w in clean if w and w.lower() not in WEAK_WORDS]
     numeric=bool(_DIGIT_RE.search(s))
@@ -431,10 +447,25 @@ def render_text_rgba(event,canvas_w=1920,canvas_h=1080):
     except TypeError:
         kw.pop('direction',None);kw.pop('language',None);mk.pop('direction',None);mk.pop('language',None);box=d.multiline_textbbox((0,0),draw_text,**mk)
     tw=box[2]-box[0]; th=box[3]-box[1];x=max(0,(w-tw)/2.0);y=max(0,(h-th)/2.0-box[1])
+    treatment=TypographyDirectorV2.treatment(event.get('treatment'))
+    if treatment=='RESULT_LOCKUP':
+        color=(18,96,66,255)
+        kw['fill']=color
+    elif treatment=='VALUE_LOCKUP':
+        color=(15,70,112,255)
+        kw['fill']=color
+    # Treatments are text-native: distinct hierarchy/outline/shadow/underline,
+    # never a generic panel behind the copy.
+    if treatment in {'HERO_KEYWORD','VALUE_LOCKUP','RESULT_LOCKUP'}:
+        d.multiline_text((x+1,y+2),draw_text,font=font,fill=(0,0,0,58),spacing=int(base*.18),align=kw['align'])
+    if treatment in {'WARNING_BADGE','STATUS_HIT'}:
+        d.multiline_text((x,y),draw_text,font=font,fill=color,stroke_width=max(1,int(base*.035)),stroke_fill=(255,255,255,210),spacing=int(base*.18),align=kw['align'])
     try:d.multiline_text((x,y),draw_text,**kw)
     except TypeError:kw.pop('direction',None);kw.pop('language',None);d.multiline_text((x,y),draw_text,**kw)
     # Small semantic accents are allowed; a container behind text is never drawn.
     if role.upper() in {'WARNING','STATUS','RESULT','VALUE'}:
         accent={'WARNING':(196,64,70,235),'STATUS':(47,151,177,225),'RESULT':(49,154,109,225),'VALUE':(57,145,172,225)}[role.upper()]
         ax=w-5 if _ARABIC_RE.search(text) else 2;d.line((ax,max(3,y),ax,min(h-3,y+th)),fill=accent,width=max(3,int(base*.065)))
+    if treatment in {'HERO_KEYWORD','VALUE_LOCKUP','RESULT_LOCKUP','COMPARISON_LABELS'}:
+        ly=min(h-3,int(y+th+max(2,base*.06)));d.line((int(x),ly,int(x+tw),ly),fill=color,width=max(2,int(base*.035)))
     return img

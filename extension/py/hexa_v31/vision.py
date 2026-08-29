@@ -419,13 +419,11 @@ def _partition_for_semantics(mask: np.ndarray, semantic:list[dict], W:int, H:int
 
 
 def _expand_hierarchical_groups(groups:list[dict], assignments:list[dict|None], W:int, H:int, rgb:np.ndarray|None=None):
-    """V31 cutout-safety lock: never manufacture sub-object layers from one flat icon.
+    """Expose only evidence-backed optional children beside an atomic root.
 
-    The user explicitly rejected the P2 icon slicing.  A semantic object may still contain
-    many visible secondary details for composition/density accounting, but those details stay
-    physically attached to their parent unless they were already independent top-level
-    foreground groups.  Storytelling is created by relationships between clean semantic
-    objects and by the supplied motion presets, not by speculative watershed/projection cuts.
+    The root is always preserved as the authoritative semantic composite.  Children are
+    never fabricated, never replace the root, and are rejected for characters or whenever
+    deterministic physical separation/reconstruction evidence is insufficient.
     """
     out_g=[];out_a=[];decisions=[]
     for i,g in enumerate(groups):
@@ -434,16 +432,36 @@ def _expand_hierarchical_groups(groups:list[dict], assignments:list[dict|None], 
         slot=str((sem or {}).get('unit_id') or f'PHYSICAL_SLOT_{i+1:02d}')
         gg['_hierarchy_level']=0;gg['_parent_semantic_unit_id']=None;gg['_composition_slot_id']=slot
         gg['_subobject_role']='CONTEXT';gg['_hierarchy_confidence']=1.0
+        gg['_root_atomic']=True;gg['_decomposition_root_id']=f'ROOT_{i+1:02d}'
         # Top-level groups are allowed to translate only when their physical mask is detached
         # from other top-level groups; the occlusion graph performs the final downgrade.
         gg['_animation_safe']=True;gg['_reveal_safe']=True;gg['_animation_mode']='TRANSLATE_SAFE';gg['_occlusion_class']='TOP_LEVEL_SEMANTIC_GROUP'
         out_g.append(gg);out_a.append(sem)
-        decisions.append({'semantic_unit_id':(sem or {}).get('unit_id'),'composition_slot_id':slot,'accepted':False,'reason':'V31_SUBOBJECT_CUTOUTS_FORBIDDEN__TOP_LEVEL_GROUP_PRESERVED','decomposition_mode':'NONE','child_count':0})
+        typ=str((sem or {}).get('type') or '').upper()
+        if typ in {'MAIN_CHARACTER','SECONDARY_CHARACTER'}:
+            decisions.append({'root_id':gg['_decomposition_root_id'],'semantic_unit_id':(sem or {}).get('unit_id'),'composition_slot_id':slot,'accepted':False,'reason':'UNSAFE_CHARACTER_FRAGMENTATION','decomposition_mode':'ROOT_ATOMIC_ONLY','child_count':0})
+            continue
+        result=decompose_semantic_group(gg.get('_mask') if gg.get('_mask') is not None else _group_mask(np.zeros((H,W),np.uint8),gg),W=W,H=H,semantic_type=typ,semantic_role=str((sem or {}).get('role') or ''),rgb=rgb)
+        decision={'root_id':gg['_decomposition_root_id'],'semantic_unit_id':(sem or {}).get('unit_id'),'composition_slot_id':slot,'accepted':bool(result.get('accepted')),'reason':result.get('reason'),'decomposition_mode':result.get('decomposition_mode'),'child_count':len(result.get('children') or []),'confidence':result.get('confidence',0.0),'evidence':result.get('evidence') or []}
+        decisions.append(decision)
+        if not result.get('accepted'):
+            continue
+        # Child masks form an exact source partition and retain their root slot.  They are
+        # opt-in reveal/translation candidates; semantic movement still requires downstream
+        # mapping confidence and the existing occlusion graph.
+        for child in result.get('children') or []:
+            x,y,bw,bh=child.bbox
+            cg={'members':[],'x':x,'y':y,'w':bw,'h':bh,'area':child.area_px,'cx':child.center_norm[0]*W,'cy':child.center_norm[1]*H,'_mask':child.mask,
+                '_hierarchy_level':1,'_parent_semantic_unit_id':(sem or {}).get('unit_id'),'_composition_slot_id':slot,'_subobject_role':child.role_candidate,
+                '_hierarchy_confidence':float(child.confidence),'_animation_safe':bool(child.animation_safe),'_reveal_safe':bool(child.reveal_safe),'_animation_mode':child.animation_mode,
+                '_occlusion_class':child.occlusion_class,'_root_atomic':False,'_decomposition_root_id':gg['_decomposition_root_id'],
+                '_semantic_mapping_confidence':min(float(gg.get('_semantic_mapping_confidence',0.0)),float(child.confidence))}
+            out_g.append(cg);out_a.append(sem)
     return out_g,out_a,decisions
 
 def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLike, logger=None) -> SceneVisionResult:
     sid=scene['scene_id']; out=ensure_dir(pathlib.Path(out_dir)/sid)
-    sig_payload={'algorithm':'HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY','image_sha256':sha256_file(image_path),'semantic_units':scene.get('units') or []}
+    sig_payload={'algorithm':'HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER','image_sha256':sha256_file(image_path),'semantic_units':scene.get('units') or []}
     cache_sig=hashlib.sha256(json.dumps(sig_payload,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
     meta_path=out/'cache_meta.json'; vision_path=out/'vision.json'
     if meta_path.is_file() and vision_path.is_file():
@@ -516,7 +534,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
             mask_confidence=round(base_conf*(0.95 if len(g['members'])>=1 else 0.7),4),edge_touch=edge,
             semantic_unit_id=sem.get('unit_id') if sem else None,semantic_type=sem.get('type') if sem else None,semantic_role=sem.get('role') if sem else None,
         )
-        row=asdict(pu); row['hierarchy_level']=int(g.get('_hierarchy_level',0)); row['parent_semantic_unit_id']=g.get('_parent_semantic_unit_id'); row['composition_slot_id']=str(g.get('_composition_slot_id') or row.get('semantic_unit_id') or row.get('physical_id')); row['subobject_role']=g.get('_subobject_role'); row['hierarchy_confidence']=float(g.get('_hierarchy_confidence',0.0)); row['animation_safe']=bool(g.get('_animation_safe',True)); row['reveal_safe']=bool(g.get('_reveal_safe',True)); row['animation_mode']=str(g.get('_animation_mode') or ('TRANSLATE_SAFE' if row['animation_safe'] else 'GROUP_ONLY')); row['occlusion_class']=str(g.get('_occlusion_class') or ('CLEAN_SEPARABLE' if row['animation_safe'] else 'GROUP_ONLY')); row['matting']=matte; row['semantic_mapping_confidence']=round(float(g.get('_semantic_mapping_confidence',0.0)),4); row['layer_path']=str(lp); row['layer_canvas_mode']='FULL_SCENE_ALPHA_CANVAS'; row['layer_source_size_px']=[W,H]; row['crop_origin_px']=[cx0,cy0]; row['crop_size_px']=[cx1-cx0,cy1-cy0]; unit_rows.append(row)
+        row=asdict(pu); row['hierarchy_level']=int(g.get('_hierarchy_level',0)); row['parent_semantic_unit_id']=g.get('_parent_semantic_unit_id'); row['composition_slot_id']=str(g.get('_composition_slot_id') or row.get('semantic_unit_id') or row.get('physical_id')); row['subobject_role']=g.get('_subobject_role'); row['hierarchy_confidence']=float(g.get('_hierarchy_confidence',0.0)); row['animation_safe']=bool(g.get('_animation_safe',True)); row['reveal_safe']=bool(g.get('_reveal_safe',True)); row['animation_mode']=str(g.get('_animation_mode') or ('TRANSLATE_SAFE' if row['animation_safe'] else 'GROUP_ONLY')); row['occlusion_class']=str(g.get('_occlusion_class') or ('CLEAN_SEPARABLE' if row['animation_safe'] else 'GROUP_ONLY')); row['matting']=matte; row['semantic_mapping_confidence']=round(float(g.get('_semantic_mapping_confidence',0.0)),4); row['layer_path']=str(lp); row['mask_path']=str(lp); row['layer_canvas_mode']='FULL_SCENE_ALPHA_CANVAS'; row['layer_source_size_px']=[W,H]; row['crop_origin_px']=[cx0,cy0]; row['crop_size_px']=[cx1-cx0,cy1-cy0]; row['root_id']=g.get('_decomposition_root_id'); row['parent_id']=g.get('_decomposition_root_id') if row['hierarchy_level']>0 else None; row['child_id']=f"{g.get('_decomposition_root_id')}::CHILD_{row['hierarchy_level']}_{idx}" if row['hierarchy_level']>0 else None; row['visible_area']=round(float(np.count_nonzero(layer_alpha>4))/(W*H),6); row['optical_center']=row['center_norm']; row['independence_confidence']=row['hierarchy_confidence']; row['reconstruction_error']=0.0; unit_rows.append(row)
     # Hard-rule fifth-element special case is evaluated by *composition slots*, not physical
     # animation layers. Splitting one machine into body/coin/display must not falsely create a
     # five-element layout.
