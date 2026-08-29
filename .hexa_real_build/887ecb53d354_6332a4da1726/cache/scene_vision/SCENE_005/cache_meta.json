@@ -1,0 +1,45 @@
+{
+  "cache_signature": "37f39805cbddabc1f4a7aa1a73b9e2b2d4f18206bd427051e6c5496eca533b57",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "bf5c4b65c7f862336bec0968b26bb74af73e517697fd34b704b2aa3879b33a1e",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "bank_rule",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_BANK_RULE",
+        "appear_trigger": {
+          "phrase": "والبنك محدد لك",
+          "occurrence_in_scene": 1,
+          "global_char_start": 96,
+          "global_char_end": 110
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "hexa_main_character",
+        "type": "MAIN_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "والبنك محدد لك",
+          "occurrence_in_scene": 1,
+          "global_char_start": 96,
+          "global_char_end": 110
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": "UNIT_001",
+        "relationship": "EXPLAINS"
+      }
+    ]
+  }
+}

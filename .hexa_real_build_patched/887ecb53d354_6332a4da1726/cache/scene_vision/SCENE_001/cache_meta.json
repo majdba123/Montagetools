@@ -1,0 +1,45 @@
+{
+  "cache_signature": "7092aa0095f2151f48a35125b80c4f7f69f19a1af5b7e7e89c7d9bddbf1ce245",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "2515fc7735f2084565a7c25b9038afac54a006be6d88a70fbcccb2353a93f5f3",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "insufficient_balance_or_limit",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_INSUFFICIENT_BALANCE_OR_LIMIT",
+        "appear_trigger": {
+          "phrase": "الرصيد أو الحد غير الكافي.",
+          "occurrence_in_scene": 1,
+          "global_char_start": 0,
+          "global_char_end": 26
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "hexa_main_character",
+        "type": "MAIN_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "الرصيد أو الحد غير الكافي.",
+          "occurrence_in_scene": 1,
+          "global_char_start": 0,
+          "global_char_end": 26
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": "UNIT_001",
+        "relationship": "EXPLAINS"
+      }
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "scene_id": "SCENE_013",
+  "order": 13,
+  "image": "scenes/SCENE_013.png",
+  "script_span": {
+    "global_char_start": 317,
+    "global_char_end": 355,
+    "text": "نفس الشيء يصير مع البطاقات الائتمانية."
+  },
+  "purpose": "تجسيد المعنى السردي للمقطع: نفس الشيء يصير مع البطاقات الائتمانية.",
+  "visual_concept": "HEXA ينقل المبدأ نفسه إلى البطاقة الائتمانية.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "credit_card_parallel",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "EXPLAIN_CREDIT_CARD_PARALLEL",
+      "appear_trigger": {
+        "phrase": "نفس الشيء يصير مع البطاقات الائتمانية.",
+        "occurrence_in_scene": 1,
+        "global_char_start": 317,
+        "global_char_end": 355
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_002",
+      "semantic_name": "hexa_main_character",
+      "type": "MAIN_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "نفس الشيء يصير مع البطاقات الائتمانية.",
+        "occurrence_in_scene": 1,
+        "global_char_start": 317,
+        "global_char_end": 355
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": "UNIT_001",
+      "relationship": "EXPLAINS"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "نفس الشيء يصير مع البطاقات الائتمانية.",
+        "occurrence_in_scene": 1,
+        "global_char_start": 317,
+        "global_char_end": 355
+      },
+      "action": "EXPLAIN",
+      "targets": [
+        "UNIT_001",
+        "UNIT_002"
+      ]
+    }
+  ]
+}

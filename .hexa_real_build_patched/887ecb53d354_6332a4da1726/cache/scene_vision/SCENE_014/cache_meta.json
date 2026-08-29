@@ -1,0 +1,45 @@
+{
+  "cache_signature": "5948f241636137bc6e6ef7e4e2436cb861ed8f0478f7f09e0e14c4b510e8644e",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "efc07c04b15d7a7c16e3561785c96ac4001e514d10242705ad953fcdd2dfdce0",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "high_base_credit_limit",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_HIGH_BASE_CREDIT_LIMIT",
+        "appear_trigger": {
+          "phrase": "ممكن يكون الحد الأساسي مرتفع،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 356,
+          "global_char_end": 385
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "adult_secondary_customer",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+        "appear_trigger": {
+          "phrase": "ممكن يكون الحد الأساسي مرتفع،",
+          "occurrence_in_scene": 1,
+          "global_char_start": 356,
+          "global_char_end": 385
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "INTRODUCE",
+        "interaction_target": "UNIT_001",
+        "relationship": "CONTEXT_FOR"
+      }
+    ]
+  }
+}

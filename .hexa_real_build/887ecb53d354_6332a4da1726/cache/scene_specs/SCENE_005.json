@@ -1,0 +1,68 @@
+{
+  "scene_id": "SCENE_005",
+  "order": 5,
+  "image": "scenes/SCENE_005.png",
+  "script_span": {
+    "global_char_start": 96,
+    "global_char_end": 110,
+    "text": "والبنك محدد لك"
+  },
+  "purpose": "تجسيد المعنى السردي للمقطع: والبنك محدد لك",
+  "visual_concept": "HEXA يشرح أن البنك هو من يضبط قاعدة الحد.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "bank_rule",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "EXPLAIN_BANK_RULE",
+      "appear_trigger": {
+        "phrase": "والبنك محدد لك",
+        "occurrence_in_scene": 1,
+        "global_char_start": 96,
+        "global_char_end": 110
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_002",
+      "semantic_name": "hexa_main_character",
+      "type": "MAIN_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_HEXA_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "والبنك محدد لك",
+        "occurrence_in_scene": 1,
+        "global_char_start": 96,
+        "global_char_end": 110
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": "UNIT_001",
+      "relationship": "EXPLAINS"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "والبنك محدد لك",
+        "occurrence_in_scene": 1,
+        "global_char_start": 96,
+        "global_char_end": 110
+      },
+      "action": "EXPLAIN",
+      "targets": [
+        "UNIT_001",
+        "UNIT_002"
+      ]
+    }
+  ]
+}

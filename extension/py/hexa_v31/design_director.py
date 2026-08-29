@@ -162,23 +162,26 @@ def design_qa(motion,titles,report):
 def _audit_rows_read_only(motion, plan, alignment, fps):
  scenes={str(s.get('scene_id')):s for s in plan.get('scenes') or []}; rows=[]
  instances={str(i.get('instance_id')):i for i in motion.get('visual_instances') or []}
- event_instances={str(sid):iid for iid,i in instances.items() for sid in i.get('semantic_event_ids') or []}
- for e in motion.get('events') or []:
-  if e.get('suppressed_by_card_density'): continue
-  scene=scenes.get(str(e.get('scene_id'))) or {}
-  unit=next((u for u in scene.get('units') or [] if str(u.get('unit_id'))==str(e.get('semantic_unit_id'))),{})
-  ws=_words(unit.get('appear_trigger') or unit.get('focus_trigger'),alignment)
-  if not ws or max(float(w.get('confidence',1.0) if w.get('confidence') is not None else 1.0) for w in ws)<.60: continue
-  anchor=float(ws[0].get('start')); entry=e.get('preset_entry') or {}; name=entry.get('name')
+ events={str(e.get('event_id')):e for e in motion.get('events') or []}
+ # The planner's semantic ledger is the source of truth.  Re-deriving anchors
+ # from package triggers dropped committed handoffs and made V31's preset
+ # choreography indistinguishable from the retired legacy story_actions path.
+ for semantic in motion.get('semantic_events') or []:
+  semantic_id=str(semantic.get('event_id') or '')
+  event_id=semantic_id.removeprefix('SEMANTIC_'); e=events.get(event_id)
+  iid=str(semantic.get('target_instance_id') or ''); instance=instances.get(iid) or {}
+  scene=scenes.get(str(e.get('scene_id') if e else '')) or {}
+  unit=next((u for u in scene.get('units') or [] if e and str(u.get('unit_id'))==str(e.get('semantic_unit_id'))),{})
+  anchor=float(semantic.get('anchor_time') if semantic.get('anchor_time') is not None else (e or {}).get('perceptual_hit_seconds',0))
+  entry=(e or {}).get('preset_entry') or {}; name=entry.get('name')
   duration=float(entry.get('duration_seconds') or preset_duration(name or 'APPEAR_HIGH_SCALE'))
-  start=float(entry.get('start_seconds',e.get('start_seconds',0)))
-  hit=start+_frac(e)*duration; delta=round((hit-anchor)*fps,3)
-  physically_readable=bool(name) and float(e.get('start_seconds',start))<=start+1e-6 and float(e.get('end_seconds',start))>=hit-1e-6
-  satisfied='OBJECT' if physically_readable and abs(delta)<=6 else 'DEFERRED'
-  aid=f'ANCHOR_{len(rows)+1:03d}'; semantic_id='SEMANTIC_'+str(e.get('event_id')); iid=event_instances.get(semantic_id)
-  blocker=None if satisfied=='OBJECT' else ('STARTUP_NO_PREROLL' if anchor<_frac(e)*duration else 'SOURCE_EVENT_AVAILABLE_TIMING_BLOCKED')
+  start=float(entry.get('start_seconds',(e or {}).get('start_seconds',0)))
+  hit=start+_frac(e or {})*duration
+  delta=round((hit-anchor)*fps,3)
+  readable=bool(e) and not e.get('suppressed_by_card_density') and bool(name) and float(e.get('end_seconds',start))>=hit-1e-6
+  satisfied='OBJECT' if readable and abs(delta)<=6 else 'DEFERRED'
   assets=[{'physical_id':x.get('physical_id'),'semantic_unit_id':x.get('semantic_unit_id'),'role':x.get('semantic_role')} for x in (scene.get('units') or [])]
-  rows.append({'anchor_id':aid,'scene_id':e.get('scene_id'),'visual_card_id':e.get('visual_card_id'),'spoken_text':' '.join(str(w.get('text') or '') for w in ws),'canonical_semantic_span':unit.get('narration_exact') or unit.get('semantic_name') or unit.get('unit_id'),'event_worthy_reason':'SOURCE_SEMANTIC_UNIT_WITH_APPEAR_OR_FOCUS_TRIGGER','expected_visual_semantic_delta':'SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE','available_physical_assets':assets,'available_builder_elements':scene.get('builder_elements') or [],'available_text_value_status_marker_relation_elements':scene.get('text_elements') or scene.get('relationships') or [],'participating_visual_instance_ids':[iid] if iid else [],'participating_semantic_event_ids':[semantic_id],'semantic_role':e.get('semantic_role') or e.get('semantic_type'),'visual_id':e.get('physical_id'),'event_id':e.get('event_id'),'confidence':round(float(e.get('semantic_mapping_confidence') or 0),4),'anchor_time':round(anchor,6),'before_state':'NOT_READABLE' if satisfied=='OBJECT' else 'UNCHANGED_OR_UNSAFE','event_type':'OBJECT_APPEARANCE' if satisfied=='OBJECT' else 'NONE','expected_event_type':'ENTRY_OR_SOURCE_BACKED_STATE_DELTA','preset':name,'preset_start':round(start,6),'perceptual_hit':round(hit,6),'delta_frames':delta,'perceptual_change_type':'NEW_RELEVANT_OBJECT_READABLE' if satisfied=='OBJECT' else None,'after_state':'READABLE_OBJECT' if satisfied=='OBJECT' else 'NO_VERIFIED_DELTA','salience_reason':'approved entry reaches readable state at voice anchor' if satisfied=='OBJECT' else None,'satisfaction':satisfied,'result':'PHYSICAL' if satisfied=='OBJECT' else 'DEFERRED','defer_reason':None if satisfied=='OBJECT' else 'COMMITTED_HANDOFF_CANNOT_MEET_PERCEPTUAL_WINDOW','final_classification':blocker,'attempted_legal_alternatives':['ANCHOR_OWNED_PHASE','ATOMIC_HANDOFF','CROSS_CARD_HANDOFF','SOURCE_BACKED_PERSISTENCE'] if satisfied!='OBJECT' else []})
+  rows.append({'anchor_id':semantic.get('anchor_id') or f'ANCHOR_{len(rows)+1:03d}','scene_id':(e or {}).get('scene_id'),'visual_card_id':(e or {}).get('visual_card_id'),'spoken_text':unit.get('narration_exact') or unit.get('semantic_name') or '','canonical_semantic_span':unit.get('narration_exact') or unit.get('semantic_name') or (e or {}).get('semantic_unit_id'),'event_worthy_reason':'COMMITTED_SOURCE_SEMANTIC_EVENT','expected_visual_semantic_delta':'SOURCE_BACKED_OBJECT_OR_STATE_BECOMES_READABLE','available_physical_assets':assets,'participating_visual_instance_ids':[iid] if iid else [],'participating_semantic_event_ids':[semantic_id],'semantic_role':(e or {}).get('semantic_role') or semantic.get('semantic_role'),'visual_id':(e or {}).get('physical_id'),'event_id':event_id,'confidence':round(float((e or {}).get('semantic_mapping_confidence') or 0),4),'anchor_time':round(anchor,6),'before_state':'NOT_READABLE' if satisfied=='OBJECT' else 'UNCHANGED_OR_UNSAFE','event_type':'OBJECT_APPEARANCE' if satisfied=='OBJECT' else 'NONE','expected_event_type':'ENTRY_OR_SOURCE_BACKED_STATE_DELTA','preset':name,'preset_start':round(start,6),'perceptual_hit':round(hit,6),'delta_frames':delta,'perceptual_change_type':'NEW_RELEVANT_OBJECT_READABLE' if satisfied=='OBJECT' else None,'after_state':'READABLE_OBJECT' if satisfied=='OBJECT' else 'NO_VERIFIED_DELTA','salience_reason':'committed approved preset reaches readable state at semantic anchor' if satisfied=='OBJECT' else None,'satisfaction':satisfied,'result':'PHYSICAL' if satisfied=='OBJECT' else 'DEFERRED','defer_reason':None if satisfied=='OBJECT' else 'COMMITTED_EVENT_MISSING_OR_OUTSIDE_PERCEPTUAL_WINDOW','final_classification':None if satisfied=='OBJECT' else 'COMMITTED_EVENT_NOT_PHYSICALLY_VERIFIED','attempted_legal_alternatives':[]})
  return rows
 
 def compile_semantic_timeline(motion,plan,alignment,fps=30.):

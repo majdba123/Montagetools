@@ -1,0 +1,27 @@
+{
+  "cache_signature": "73593f0a8ad5401a1c087d85b9dc72efdecccd48cdec0c0c63b35007d09e2cab",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_9.0_LOCAL_STAGE_LEAK_REPAIR_TOP_LEVEL_ONLY",
+    "image_sha256": "763e97aa182c247d90f1c84c10174f3013aacea5dd96301e63d39c6de777e08d",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "installments",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "EXPLAIN_INSTALLMENTS",
+        "appear_trigger": {
+          "phrase": "أو أقساط",
+          "occurrence_in_scene": 1,
+          "global_char_start": 404,
+          "global_char_end": 412
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "EXPLAIN",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ]
+  }
+}

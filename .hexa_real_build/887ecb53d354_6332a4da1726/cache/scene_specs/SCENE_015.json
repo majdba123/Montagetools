@@ -1,0 +1,68 @@
+{
+  "scene_id": "SCENE_015",
+  "order": 15,
+  "image": "scenes/SCENE_015.png",
+  "script_span": {
+    "global_char_start": 386,
+    "global_char_end": 403,
+    "text": "لكن مشتريات سابقة"
+  },
+  "purpose": "تجسيد المعنى السردي للمقطع: لكن مشتريات سابقة",
+  "visual_concept": "مشتريات سابقة تسحب أجزاء من سعة البطاقة.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "prior_purchases",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "EXPLAIN_PRIOR_PURCHASES",
+      "appear_trigger": {
+        "phrase": "لكن مشتريات سابقة",
+        "occurrence_in_scene": 1,
+        "global_char_start": 386,
+        "global_char_end": 403
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "EXPLAIN",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_002",
+      "semantic_name": "adult_secondary_customer",
+      "type": "SECONDARY_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SHOW_CUSTOMER_CONTEXT_OR_REACTION",
+      "appear_trigger": {
+        "phrase": "لكن مشتريات سابقة",
+        "occurrence_in_scene": 1,
+        "global_char_start": 386,
+        "global_char_end": 403
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "INTRODUCE",
+      "interaction_target": "UNIT_001",
+      "relationship": "CONTEXT_FOR"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "لكن مشتريات سابقة",
+        "occurrence_in_scene": 1,
+        "global_char_start": 386,
+        "global_char_end": 403
+      },
+      "action": "EXPLAIN",
+      "targets": [
+        "UNIT_001",
+        "UNIT_002"
+      ]
+    }
+  ]
+}
