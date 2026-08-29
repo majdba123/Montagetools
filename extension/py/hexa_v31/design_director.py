@@ -10,7 +10,9 @@ def _words(t,a):
  x,y=int(t.get('global_char_start',-1)),int(t.get('global_char_end',-1));return [w for w in a.get('word_timings') or [] if int(w.get('char_end',-1))>x and int(w.get('char_start',10**9))<y]
 def _frac(e):
  name=str((e.get('preset_entry') or {}).get('name') or '')
- return .72 if name.startswith('ENTRY_') else .55
+ # Must match preset_story_planner._entry_fraction exactly: Story Lock audits
+ # the final committed entry envelope, not an earlier visual approximation.
+ return .90 if name.startswith('ENTRY_') else .70
 def _slot(card,motion,start_seconds=None,end_seconds=None):
  slots=[('MID_LEFT',.06,.30,.40,.16),('MID_RIGHT',.54,.30,.40,.16),('BOTTOM_LEFT',.06,.76,.40,.16),('BOTTOM_RIGHT',.54,.76,.40,.16),('TOP_LEFT',.06,.07,.40,.16),('TOP_RIGHT',.54,.07,.40,.16)];rs=[e.get('planned_rect_norm') for e in motion.get('events') or [] if e.get('visual_card_id')==card.get('card_id') and e.get('planned_rect_norm') and (start_seconds is None or (float(e.get('start_seconds',0))<float(end_seconds) and float(e.get('end_seconds',0))>float(start_seconds)))]
  def ov(a,b):
