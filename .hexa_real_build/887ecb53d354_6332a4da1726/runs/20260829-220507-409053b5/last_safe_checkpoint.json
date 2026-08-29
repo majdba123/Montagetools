@@ -1,9 +1,0 @@
-{
-  "phase": "VISION_RECONSTRUCTION",
-  "completed_scene": "SCENE_049",
-  "completed_index": 49,
-  "scene_count": 49,
-  "package_sha256": "887ecb53d354acb534bb6fb5f60a0675164751ae53070084a79adb7fdc1a6820",
-  "audio_sha256": "6332a4da17261e4a05ca7f5206370f372f31c72764cbc531e972d8c985d7a030",
-  "build_id": "20260829-220507-409053b5"
-}

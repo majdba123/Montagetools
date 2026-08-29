@@ -8,6 +8,8 @@ from .scene_grammar import classify_card
 from .composition_solver import build_story_phases, solve_card_layout, within_preset_safe, repair_story_phases, repartition_story_phases, _in_safe, _fp, _rect, SAFE_X, SAFE_Y, MOTION_ENVELOPE_SCALE
 from .composition_qa import card_motion_conflicts
 from .visual_density import build_visual_density_report
+from .editorial_motion import EditorialMotionGrammarDirector, PacingDirector
+from .continuity_character import VisualContinuityQA, SemanticCharacterDirector
 
 def _entry_fraction(event):
     return .90 if str((event.get('preset_entry') or {}).get('name') or '').startswith('ENTRY_') else .70
@@ -1238,6 +1240,10 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # envelope is its authority; validating a handoff before a later spatial
     # entry rewrite would certify a timeline that no longer exists.
     effect_variety_stats=_effect_variety_director(events,cards,fps)
+    editorial_motion_grammar=EditorialMotionGrammarDirector().direct(events)
+    pacing_diagnostics=PacingDirector().diagnose(events,alignment,fps)
+    character_director=SemanticCharacterDirector().direct(events)
+    visual_continuity_qa=VisualContinuityQA().assess({'events':events,'visual_cards':cards})
     # Final semantic timing ownership starts here.  Every pass above may alter
     # entry selection, lifecycle, geometry, or trajectories; none below may.
     cross_card_stats=_cross_card_handoff_optimize(events,cards,fps)
@@ -1256,6 +1262,10 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['readable_state_hold_optimizer']=readable_hold_stats
     out['premium_recomposition_optimizer']=recomposition_stats
     out['effect_variety_director']=effect_variety_stats
+    out['editorial_motion_grammar_director']=editorial_motion_grammar
+    out['pacing_director']=pacing_diagnostics
+    out['semantic_character_director']=character_director
+    out['visual_continuity_qa']=visual_continuity_qa
     out['perceptual_sync_qa']=sync_qa
     out['final_semantic_timing_composition_qa']=final_composition_qa
     out['final_secondary_character_geometry_event_ids']=final_secondary_geometry
