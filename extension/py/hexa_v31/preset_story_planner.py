@@ -69,9 +69,12 @@ def perceptual_sync_qa(events,fps=30.0):
         start=float(entry.get('start_seconds',e.get('start_seconds',0)));duration=float(entry.get('duration_seconds') or preset_duration(name));anchor=float(e.get('perceptual_hit_seconds',start));impact=start+_entry_fraction(e)*duration;settle=start+duration;pre=max(0.0,anchor-start)
         travel=duration if name.startswith(('ENTRY_','WITHIN_')) else 0.0
         row={'event_id':e.get('event_id'),'preset':name,'anchor_to_motion_start':round(start-anchor,6),'anchor_to_visual_impact':round(impact-anchor,6),'anchor_to_settle':round(settle-anchor,6),'visual_travel_duration':round(travel,6),'pre_roll_duration':round(pre,6),'premature_semantic_reveal':False}
-        if impact-anchor>6.0/max(1.0,fps):row['flag']='VOICE_PRECEDES_VISUAL_RESULT';fail.append(str(e.get('event_id')))
+        if abs(impact-anchor)>6.0/max(1.0,fps):
+            row['flag']='VOICE_PRECEDES_VISUAL_RESULT' if impact>anchor else 'VISUAL_PRECEDES_VOICE_RESULT'
+            row['premature_semantic_reveal']=impact<anchor
+            fail.append(str(e.get('event_id')))
         rows.append(row)
-    return {'schema':'HEXA_V31_PERCEPTUAL_SYNC_QA','version':'31.0.25','events':rows,'event_count':len(rows),'voice_precedes_visual_result_event_ids':fail,'bounded_pre_roll_pass':all(x['pre_roll_duration']<=1.44+1e-6 for x in rows),'no_premature_semantic_reveal_pass':all(not x['premature_semantic_reveal'] for x in rows),'pass':not fail}
+    return {'schema':'HEXA_V31_PERCEPTUAL_SYNC_QA','version':'31.0.25','events':rows,'event_count':len(rows),'out_of_window_event_ids':fail,'bounded_pre_roll_pass':all(x['pre_roll_duration']<=1.44+1e-6 for x in rows),'no_premature_semantic_reveal_pass':all(not x['premature_semantic_reveal'] for x in rows),'pass':not fail}
 
 
 def _apply_composition_history_variant(layout,grammar,history):
@@ -1196,8 +1199,6 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
             e['start_seconds']=e['end_seconds'];e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[];e['motion_energy']='NONE'
 
     lifetime_stats=_commit_persistent_lifetimes(events,scenes_out,fps)
-    cross_card_stats=_cross_card_handoff_optimize(events,cards,fps)
-    atomic_stats=_atomic_handoff_optimize(events,cards,fps)
     segment_stats=_solve_semantic_segments(events,cards,fps)
     readable_hold_stats=_commit_readable_state_holds(events,cards,fps)
     recomposition_stats=_recomposition_optimize(events,cards,fps)
@@ -1207,6 +1208,15 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # envelope is its authority; validating a handoff before a later spatial
     # entry rewrite would certify a timeline that no longer exists.
     effect_variety_stats=_effect_variety_director(events,cards,fps)
+    # Final semantic timing ownership starts here.  Every pass above may alter
+    # entry selection, lifecycle, geometry, or trajectories; none below may.
+    cross_card_stats=_cross_card_handoff_optimize(events,cards,fps)
+    atomic_stats=_atomic_handoff_optimize(events,cards,fps)
+    from .composition_qa import composition_plan_qa
+    final_composition_qa=composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
+    # This is intentionally retained as an authoritative final-plan record.
+    # Pipeline hard QA consumes the same committed state after the audit; do
+    # not replace that gate with a planner exception for unrelated fixtures.
     sync_qa=perceptual_sync_qa(events,fps)
     out={'schema':'HEXA_MOTION_PLAN_V31','version':'31.0.25','fps':fps,'project_id':plan.get('project_id'),'rules_authority':'USER_UPLOADED_RULES_PDF','reference_authority':ref.get('authority_id'),'preset_authority':'HEXA_USER_PRESET_AUTHORITY_V31','timing_method':alignment.get('method'),'scenes':scenes_out,'events':events,'visual_cards':cards,'atomic_handoff_optimizer':atomic_stats,'cross_card_handoff_optimizer':cross_card_stats,'motion_dna_version':'HEXA_MOTION_DNA_V31_0_25_PREMIUM_MOTION_LANGUAGE','continuity_summary':{'scene_count':len(scenes_out),'visual_card_count':len(cards['cards']),'transition_modes':['OBJECT_PRESETS_ONLY__NO_FRAME_BLEND'],'appearance_methods':sorted(set(e.get('appearance_method') for e in events if e.get('appearance_method'))),'strong_transition_count':0,'identity_persistence_count':sum(1 for e in events if len(e.get('persistent_source_scene_ids') or [])>1),'white_reset_scene_percent':0.0},'budget_summary':{'story_action_count':sum(len(e.get('preset_actions') or []) for e in events),'choreography_action_count':sum(2+len(e.get('preset_actions') or []) for e in events if not e.get('suppressed_by_card_density')),'story_sources':['UNIVERSAL_SCENE_GRAMMAR','EXPLICIT_SEMANTIC_RELATIONSHIPS','SPATIOTEMPORAL_FEASIBILITY_SOLVER','ATOMIC_HANDOFF_TIMING_OPTIMIZER','CROSS_CARD_HANDOFF_CONSTRAINT_SOLVER','READABLE_STATE_LIFECYCLE_COMPILER','DETERMINISTIC_EFFECT_VARIETY_DIRECTOR','TYPOGRAPHY_MOTION_UNITS'],'hierarchical_motion_unit_count':0,'inferred_causal_edge_count':0,'actionable_story_edge_count':sum(1 for c in cards['cards'] for r in c.get('relationship_resolutions') or [] if r.get('mode')=='WITHIN_FRAME_PRESET'),'layout_choreography_action_count':sum(len(e.get('preset_actions') or []) for e in events),'story_eligible_scene_count':sum(1 for c in cards['cards'] if (c.get('universal_scene_grammar') or {}).get('explicit_edges'))},'hard_invariants':{'latest_user_rules_hard_authority':True,'user_prfpset_hard_authority':True,'user_visual_samples_hard_authority':True,'legacy_motion_heuristics_disabled':True,'speculative_subobject_cutouts_forbidden':True,'spatial_role_guessing_forbidden':True,'explicit_relationship_evidence_required':True,'layout_choreography_must_not_claim_semantic_relationship':True,'high_confidence_physical_semantic_mapping_required_for_relationship_motion':True,'visual_card_duration_seconds':[3.0,5.0],'primary_elements_per_card':[1,2],'primary_rule_interpretation':'MAX_CONCURRENT_VISIBLE_PRIMARY','secondary_elements_per_card':[3,8],'secondary_detail_count_may_remain_grouped_to_preserve_cutout_integrity':True,'entry_exit_primary_only':True,'within_frame_any_element':True,'appearance_prefer_secondary':True,'disappearance_any_element':True,'full_frame_crossfade_forbidden':True,'white_wash_forbidden':True,'mask_wipe_reveal_forbidden':True,'arbitrary_drift_forbidden':True,'arbitrary_diagonal_travel_forbidden':True,'auto_relationship_arrow_forbidden':True,'allowed_preset_names':sorted((preset_authority().get('preset_motion') or {}).keys()),'position_interpolation':'USER_VISUAL_SAMPLE_CURVES','position_motion_profile':'USER_PRFPSET_ENDPOINTS_PLUS_PHYSICAL_SAMPLE_TIMING','card_layout_policy':'DENSITY_AWARE_SPATIOTEMPORAL_PHASE_SOLVER__ATOMIC_ASSET_INDIVISIBILITY','topic_specific_motion_hardcoding_forbidden':True,'universal_content_type_classifier':True,'joint_story_layout_motion_planning':True}}
     visual_instances,semantic_events=_compile_visual_instances(events,scenes_out)
@@ -1216,6 +1226,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['premium_recomposition_optimizer']=recomposition_stats
     out['effect_variety_director']=effect_variety_stats
     out['perceptual_sync_qa']=sync_qa
+    out['final_semantic_timing_composition_qa']=final_composition_qa
     out['premium_optical_scale_optimizer']=optical_scale_stats
     out['premium_spatial_choreography_optimizer']=spatial_choreography_stats
     out['instance_metrics']={'visual_instances_total':len(visual_instances),'semantic_events_total':len(semantic_events),'persistent_instances_total':sum(1 for x in visual_instances if len((x.get('persistence_source_evidence') or {}).get('source_states') or [])>1),'duplicate_same_identity_overlap_count':0,'illegal_persistence_count':0,'logical_instance_reentry_without_source_reset':0,**lifetime_stats}

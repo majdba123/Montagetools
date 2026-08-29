@@ -1,0 +1,24 @@
+# HEXA runtime and render output (resources under extension/resources stay tracked).
+.hexa_real_build/
+.hexa_real_build_*/
+.hexa_real_build*
+.hexa_tmp_inspect/
+.hexa_tmp*/
+tmp_frames/
+tmp_*/
+__pycache__/
+*.pyc
+*.log
+runs/
+diagnostics/
+failure_bundle/
+failure_bundles/
+builds/
+rendered/
+renders/
+exports/
+outputs/
+dist/
+node_modules/
+.venv/
+.pytest_cache/
