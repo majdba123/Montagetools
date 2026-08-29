@@ -247,6 +247,12 @@ def _effect_variety_director(events, cards, fps):
                 if len(rect)==4:
                     width,height=float(rect[2]),float(rect[3])
                     centered=[.5-width/2,.5-height/2,width,height]
+                    # The stored rectangle is the solved motion envelope, not
+                    # a nominal bbox. A within-frame preset may only claim the
+                    # canonical middle when that real envelope remains legal.
+                    if not _in_safe(centered):
+                        stats['rejections']['SAFE_FRAME_ENVELOPE']=stats['rejections'].get('SAFE_FRAME_ENVELOPE',0)+1
+                        continue
                     carrier['planned_rect_norm']=[round(v,6) for v in centered]
                     carrier['collision_envelope_rect_norm']=list(carrier['planned_rect_norm'])
                 carrier['card_rest_position_norm']=[.5,.5]
@@ -965,7 +971,13 @@ def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:in
     appearance='APPEAR_HIGH_SCALE';ad=preset_duration(appearance);dd=preset_duration('DISAPPEAR_DOWN_SCALE')
     exact_middle=abs(float(center[0])-0.5)<0.025 and abs(float(center[1])-0.5)<0.035
     room_for_entry=dur>=preset_duration('ENTRY_LEFT_TO_MIDDLE')+0.72
-    use_position_entry=bool(total>1 and not force_static and primary and exact_middle and room_for_entry and not e.get('composite_atomic') and not e.get('relationship_source_requested'))
+    # Position-entry presets have a fixed MIDDLE settled endpoint.  A layout
+    # that is merely near that endpoint must not be snapped there unless the
+    # actual APPEAR_HIGH_SCALE settled footprint is safe at MIDDLE.  The
+    # composition solver reserves a slightly larger envelope, but this local
+    # check is still required because the preset changes the committed center.
+    middle_settled_safe=_in_safe(_rect((.5,.5),_fp(e),float(e.get('layout_scale_multiplier') or 1.0)*1.10))
+    use_position_entry=bool(total>1 and not force_static and primary and exact_middle and middle_settled_safe and room_for_entry and not e.get('composite_atomic') and not e.get('relationship_source_requested'))
     if use_position_entry:
         pn=choose_entry_for_center(float(e.get('source_center_norm',[0.5,0.5])[0]));pd=preset_duration(pn);st=max(ps,min(hit-pd*.90,pe-pd-0.62));st=max(ps+0.02,st)
         if total==1:st=ps
