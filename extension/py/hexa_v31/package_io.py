@@ -108,14 +108,16 @@ def _validate_object_hints(root, manifest, scenes):
             for scene in scenes:
                 sid=str(scene['scene_id']); a=maps[sid]
                 if a.ndim!=2 or a.dtype!=np.uint8 or tuple(a.shape)!=(288,512): raise PackageError(f'Invalid object hint map: {sid}')
-                hints=scene.get('object_hints') or []
-                if scene.get('map_size')!=[512,288]: raise PackageError(f'Invalid object hint map_size: {sid}')
-                labels=[int(x.get('label',-1)) for x in hints]; ids=[str(x.get('object_id') or '') for x in hints]
+                hint_spec=scene.get('extraction_hints') or {}
+                hints=scene.get('object_hints') or hint_spec.get('objects') or []
+                if (scene.get('map_size') or hint_spec.get('map_size'))!=[512,288]: raise PackageError(f'Invalid object hint map_size: {sid}')
+                if hint_spec.get('map_key') not in (None,sid): raise PackageError(f'Invalid object hint map_key: {sid}')
+                labels=[int(x.get('label',-1)) for x in hints]; ids=[str(x.get('object_id') or x.get('id') or '') for x in hints]
                 if len(labels)!=len(set(labels)) or len(ids)!=len(set(ids)) or any(not x for x in ids): raise PackageError(f'Duplicate object hint identity: {sid}')
-                if any(str(x.get('extraction_policy') or '').upper() not in {'MOVABLE','CONNECTED','ATOMIC'} for x in hints): raise PackageError(f'Invalid object hint policy: {sid}')
+                if any(str(x.get('extraction_policy') or x.get('policy') or '').upper() not in {'MOVABLE','CONNECTED','ATOMIC'} for x in hints): raise PackageError(f'Invalid object hint policy: {sid}')
                 defined=set(labels); present=set(int(x) for x in np.unique(a) if int(x))
                 if present!=defined or 0 in defined: raise PackageError(f'Undefined object hint label: {sid}')
-                scene['_object_hint_map_path']=str(path); scene['_object_hint_objects']=hints
+                scene['_object_hint_map_path']=str(path); scene['_object_hint_objects']=[dict(x,object_id=x.get('object_id') or x.get('id'),extraction_policy=x.get('extraction_policy') or x.get('policy')) for x in hints]
     except PackageError: raise
     except Exception as e: raise PackageError(f'Invalid object_hints.npz: {e}')
 
