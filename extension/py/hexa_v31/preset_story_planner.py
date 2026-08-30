@@ -320,6 +320,58 @@ def _finalize_secondary_character_geometry(events):
         changed.append(str(e.get('event_id')))
     return changed
 
+def _final_physical_certification(events, cards, fps):
+    """Perform one bounded repair, then certify the exact immutable plan state."""
+    from .composition_qa import composition_plan_qa, _settled_rect
+    def qa(): return composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
+    before=qa(); repairs=[]
+    if before.get('pass'): return {'pass':True,'repair_passes':0,'before':before,'after':before,'repairs':repairs}
+    # Settled conflicts are repaired by the same phase-aware solver that owns
+    # composition. Every geometry field is committed as one tuple.
+    for card in cards.get('cards') or []:
+        cid=str(card.get('card_id'));local=[e for e in events if str(e.get('visual_card_id'))==cid and not e.get('suppressed_by_card_density')]
+        phases=(card.get('story_phase_plan') or {}).get('phases') or []
+        settled_bad=False
+        for ph in phases:
+            rows=[e for e in local if e.get('event_id') in (ph.get('event_ids') or [])]
+            rects=[_settled_rect(e) for e in rows]
+            if any(not _in_safe(r) for r in rects):
+                settled_bad=True
+            for i,a in enumerate(rects):
+                for j,b in enumerate(rects[i+1:],i+1):
+                    from .composition_solver import overlap_ratio
+                    aa,bb=rows[i],rows[j]
+                    limit=0.002 if str(aa.get('attention_priority')).upper()=='PRIMARY' and str(bb.get('attention_priority')).upper()=='PRIMARY' else (0.01 if str(aa.get('attention_priority')).upper()=='PRIMARY' or str(bb.get('attention_priority')).upper()=='PRIMARY' else 0.025)
+                    if overlap_ratio(a,b) > limit: settled_bad=True
+        if settled_bad and local:
+            layout=solve_card_layout(local,card.get('universal_scene_grammar') or {'archetype':'GENERIC'},card.get('story_phase_plan') or {'phases':[]})
+            if layout.get('pass'):
+                for e in local:
+                    p=layout['placements'].get(e.get('event_id'))
+                    if not p:continue
+                    e['card_rest_position_norm']=list(p['center_norm']);e['planned_rect_norm']=list(p['rect_norm']);e['collision_envelope_rect_norm']=list(p['rect_norm']);e['layout_scale_multiplier']=float(p['scale']);e['composition_role']=p['role'];e['composite_atomic']=bool(p['atomic'])
+                repairs.append({'card_id':cid,'type':'SETTLED_GEOMETRY_RESOLVE'})
+    # Motion-path conflicts first lose optional choreography; if the physical
+    # path remains illegal, recompile only those events to certified scale/fade.
+    for card in cards.get('cards') or []:
+        cid=str(card.get('card_id'));local=[e for e in events if str(e.get('visual_card_id'))==cid and not e.get('suppressed_by_card_density')];conflicts=card_motion_conflicts(local,float(card.get('start_seconds',0)),float(card.get('end_seconds',0)),fps)
+        if not conflicts:continue
+        involved={x for r in conflicts for x in (r.get('event_a'),r.get('event_b'))}
+        for e in local:
+            if str(e.get('event_id')) in involved and e.get('preset_actions'):
+                e['preset_actions']=[];e['final_physical_repair']='OPTIONAL_CHOREOGRAPHY_REMOVED';repairs.append({'card_id':cid,'event_id':e.get('event_id'),'type':'REMOVE_OPTIONAL_CHOREOGRAPHY'})
+        conflicts=card_motion_conflicts(local,float(card.get('start_seconds',0)),float(card.get('end_seconds',0)),fps)
+        if conflicts:
+            for e in local:
+                if str(e.get('event_id')) not in {x for r in conflicts for x in (r.get('event_a'),r.get('event_b'))}:continue
+                window=_phase_for_event(card.get('story_phase_plan') or {},str(e.get('event_id')))
+                if window:
+                    _schedule_event(e,window,card,local.index(e),len(local),force_static=True,local_events=local,fps=fps)
+                    e['final_physical_repair']='CERTIFIED_STATIC_SCALE_FALLBACK';repairs.append({'card_id':cid,'event_id':e.get('event_id'),'type':'STATIC_SCALE_FALLBACK'})
+    after=qa()
+    if not after.get('pass'):raise ValueError('FINAL_PHYSICAL_CERTIFICATION_FAILED: '+' | '.join(after.get('failures') or [])[:2000])
+    return {'pass':True,'repair_passes':1,'before':before,'after':after,'repairs':repairs}
+
 def _atomic_handoff_optimize(events, cards, fps):
     """Pre-commit, frame deterministic handoff optimization.
 
@@ -1318,6 +1370,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     cross_card_stats=_cross_card_handoff_optimize(events,cards,fps)
     atomic_stats=_atomic_handoff_optimize(events,cards,fps)
     final_secondary_geometry=_finalize_secondary_character_geometry(events)
+    final_physical_certification=_final_physical_certification(events,cards,fps)
     from .composition_qa import composition_plan_qa
     final_composition_qa=composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     # This is intentionally retained as an authoritative final-plan record.
@@ -1343,6 +1396,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['perceptual_sync_qa']=sync_qa
     out['final_semantic_timing_composition_qa']=final_composition_qa
     out['final_secondary_character_geometry_event_ids']=final_secondary_geometry
+    out['final_physical_certification']=final_physical_certification
     out['premium_optical_scale_optimizer']=optical_scale_stats
     out['premium_spatial_choreography_optimizer']=spatial_choreography_stats
     out['instance_metrics']={'visual_instances_total':len(visual_instances),'semantic_events_total':len(semantic_events),'persistent_instances_total':sum(1 for x in visual_instances if len((x.get('persistence_source_evidence') or {}).get('source_states') or [])>1),'duplicate_same_identity_overlap_count':0,'illegal_persistence_count':0,'logical_instance_reentry_without_source_reset':0,**lifetime_stats}

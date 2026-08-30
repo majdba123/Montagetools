@@ -4,6 +4,7 @@ import tempfile
 from hexa_v31.motion import build_motion_plan
 from hexa_v31.editorial_motion import EditorialMotionGrammarDirector, PacingDirector
 from hexa_v31.continuity_character import SemanticCharacterDirector, VisualContinuityQA
+from hexa_v31.preset_story_planner import _final_physical_certification
 
 ROOT=Path(__file__).resolve().parents[1]
 RULES=ROOT/'extension/resources/HEXA_EDITING_RULES_V20.json'
@@ -69,5 +70,33 @@ cards={'cards':[{'card_id':'C','start_seconds':0.,'end_seconds':3.,'duration_sec
 director=VisualContinuityQA();repair=director.repair_once(handoff,cards)
 assert repair['repaired_event_ids']==['A'] and handoff[0]['end_seconds']==1.4
 assert director.assess({'events':handoff,'visual_cards':cards})['version']==director.version
+
+def cert_event(eid,center,action=None):
+    e={'event_id':eid,'visual_card_id':'C','start_seconds':0.,'end_seconds':3.,'perceptual_hit_seconds':.8,
+       'attention_priority':'PRIMARY','source_bbox_norm':[0,0,.12,.14],'card_rest_position_norm':list(center),
+       'planned_rect_norm':[center[0]-.06,center[1]-.07,.12,.14],'collision_envelope_rect_norm':[center[0]-.06,center[1]-.07,.12,.14],
+       'layout_scale_multiplier':1.,'preset_entry':{'name':'APPEAR_HIGH_SCALE','start_seconds':.1,'duration_seconds':.55},
+       'preset_exit':{'name':'DISAPPEAR_DOWN_SCALE','start_seconds':2.3,'duration_seconds':.6},'preset_actions':[],'matting':{'opaque_foreground_fraction':1.0}}
+    if action:e['preset_actions']=[action]
+    return e
+def cert_cards(events):
+    return {'cards':[{'card_id':'C','start_seconds':0.,'end_seconds':3.,'duration_seconds':3.,
+                      'universal_scene_grammar':{'archetype':'GENERIC'},
+                      'story_phase_plan':{'phases':[{'phase_id':'P','start_seconds':0.,'end_seconds':3.,'event_ids':[e['event_id'] for e in events]}]}}]}
+
+# A late settled overlap is repaired by the authoritative layout solver.
+overlap_events=[cert_event('A',[.5,.5]),cert_event('B',[.5,.5])]
+overlap_result=_final_physical_certification(overlap_events,cert_cards(overlap_events),30.)
+assert overlap_result['pass'] and overlap_result['repair_passes']==1
+assert overlap_events[0]['card_rest_position_norm']!=overlap_events[1]['card_rest_position_norm']
+
+# A late path collision drops optional choreography before considering any
+# certified static/scale fallback, while preserving both voice anchors.
+path_action={'name':'WITHIN_MIDDLE_TO_RIGHT','start_seconds':.8,'duration_seconds':.7,'action_type':'LAYOUT_CHOREOGRAPHY','layout_purpose':'TEST_HANDOFF'}
+path_events=[cert_event('A',[.5,.5],path_action),cert_event('B',[.72,.5])]
+anchors=[e['perceptual_hit_seconds'] for e in path_events]
+path_result=_final_physical_certification(path_events,cert_cards(path_events),30.)
+assert path_result['pass'] and path_events[0]['preset_actions']==[]
+assert anchors==[e['perceptual_hit_seconds'] for e in path_events]
 
 print('V31_SPRINT1_PRODUCTION_INTEGRATION_PASS')
