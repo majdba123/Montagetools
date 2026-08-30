@@ -15,6 +15,22 @@ from .occlusion import build_occlusion_graph
 
 class VisionError(RuntimeError): pass
 
+class HintGuidedAssetExtractor:
+    """Bounded V1.1 ROI guidance; source pixels and existing matte remain authority."""
+    version='HEXA_HINT_GUIDED_EXTRACTION_V1'
+    def regions(self, scene, width, height):
+        path=scene.get('_object_hint_map_path'); objects=scene.get('_object_hint_objects') or []
+        if not path:return []
+        with np.load(path,allow_pickle=False) as maps: labels=maps[str(scene['scene_id'])]
+        labels=cv2.resize(labels,(width,height),interpolation=cv2.INTER_NEAREST)
+        rows=[]
+        for obj in objects:
+            lab=int(obj['label']); yy,xx=np.where(labels==lab)
+            if not len(xx):continue
+            pad=max(2,int(min(width,height)*.015)); x0=max(0,int(xx.min())-pad);y0=max(0,int(yy.min())-pad);x1=min(width,int(xx.max())+1+pad);y1=min(height,int(yy.max())+1+pad)
+            rows.append({'object_id':str(obj['object_id']),'label':lab,'policy':str(obj['extraction_policy']).upper(),'roi_px':[x0,y0,x1-x0,y1-y0],'hint_only':True,'resample':'NEAREST'})
+        return rows
+
 @dataclass
 class PhysicalUnit:
     physical_id: str
@@ -461,7 +477,7 @@ def _expand_hierarchical_groups(groups:list[dict], assignments:list[dict|None], 
 
 def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLike, logger=None) -> SceneVisionResult:
     sid=scene['scene_id']; out=ensure_dir(pathlib.Path(out_dir)/sid)
-    sig_payload={'algorithm':'HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER','image_sha256':sha256_file(image_path),'semantic_units':scene.get('units') or []}
+    sig_payload={'algorithm':'HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER','image_sha256':sha256_file(image_path),'semantic_units':scene.get('units') or [],'object_hints_sha256':sha256_file(scene['_object_hint_map_path']) if scene.get('_object_hint_map_path') else None,'hint_algorithm':HintGuidedAssetExtractor.version}
     cache_sig=hashlib.sha256(json.dumps(sig_payload,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
     meta_path=out/'cache_meta.json'; vision_path=out/'vision.json'
     if meta_path.is_file() and vision_path.is_file():
@@ -478,6 +494,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     raw_rgb=rgba[:,:,:3]; alpha=rgba[:,:,3] if im.mode in ('RGBA','LA') or 'transparency' in im.info else None
     native_alpha=bool(alpha is not None and np.quantile(alpha,0.05)<250)
     H,W=raw_rgb.shape[:2]
+    hint_regions=HintGuidedAssetExtractor().regions(scene,W,H)
     bg=(255,255,255) if native_alpha else _bg_estimate(raw_rgb)
     if native_alpha:
         aa=(alpha.astype(np.float32)/255.0)[...,None]
@@ -610,7 +627,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
         'binary_alpha_layers':sum(1 for m in matting_rows if int(m.get('alpha_unique_approx',0))<=2),
     }
     result=SceneVisionResult(sid,W,H,source_mode,bg,round(foreground,6),len(comps),grouped_detail_count,gc,len(semantic),round(mae,4),round(psnr,3),reconstruction_pass,round(split_conf,4),mode,any(u['edge_touch'] for u in unit_rows),unit_rows,{
-        'mask':str(out/'foreground_mask.png'),'reconstruction':str(out/'reconstruction.png'),'background':str(out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph
+        'mask':str(out/'foreground_mask.png'),'reconstruction':str(out/'reconstruction.png'),'background':str(out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph,'hint_guided_extraction':{'version':HintGuidedAssetExtractor.version,'regions':hint_regions,'source_authority':'ORIGINAL_FULL_RESOLUTION_PNG','final_alpha_authority':'EXISTING_MATTING'}
     })
     write_json(out/'vision.json',asdict(result)); write_json(meta_path,{'cache_signature':cache_sig,'input':sig_payload})
     if logger: logger.log('PASS' if mode!='FLAT_SCENE' else 'WARNING','SCENE_VISION_ANALYZED',mode=mode,source_mode=source_mode,major_groups=gc,composition_slots=slot_count,expected_units=expected,reconstruction_mae=result.reconstruction_mae,reconstruction_psnr=result.reconstruction_psnr,edge_touching=result.edge_touching,hierarchical_children=sum(1 for u in unit_rows if int(u.get('hierarchy_level',0))>0),matte_halo_risk=matte_summary.get('max_edge_halo_risk'),opaque_stage_leak=matte_summary.get('max_opaque_stage_leak_fraction'),grouped_detail_count=grouped_detail_count,translation_safe_after_occlusion=len(occlusion_graph.get('translation_safe_nodes') or []))

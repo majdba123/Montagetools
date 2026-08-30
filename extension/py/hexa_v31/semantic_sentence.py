@@ -7,7 +7,7 @@ _ACTIONS=('PRESENT','ENTER','TRANSFER','CONNECT','READ','COMPARE','INCREASE','DE
 _SIGNALS={'COMPARE':('COMPARE','COMPARISON','DIFFERENCE','VERSUS','LESS','MORE','EQUAL'),'INCREASE':('INCREASE','RISE','GROW','HIGHER'),'DECREASE':('DECREASE','DROP','REDUCE','LOWER'),'BLOCK':('BLOCK','PREVENT','STOP','DENY','LIMIT'),'REJECT':('REJECT','FAIL','ERROR','INVALID'),'ACCEPT':('ACCEPT','SUCCESS','CONFIRM','VALID','APPROVE'),'TRANSFER':('TRANSFER','HANDOFF','SEND','MOVE'),'CONNECT':('CONNECT','LINK','RELATION','FLOW'),'READ':('READ','MEASURE','CHECK','INSPECT','SCAN'),'ENTER':('ENTER','ARRIVE','REACH','INTRODUCE'),'REVEAL':('REVEAL','SHOW','DISCOVER'),'REACT':('REACT','REACTION','RESPOND'),'RESOLVE':('RESOLVE','RESULT','CONCLUDE','COMPLETE')}
 _NEGATION=re.compile(r'(?<!\w)(?:ما|لا|لم|لن|ليس|غير|NOT|NO|NEVER|WITHOUT)(?!\w)',re.I)
 
-def _text(event):return ' '.join(str(event.get(k) or '') for k in ('canonical_clause','canonical_narration','visual_concept','narrative_function','semantic_intent','relationship'))
+def _text(event):return ' '.join(str(event.get(k) or '') for k in ('canonical_clause','canonical_narration','visual_concept','package_semantic_beat','narrative_function','semantic_intent','relationship'))
 def _resolve(event):
     text=_text(event);upper=text.upper();hits=[]
     for action,signals in _SIGNALS.items():
