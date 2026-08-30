@@ -69,6 +69,26 @@ def card_motion_conflicts(events:list[dict],start_seconds:float,end_seconds:floa
         if key not in first:first[key]=row
     return list(first.values())
 
+def viewport_clipping_qa(events,fps=30.0):
+    """Certify partial visibility is brief, monotonic, and only entry/exit."""
+    failures=[];samples=0
+    for e in events:
+        if e.get('suppressed_by_card_density'):continue
+        st=float(e.get('start_seconds',0));en=float(e.get('end_seconds',st));step=1.0/max(12.,min(20.,fps));vals=[];t=st
+        while t<=en+1e-6:
+            state=_state(e,t)
+            if state and state[2]>.22:
+                r=state[3];visible=max(0.,min(1.,r[0]+r[2])-max(0.,r[0]))*max(0.,min(1.,r[1]+r[3])-max(0.,r[1]));vals.append((t,visible/max(1e-9,r[2]*r[3])));samples+=1
+            t+=step
+        clipped=[x for x in vals if x[1]<.995]
+        if not clipped:continue
+        duration=clipped[-1][0]-clipped[0][0]+step;entry=bool(e.get('preset_entry'));exit=bool(e.get('preset_exit'))
+        if not (entry or exit) or duration>.95:failures.append(f"{e.get('event_id')}: sustained viewport clipping {duration:.3f}s")
+        fractions=[x[1] for x in clipped]
+        if entry and not exit and any(b+1e-4<a for a,b in zip(fractions,fractions[1:])):failures.append(f"{e.get('event_id')}: nonmonotonic entry clipping")
+        if exit and not entry and any(b>a+1e-4 for a,b in zip(fractions,fractions[1:])):failures.append(f"{e.get('event_id')}: nonmonotonic exit clipping")
+    return {'pass':not failures,'failures':failures,'sample_count':samples,'authority':'FINAL_COMMITTED_VISIBLE_FRACTION_OVER_TIME'}
+
 def composition_plan_qa(motion_plan:dict)->dict:
     failures=[];warnings=[];cards=(motion_plan.get('visual_cards') or {}).get('cards') or [];events=motion_plan.get('events') or [];fps=float(motion_plan.get('fps') or 30.0)
     by_card={str(c.get('card_id')):[] for c in cards}
@@ -101,4 +121,5 @@ def composition_plan_qa(motion_plan:dict)->dict:
             bad_pairs+=1;failures.append(f"{cid}@{row['time_seconds']:.2f}s: motion-path overlap {row['event_a']} x {row['event_b']}={row['overlap_ratio']:.3f}>{row['limit']:.3f}")
     # dedupe messages while preserving order
     failures=list(dict.fromkeys(failures));warnings=list(dict.fromkeys(warnings))
-    return {'pass':not failures,'failures':failures,'warnings':warnings,'checked_pair_count':total_pairs,'dynamic_pair_samples':dynamic_samples,'bad_pair_count':bad_pairs,'visual_card_count':len(cards),'authority':'V31_CONSTRAINT_SOLVED_COMPOSITION__SETTLED_AND_MOTION_PATH_HARD_GATE'}
+    viewport=viewport_clipping_qa(events,fps);failures.extend(viewport['failures'])
+    return {'pass':not failures,'failures':failures,'warnings':warnings,'checked_pair_count':total_pairs,'dynamic_pair_samples':dynamic_samples,'bad_pair_count':bad_pairs,'visual_card_count':len(cards),'viewport_clipping_qa':viewport,'authority':'V31_CONSTRAINT_SOLVED_COMPOSITION__SETTLED_AND_MOTION_PATH_HARD_GATE'}

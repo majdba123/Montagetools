@@ -7,6 +7,7 @@ from .util import ensure_dir, read_json, sha256_file, write_json, documents_dir,
 from .diagnostics import BuildLogger
 from .package_io import open_and_validate
 from .audio import probe_audio, decode_mono16k
+from .audio_prosody import AudioProsodyAnalyzer
 from .alignment import resolve_alignment, project_scene_intervals_from_word_timings
 from .motion import build_motion_plan
 from .premiere import build_layer_render_map, build_premiere_handoff_from_scene_media
@@ -149,6 +150,9 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         if not aq['pass']:
             log.log('ERROR','ALIGNMENT_QA_FAILED',failures=aq.get('failures')); raise BuildFailure('Alignment technical QA failed after monotonic projection: '+ ' | '.join(aq.get('failures') or []))
         log.log('PASS','ALIGNMENT_QA_PASS',scene_count=len(pkg.scenes),projection=(alignment.get('quality') or {}).get('scene_timing_projection','NONE'))
+        prosody=AudioProsodyAnalyzer().analyze(wav,alignment);alignment['audio_prosody']=prosody
+        for word,feature in zip(alignment.get('word_timings') or [],prosody.get('word_features') or []):word.update({k:feature[k] for k in ('rms','energy','onset_strength','pause_before','pause_after')})
+        log.log('PASS','AUDIO_PROSODY_PCM_ANALYZED',nonzero_energy_count=prosody.get('nonzero_energy_count'),source=prosody.get('source'))
         write_json(align_path,alignment)
 
         log.phase('VISION_RECONSTRUCTION')

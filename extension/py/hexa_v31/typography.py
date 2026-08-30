@@ -14,7 +14,8 @@ WEAK_WORDS={'و','أو','او','بس','لكن','لأن','لان','إذا','اذ�
 
 
 _CONNECTOR_RE=re.compile(r'^(?:and|or|but|because|if|then|with|from|to|of|the|a|an|this|that|it|they|he|she|we|i)$',re.I)
-_ARABIC_BOUNDARY_GLUE={'و','أو','لكن','لأن','إذا','حتى','مع','من','في','على','عن','إلى','ثم','بعد','قبل','عند','هو','هي','هم','ما','لا','لم','لن','قد'}
+_ARABIC_BOUNDARY_GLUE={'و','أو','لكن','لأن','إذا','حتى','مع','من','في','على','عن','إلى','ثم','بعد','قبل','عند','هو','هي','هم','قد'}
+_ARABIC_POLARITY={'ما','لا','لم','لن','ليس','غير'}
 
 class ArabicPhraseCompletenessAnalyzer:
     version='HEXA_ARABIC_PHRASE_COMPLETENESS_V3'
@@ -22,8 +23,13 @@ class ArabicPhraseCompletenessAnalyzer:
         text=_clean(value);words=[_word_clean(x) for x in text.split() if _word_clean(x)]
         reasons=[];arabic=bool(_ARABIC_RE.search(text));numeric=bool(_DIGIT_RE.search(text))
         if canonical is not None and text not in str(canonical):reasons.append('NOT_EXACT_CANONICAL_SUBSTRING')
+        if canonical is not None and text in str(canonical):
+            cw=[_word_clean(x) for x in _clean(canonical).split()];tw=[_word_clean(x) for x in text.split()]
+            for i in range(0,max(0,len(cw)-len(tw)+1)):
+                if cw[i:i+len(tw)]==tw and i>0 and cw[i-1] in _ARABIC_POLARITY:reasons.append('POLARITY_DROPPED');break
         if not words:reasons.append('EMPTY')
         if words and (words[0] in _ARABIC_BOUNDARY_GLUE or words[-1] in _ARABIC_BOUNDARY_GLUE):reasons.append('WEAK_BOUNDARY_CONNECTOR')
+        if words and words[-1] in _ARABIC_POLARITY:reasons.append('INCOMPLETE_POLARITY')
         if words and (_CONNECTOR_RE.match(words[0]) or _CONNECTOR_RE.match(words[-1])):reasons.append('WEAK_BOUNDARY_CONNECTOR')
         content=[w for w in words if w not in _ARABIC_BOUNDARY_GLUE]
         if arabic and not numeric and len(content)<2:reasons.append('INCOMPLETE_SEMANTIC_PHRASE')
@@ -95,7 +101,7 @@ def _is_displayable(s):
 
 def _strip_weak_prefix(s):
     words=_clean(s).split()
-    while len(words)>=2 and _word_clean(words[0]).lower() in WEAK_WORDS:
+    while len(words)>=2 and _word_clean(words[0]).lower() in WEAK_WORDS and _word_clean(words[0]) not in _ARABIC_POLARITY:
         words=words[1:]
     return _clean(' '.join(words))
 
@@ -374,7 +380,8 @@ def build_text_plan(package,alignment,vision_results,motion_plan,logger=None):
         slide_dy = 0.026 if 'TOP' in pl['slot'] else (-0.026 if 'BOTTOM' in pl['slot'] else 0.0)
         grammar={'FREE_KEYWORD':'KEYWORD_REVEAL','OBJECT_ADJACENT_LABEL':'OBJECT_THEN_LABEL','STATUS_BADGE':'STATUS_HIT','VALUE_LOCKUP':'VALUE_REVEAL','RESULT_LOCKUP':'RESULT_EMPHASIS','SIDE_CALLOUT':'SIDE_CALLOUT_REVEAL','COMPARISON_LABELS':'COMPARISON_BUILD'}.get(c.get('treatment'),'TEXT_OBJECT_HANDOFF')
         geom=pl['text_geometry'];role=c.get('typography_role')
-        out.append({'text_id':f'TEXT_{i:03d}','scene_id':c['scene_id'],'scene_order':c['scene_order'],'visual_card_id':c.get('visual_card_id'),'unit_id':c.get('unit_id'),'text':c['text'],'style':style,'typography_role':role,'treatment':c.get('treatment'),'motion_grammar':grammar,'relationship_target_unit_id':c.get('unit_id'),'relationship_placement':pl['relationship_placement'],'entry_seconds':round(start,6),'impact_seconds':round(impact,6),'settle_seconds':round(settle,6),'semantic_anchor_seconds':round(ts,6),'pre_roll_seconds':round(max(0,impact-start),6),'readable_start_seconds':round(settle,6),'readable_end_seconds':round(end-0.18,6),'start_seconds':round(start,6),'end_seconds':round(end,6),'fade_in_seconds':min(.20,entry_duration*.45),'fade_out_seconds':0.18,'pop_scale_from':.94 if role in ('VALUE','RESULT','WARNING','STATUS') else .97,'pop_scale_peak':1.018 if role in ('VALUE','RESULT') else 1.0,'pop_scale_end':1.0,'slide_dx_norm':slide_dx*.56,'slide_dy_norm':slide_dy*.56,'slide_duration_seconds':entry_duration,'read_sweep_dx_norm':round(-slide_dx*.10,6),'read_sweep_dy_norm':round(-slide_dy*.08,6),'read_sweep_duration_seconds':1.15,'motion_preset':'TEXT_'+grammar+'__V31_0_25','x_norm':pl['x_norm'],'y_norm':pl['y_norm'],'w_norm':pl['w_norm'],'h_norm':pl['h_norm'],'slot':pl['slot'],'text_geometry':geom,'font_policy':'CERTIFIED_FONT_HASH_PLUS_HARFBUZZ_GLYPH_PLAN','generic_background_panel':False,'semantic_source':c.get('source'),'source_lifetime_authority':'SOURCE_ANCHOR_THROUGH_CURRENT_SEMANTIC_CARD','score':c['score'],'visual_overlap_score':pl['visual_overlap_score'],'budget_cost':0.24 if style in ('KEY_TERM','MICRO_LABEL') else 0.30})
+        semantic_phrase=bool(c.get('source')=='SCENE_SCRIPT_LITERAL_SUBPHRASE');phrase_end=min(end,ts+max(0.85,min(2.4,end-ts))) if semantic_phrase else end
+        out.append({'text_id':f'TEXT_{i:03d}','scene_id':c['scene_id'],'scene_order':c['scene_order'],'visual_card_id':c.get('visual_card_id'),'unit_id':c.get('unit_id'),'text':c['text'],'style':style,'typography_role':role,'treatment':c.get('treatment'),'motion_grammar':grammar,'relationship_target_unit_id':c.get('unit_id'),'relationship_placement':pl['relationship_placement'],'entry_seconds':round(start,6),'impact_seconds':round(impact,6),'settle_seconds':round(settle,6),'semantic_anchor_seconds':round(ts,6),'pre_roll_seconds':round(max(0,impact-start),6),'readable_start_seconds':round(settle,6),'readable_end_seconds':round(phrase_end-0.18,6),'start_seconds':round(start,6),'end_seconds':round(phrase_end,6),'text_lifetime_kind':'SEMANTIC_PHRASE' if semantic_phrase else 'CONTEXT_LABEL','fade_in_seconds':min(.20,entry_duration*.45),'fade_out_seconds':0.18,'pop_scale_from':.94 if role in ('VALUE','RESULT','WARNING','STATUS') else .97,'pop_scale_peak':1.018 if role in ('VALUE','RESULT') else 1.0,'pop_scale_end':1.0,'slide_dx_norm':slide_dx*.56,'slide_dy_norm':slide_dy*.56,'slide_duration_seconds':entry_duration,'read_sweep_dx_norm':round(-slide_dx*.10,6),'read_sweep_dy_norm':round(-slide_dy*.08,6),'read_sweep_duration_seconds':1.15,'motion_preset':'TEXT_'+grammar+'__V31_0_25','x_norm':pl['x_norm'],'y_norm':pl['y_norm'],'w_norm':pl['w_norm'],'h_norm':pl['h_norm'],'slot':pl['slot'],'text_geometry':geom,'font_policy':'CERTIFIED_FONT_HASH_PLUS_HARFBUZZ_GLYPH_PLAN','generic_background_panel':False,'semantic_source':c.get('source'),'source_lifetime_authority':'ALIGNED_PHRASE_WINDOW' if semantic_phrase else 'SOURCE_ANCHOR_THROUGH_CURRENT_SEMANTIC_CARD','score':c['score'],'visual_overlap_score':pl['visual_overlap_score'],'budget_cost':0.24 if style in ('KEY_TERM','MICRO_LABEL') else 0.30})
     font_cert=certified_arabic_font_status()
     result={'schema':'HEXA_SELECTIVE_TYPOGRAPHY_PLAN_V31','version':'3.3-V31_0_25_TYPOGRAPHY_V3','policy':'TYPOGRAPHY_V3__COMPLETE_ARABIC_PHRASES__CERTIFIED_HARFBUZZ','scene_count':len(scenes),'eligible_scene_count':eligible,'opportunity_count':len(candidates),'target_count':target,'text_event_count':len(out),'coverage_scene_percent':round(100.0*len(out)/max(1,len(scenes)),2),'eligible_coverage_percent':round(100.0*len(out)/max(1,eligible),2),'events':out,'typography_production_certification':font_cert,'production_review_required':not font_cert.get('pass',False),'hard_rules':{'not_every_scene':True,'max_one_text_event_per_scene':True,'exact_narration_substring_required':True,'complete_phrase_required':True,'no_full_sentence_subtitles':True,'max_words':5,'max_chars':36,'negative_space_placement_required':True,'related_visual_placement_required':True,'generic_background_panels_forbidden':True,'top_center_default_forbidden':True,'face_head_primary_occlusion_forbidden':True,'arabic_shaping_required':True,'certified_font_hash_required':True,'harfbuzz_raqm_authority':True,'no_bundled_unapproved_font':True,'adaptive_coverage':True,'topic_specific_keyword_dependency':False,'minimum_duration_seconds':0.85,'quota_filling_forbidden':True,'perceptual_settle_voice_anchored':True,'bounded_pre_roll_max_seconds':.52}}
     if logger:logger.log('PASS','SELECTIVE_TYPOGRAPHY_PLAN_BUILT',text_events=len(out),scene_count=len(scenes),eligible_scenes=eligible,opportunities=len(candidates),coverage_percent=result['coverage_scene_percent'],styles=sorted(set(e['style'] for e in out)))

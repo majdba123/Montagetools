@@ -11,6 +11,8 @@ from .visual_density import build_visual_density_report
 from .editorial_motion import EditorialMotionGrammarDirector, PacingDirector
 from .continuity_character import VisualContinuityQA, SemanticCharacterDirector
 from .semantic_sentence import SemanticVisualSentenceCompiler
+from .visual_affordance import classify as classify_affordance, legal_operations
+from .beat_choreography import BeatChoreographyCompiler
 
 def _entry_fraction(event):
     return .90 if str((event.get('preset_entry') or {}).get('name') or '').startswith('ENTRY_') else .70
@@ -223,7 +225,7 @@ def _effect_variety_director(events, cards, fps):
                       float(e.get('start_seconds',0))<ce and float(e.get('end_seconds',0))>cs),
                      key=lambda e:(float(e.get('perceptual_hit_seconds',e.get('start_seconds',0))),str(e.get('event_id'))))
         for carrier,nxt in zip(local,local[1:]):
-            if carrier.get('preset_actions') or str(carrier.get('attention_priority') or '').upper()!='PRIMARY' or not carrier.get('pacing_discretionary_action_allowed',True):
+            if carrier.get('preset_actions') or str(carrier.get('attention_priority') or '').upper()!='PRIMARY' or not carrier.get('pacing_discretionary_action_allowed',True) or 'TRANSLATE' not in (carrier.get('visual_affordance_operations') or []) or carrier.get('beat_choreography_fallback_static'):
                 continue
             current_hit=float((carrier.get('preset_entry') or {}).get('start_seconds',carrier.get('start_seconds',0)))+_entry_fraction(carrier)*float((carrier.get('preset_entry') or {}).get('duration_seconds') or preset_duration('APPEAR_HIGH_SCALE'))
             next_hit=float((nxt.get('preset_entry') or {}).get('start_seconds',nxt.get('start_seconds',0)))+_entry_fraction(nxt)*float((nxt.get('preset_entry') or {}).get('duration_seconds') or preset_duration('APPEAR_HIGH_SCALE'))
@@ -1265,7 +1267,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
                 hit=(float(st['start'])+float(st['end']))/2.0;hit_source='SOURCE_INTERVAL_FALLBACK'
             e={
                 'event_id':f'{sid}_{u["physical_id"]}','scene_id':sid,'visual_card_id':card['card_id'],'physical_id':u['physical_id'],'semantic_unit_id':u.get('semantic_unit_id'),'semantic_scope_id':f"{sid}::{u.get('semantic_unit_id')}" if u.get('semantic_unit_id') else f"{sid}::{u['physical_id']}",'semantic_type':u.get('semantic_type'),'semantic_role':u.get('semantic_role'),'kind':_kind(u),'identity_key':_identity(sem,u),
-                'narrative_function':sem.get('narrative_function'),'semantic_intent':sem.get('semantic_intent'),'relationship':sem.get('relationship'),
+                'narrative_function':sem.get('narrative_function'),'semantic_intent':sem.get('semantic_intent'),'relationship':sem.get('relationship'),'visual_concept':sem.get('visual_concept'),'canonical_clause':(scene.get('script_span') or {}).get('text') or scene.get('narration') or '',
                 'source_scene_start_seconds':float(st['start']),'source_scene_end_seconds':float(st['end']),'source_center_norm':[cx,cy],'source_bbox_norm':u.get('bbox_norm'),'source_grouped_detail_count':int(u.get('grouped_detail_count') or ((vr.get('grouped_detail_count') or (vr.get('artifacts') or {}).get('grouped_detail_count') or 0) if len(units)==1 else 0)),
                 'start_seconds':float(st['start']),'perceptual_hit_seconds':round(hit,6),'perceptual_hit_source':hit_source,'settle_seconds':float(st['end']),'end_seconds':float(st['end']),'preset_entry':None,'preset_exit':None,'preset_actions':[],
                 'appearance_method':None,'disappearance_method':None,'entry_direction':None,'position_animated':False,'position_min_frames':12,'position_interpolation':'USER_PRESET_CURVE','motion_profile':'USER_VISUAL_SAMPLE_AUTHORITY','motion_blur_enabled':False,'preset_coordinate_mode':'ABSOLUTE_OBJECT_CENTER',
@@ -1359,7 +1361,10 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     recomposition_stats=_recomposition_optimize(events,cards,fps)
     optical_scale_stats=_optical_scale_optimize(events,cards,fps)
     spatial_choreography_stats=_spatial_choreography_optimize(events,cards,fps)
+    for e in events:
+        e['visual_affordance']=classify_affordance(e);e['visual_affordance_operations']=list(legal_operations(e['visual_affordance']))
     semantic_visual_sentences=SemanticVisualSentenceCompiler().compile(events)
+    beat_choreography=BeatChoreographyCompiler().compile(events,semantic_visual_sentences.get('sentences') or [])
     editorial_motion_grammar=EditorialMotionGrammarDirector().direct(events)
     pacing_diagnostics=PacingDirector().plan(events,alignment,fps)
     character_director=SemanticCharacterDirector().direct(events)
@@ -1392,6 +1397,8 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['effect_variety_director']=effect_variety_stats
     out['editorial_motion_grammar_director']=editorial_motion_grammar
     out['semantic_visual_sentence_compiler']=semantic_visual_sentences
+    out['visual_affordance_graph']={'version':'HEXA_VISUAL_AFFORDANCE_GRAPH_V1','classes':{k:sum(1 for e in events if e.get('visual_affordance')==k) for k in ('ROOT_ATOMIC','DETACHED_TRANSLATABLE','CONNECTED_REVEAL_ONLY','CONNECTED_LOCAL_EMPHASIS','ARTICULATED_SUBOBJECT','CONTEXT_RESIDUAL')},'consumed_by_planner':True}
+    out['beat_choreography_compiler']=beat_choreography
     out['pacing_director']=pacing_diagnostics
     out['semantic_character_director']=character_director
     out['continuity_planning_repair']=continuity_planning
