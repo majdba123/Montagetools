@@ -40,7 +40,14 @@ def _apply_hint_guidance(mask, groups, assignments, regions):
         if not candidate: hint['validation_result']='FALLBACK_NO_FOREGROUND'; continue
         scores=[(int(np.count_nonzero(_group_mask(mask,g)&roi)),i) for i,g in enumerate(out)];_,idx=max(scores,default=(0,-1))
         if hint['policy']=='MOVABLE' and idx>=0:
-            g=out[idx];g['_mask']=roi;g.update({k:candidate[k] for k in ('x','y','w','h','area','cx','cy')});g['_hint']=hint;hint['validation_result']='CERTIFIED_FOREGROUND_SEED'
+            g=out[idx]; complete=int(np.count_nonzero(roi))/max(1,int(np.count_nonzero(_group_mask(mask,g))))
+            g['_hint']=hint
+            # Never let a coarse label discard attached source pixels: only adopt
+            # the ROI mask when it proves near-complete ownership, otherwise retain
+            # the existing atomic physical group as the safe fallback.
+            if complete>=.92:
+                g['_mask']=roi;g.update({k:candidate[k] for k in ('x','y','w','h','area','cx','cy')});hint['validation_result']='CERTIFIED_FOREGROUND_SEED'
+            else: hint['validation_result']='FALLBACK_INCOMPLETE_FOREGROUND_OWNERSHIP'
         elif idx>=0:
             out[idx]['_hint']=hint;hint['validation_result']='PRESERVED_TOPOLOGY'
         else: hint['validation_result']='FALLBACK_ATOMIC'
