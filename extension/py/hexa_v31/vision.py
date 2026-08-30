@@ -31,6 +31,21 @@ class HintGuidedAssetExtractor:
             rows.append({'object_id':str(obj['object_id']),'label':lab,'policy':str(obj['extraction_policy']).upper(),'roi_px':[x0,y0,x1-x0,y1-y0],'hint_only':True,'resample':'NEAREST'})
         return rows
 
+def _apply_hint_guidance(mask, groups, assignments, regions):
+    """Use labels as foreground-constrained ownership seeds, never final alpha."""
+    out=[dict(g) for g in groups]
+    for hint in regions:
+        x,y,w,h=hint['roi_px']; roi=np.zeros_like(mask);roi[y:y+h,x:x+w]=mask[y:y+h,x:x+w]
+        candidate=_group_from_mask(roi)
+        if not candidate: hint['validation_result']='FALLBACK_NO_FOREGROUND'; continue
+        scores=[(int(np.count_nonzero(_group_mask(mask,g)&roi)),i) for i,g in enumerate(out)];_,idx=max(scores,default=(0,-1))
+        if hint['policy']=='MOVABLE' and idx>=0:
+            g=out[idx];g['_mask']=roi;g.update({k:candidate[k] for k in ('x','y','w','h','area','cx','cy')});g['_hint']=hint;hint['validation_result']='CERTIFIED_FOREGROUND_SEED'
+        elif idx>=0:
+            out[idx]['_hint']=hint;hint['validation_result']='PRESERVED_TOPOLOGY'
+        else: hint['validation_result']='FALLBACK_ATOMIC'
+    return out,assignments
+
 @dataclass
 class PhysicalUnit:
     physical_id: str
@@ -506,6 +521,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     grouped_detail_count=_grouped_detail_count(rgb,mask)
     semantic=scene.get('units') or []
     groups,assignments=_partition_for_semantics(mask,semantic,W,H)
+    groups,assignments=_apply_hint_guidance(mask,groups,assignments,hint_regions)
     groups,assignments,hierarchy_decisions=_expand_hierarchical_groups(groups,assignments,W,H,rgb=rgb)
     unit_rows=[]; layer_paths=[]
     union=np.zeros((H,W),np.uint8)
