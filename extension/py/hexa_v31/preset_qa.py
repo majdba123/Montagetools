@@ -42,7 +42,10 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
             failures.append(f"{e.get('event_id')}: primary preset capacity overflow; card compiler failed to allocate a legal 3-5s window")
         if e.get('suppressed_by_card_density'):continue
         eid=str(e.get('event_id'))
-        if int(e.get('hierarchy_level') or 0)!=0:failures.append(f'{eid}: speculative sub-object layer survived V31')
+        if int(e.get('hierarchy_level') or 0)>0:
+            if e.get('render_mode')!='CHILD_PARTITION' or not e.get('partition_complete') or not e.get('source_layer_path'):
+                failures.append(f'{eid}: hierarchical child lacks certified partition render evidence')
+            if not e.get('reveal_safe',True):failures.append(f'{eid}: unsafe hierarchical child entered render plan')
         primary=str(e.get('attention_priority') or '').upper()=='PRIMARY'
         for key in ('preset_entry','preset_exit'):
             p=e.get(key)
@@ -109,7 +112,9 @@ def preset_story_plan_qa(motion_plan:dict,vision_results:list[dict]|None=None)->
         for v in vision_results:
             sid=str(v.get('scene_id'))
             children=[u for u in (v.get('units') or []) if int(u.get('hierarchy_level') or 0)>0]
-            if children:failures.append(f'{sid}: {len(children)} speculative hierarchical cutouts remain')
+            # Vision children are permitted only when the planner selected a
+            # complete source-backed CHILD_PARTITION.  This auditor receives
+            # vision evidence, not a request to render every extracted child.
             matte=(v.get('artifacts') or {}).get('matting_summary') or {};risk=float(matte.get('max_edge_halo_risk') or 0.0)
             leak=float(matte.get('max_opaque_stage_leak_fraction') or 0.0)
             if risk>0.55:warnings.append(f'{sid}: high matte halo risk {risk:.3f}; preserve grouped-source object and avoid thinner slicing')

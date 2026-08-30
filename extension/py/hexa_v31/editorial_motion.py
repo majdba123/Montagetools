@@ -39,6 +39,15 @@ class EditorialMotionGrammarDirector:
             streak=streak+1 if history and history[-1]['family']==family else 1;primitive_streak=primitive_streak+1 if history and history[-1]['primitive']==primitive else 1
             max_streak=max(max_streak,streak);max_primitive=max(max_primitive,primitive_streak)
             event['editorial_motion_intent']=intent;event['editorial_motion_grammar']=list(_GRAMMAR.get(intent,('ESTABLISH',intent,'READABLE_HOLD')));event['motion_family']=family;event['motion_family_streak']=streak;event['motion_primitive_streak']=primitive_streak
+            # This is a bounded preference over installed within-frame presets,
+            # consumed by the planner's legal-effect selector.  It is never a
+            # request to manufacture a new effect or bypass geometry QA.
+            side=float((event.get('card_rest_position_norm') or [.5,.5])[0])
+            if intent=='COMPARE': event['editorial_within_frame_preference']='WITHIN_MIDDLE_TO_LEFT' if side>=.5 else 'WITHIN_MIDDLE_TO_RIGHT'
+            elif intent in {'REVEAL','EMPHASIZE','SUCCESS','FAILURE'}: event['editorial_within_frame_preference']='WITHIN_MIDDLE_TO_RIGHT' if side>=.5 else 'WITHIN_MIDDLE_TO_LEFT'
+            elif intent=='REACTION': event['editorial_within_frame_preference']='WITHIN_MIDDLE_TO_UP'
+            else:event['editorial_within_frame_preference']=None
+            event['editorial_motion_planning_authority']='CERTIFIED_PRESET_ALTERNATIVES_ONLY'
             history.append({'family':family,'primitive':primitive})
         return {'version':self.version,'event_count':len(history),'motion_family_streak_max':max_streak,'same_primitive_streak_max':max_primitive,'families':sorted(set(x['family'] for x in history))}
 
@@ -53,3 +62,22 @@ class PacingDirector:
         bursts=[max(1,int(round(float((e.get('preset_entry') or {}).get('duration_seconds') or 0)*fps))) for e in events if e.get('preset_entry')]
         short=sum(1 for b in bursts if b<=3);high=sum(1 for e in events if str(e.get('motion_energy')).upper()=='HIGH')
         phrase_count=max(1,len(words));return {'version':self.version,'speech_words_per_second':round(len(words)/duration,4),'phrase_count':phrase_count,'pause_count':len(pauses),'pause_motion_ratio':round(sum(1 for p in pauses if p>0.35)/max(1,len(pauses)),4),'per_phrase_visual_action_count':round(len(events)/phrase_count,4),'high_motion_single_frame_burst_ratio':round(sum(1 for b in bursts if b==1)/max(1,len(bursts)),4),'high_motion_short_burst_ratio':round(short/max(1,len(bursts)),4),'motion_burst_duration_p50':statistics.median(bursts) if bursts else 0,'motion_burst_duration_p90':sorted(bursts)[max(0,int(.9*len(bursts))-1)] if bursts else 0,'longest_planned_dead_hold':round(dead,4),'motion_energy_variance':round(high/max(1,len(events))*(1-high/max(1,len(events))),4)}
+
+    def plan(self,events,alignment,fps=30.0):
+        """Commit deterministic discretionary-action budgets before selection."""
+        report=self.diagnose(events,alignment,fps);rate=float(report['speech_words_per_second'])
+        ordered=sorted(events,key=lambda e:(float(e.get('perceptual_hit_seconds',0)),str(e.get('event_id'))))
+        # Dense narration suppresses competing optional actions; slow narration
+        # keeps meaningful secondary choreography eligible. Required entries and
+        # voice anchors are untouched in either mode.
+        stride=2 if rate>=2.8 else 1
+        allowed=0
+        for index,event in enumerate(ordered):
+            eligible=not event.get('suppressed_by_card_density') and str(event.get('attention_priority') or '').upper()=='PRIMARY'
+            permit=bool(eligible and index%stride==0)
+            event['pacing_discretionary_action_allowed']=permit
+            event['pacing_action_spacing_seconds']=round(0.48 if stride>1 else 0.28,4)
+            event['pacing_mode']='DENSE_PRIORITIZED' if stride>1 else 'READABLE_SECONDARY_ALLOWED'
+            allowed+=int(permit)
+        report.update({'planning_authority':'BOUNDED_DISCRETIONARY_ACTION_CONSTRAINTS','discretionary_action_budget':allowed,'competing_impact_suppression':stride>1,'deterministic':True})
+        return report

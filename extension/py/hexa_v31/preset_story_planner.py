@@ -59,6 +59,8 @@ def rank_legal_effects(choices,history,carrier,nxt,archetype='SINGLE_FOCUS'):
         score+=2.2*sum(str(h.get('archetype'))==str(archetype) for h in recent[-2:])
         score+=2.0*sum(str(h.get('handoff_grammar'))==_interaction_grammar(carrier,nxt) for h in recent[-2:])
         if direction==wanted:score-=4.0
+        if str(carrier.get('editorial_within_frame_preference') or '')==name:score-=6.0
+        if str(carrier.get('character_within_frame_preference') or '')==name:score-=5.0
         rows.append((score,name))
     return [name for _,name in sorted(rows,key=lambda x:(x[0],x[1]))]
 
@@ -220,7 +222,7 @@ def _effect_variety_director(events, cards, fps):
                       float(e.get('start_seconds',0))<ce and float(e.get('end_seconds',0))>cs),
                      key=lambda e:(float(e.get('perceptual_hit_seconds',e.get('start_seconds',0))),str(e.get('event_id'))))
         for carrier,nxt in zip(local,local[1:]):
-            if carrier.get('preset_actions') or str(carrier.get('attention_priority') or '').upper()!='PRIMARY':
+            if carrier.get('preset_actions') or str(carrier.get('attention_priority') or '').upper()!='PRIMARY' or not carrier.get('pacing_discretionary_action_allowed',True):
                 continue
             current_hit=float((carrier.get('preset_entry') or {}).get('start_seconds',carrier.get('start_seconds',0)))+_entry_fraction(carrier)*float((carrier.get('preset_entry') or {}).get('duration_seconds') or preset_duration('APPEAR_HIGH_SCALE'))
             next_hit=float((nxt.get('preset_entry') or {}).get('start_seconds',nxt.get('start_seconds',0)))+_entry_fraction(nxt)*float((nxt.get('preset_entry') or {}).get('duration_seconds') or preset_duration('APPEAR_HIGH_SCALE'))
@@ -269,6 +271,8 @@ def _effect_variety_director(events, cards, fps):
                 if card_motion_conflicts(local,cs,ce,fps) or not composition_plan_qa(candidate_plan).get('pass'):
                     carrier.clear();carrier.update(snap);stats['rejections']['COLLISION_OR_PATH']=stats['rejections'].get('COLLISION_OR_PATH',0)+1;continue
                 grammar=_interaction_grammar(carrier,nxt);carrier['premium_effect_variety_grammar']='SPATIAL_HANDOFF';carrier['premium_within_frame_recomposition']=True;carrier['interaction_grammar']=grammar;carrier['screen_memory_reuse']=True;carrier['handoff_target_event_id']=str(nxt.get('event_id'))
+                if carrier.get('character_editorial_purpose'):
+                    carrier['character_choreography']='CERTIFIED_'+str(carrier['character_editorial_purpose'])+'_EMPHASIS'
                 history.append({'entry_family':str((carrier.get('preset_entry') or {}).get('name') or 'STATIC_REVEAL'),'exit_family':str((carrier.get('preset_exit') or {}).get('name') or 'HOLD_HANDOFF'),'within_family':name,'travel_direction':_direction(name),'scale_behavior':'FOCAL_REFRAME' if abs(float(carrier.get('layout_scale_multiplier') or 1)-1)>.04 else 'NO_SCALE','handoff_grammar':grammar,'archetype':archetype,'typography_animation':'RELATED_VISUAL_ROLE_PROFILE','primary_side':'LEFT' if float((carrier.get('card_rest_position_norm') or [.5])[0])<.5 else 'RIGHT','character_side':'LEFT' if 'CHARACTER' in str(carrier.get('semantic_type') or '').upper() and float((carrier.get('card_rest_position_norm') or [.5])[0])<.5 else 'RIGHT' if 'CHARACTER' in str(carrier.get('semantic_type') or '').upper() else 'NONE'})
                 stats['families_used'][name]=stats['families_used'].get(name,0)+1;stats['interaction_grammars'][grammar]=stats['interaction_grammars'].get(grammar,0)+1
                 stats['candidates_committed']+=1;stats['event_ids'].append(str(carrier.get('event_id')));committed=True;break
@@ -957,6 +961,41 @@ def _event_is_atomic(e:dict)->bool:
     b=e.get('source_bbox_norm') or [0,0,.3,.3];w=float(b[2])*float(e.get('reference_camera_scale') or 1.0);h=float(b[3])*float(e.get('reference_camera_scale') or 1.0);detail=int(e.get('source_grouped_detail_count') or 0)
     return bool(w>0.50 or h>0.58 or w*h>0.16 or detail>=5)
 
+def _select_render_units(vision_row:dict)->tuple[list[dict],dict]:
+    """Choose one source-backed render representation for every semantic root.
+
+    Hierarchy extraction is evidence, not an instruction to stack the root and
+    its pixels.  A partition is enabled only when the vision decision accepted
+    an exact child reconstruction and every child is a real full-canvas mask.
+    Otherwise the root remains the sole renderable object.
+    """
+    units=list(vision_row.get('units') or [])
+    roots=[u for u in units if int(u.get('hierarchy_level') or 0)==0]
+    children=[u for u in units if int(u.get('hierarchy_level') or 0)>0]
+    decisions={str(d.get('root_id')):d for d in ((vision_row.get('artifacts') or {}).get('hierarchy_decisions') or [])}
+    selected=[];partition_roots=[];fallback_roots=[]
+    for root in roots:
+        rid=str(root.get('root_id') or '')
+        members=[u for u in children if str(u.get('root_id') or u.get('parent_id') or '')==rid]
+        decision=decisions.get(rid) or {}
+        is_character='CHARACTER' in str(root.get('semantic_type') or '').upper()
+        evidence=bool(decision.get('accepted')) and len(members)>=2 and not is_character
+        evidence=evidence and all(bool(u.get('reveal_safe')) and u.get('mask_path') and str(u.get('composition_slot_id') or '')==str(root.get('composition_slot_id') or '') for u in members)
+        if not evidence:
+            row=dict(root);row['render_mode']='ROOT_ATOMIC';row['partition_root_id']=rid;row['partition_evidence']='ROOT_ATOMIC_FALLBACK'
+            selected.append(row);fallback_roots.append(rid);continue
+        partition_roots.append(rid)
+        for index,child in enumerate(sorted(members,key=lambda u:str(u.get('physical_id') or ''))):
+            row=dict(child);row['render_mode']='CHILD_PARTITION';row['partition_root_id']=rid;row['partition_complete']=True
+            row['independent_motion_allowed']=bool(row.get('animation_safe'))
+            # A partition still occupies one semantic composition slot.  Its
+            # leading child carries semantic focus; remaining pixels are
+            # supports and never consume additional primary capacity.
+            row['partition_primary_member']=bool(index==0 and is_primary_semantic(root))
+            selected.append(row)
+    return selected,{'partition_root_ids':partition_roots,'atomic_root_ids':fallback_roots,
+                     'hierarchical_motion_unit_count':sum(1 for u in selected if u.get('render_mode')=='CHILD_PARTITION')}
+
 def _phase_for_event(phase_plan:dict,eid:str):
     rows=[p for p in (phase_plan.get('phases') or []) if eid in (p.get('event_ids') or [])]
     if not rows:return None
@@ -1163,11 +1202,11 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # layout is solved on rectangles, not centers.
     for scene in scenes:
         sid=str(scene['scene_id']);st=tm[sid];vr=vis[sid];card=card_by[scene_to_card[sid]];sems=_semantic_map(scene)
-        units=[u for u in (vr.get('units') or []) if int(u.get('hierarchy_level') or 0)==0]
+        units,hierarchy_selection=_select_render_units(vr)
         camera_fit=compute_reference_camera_fit(float(vr.get('foreground_fraction') or 0.0),units,ref);camera_fit['camera_scale']=max(0.68,min(1.15,float(camera_fit.get('camera_scale') or 1.0)));camera_fit['expected_occupancy_percent']=float(camera_fit.get('source_occupancy_percent') or 0.0)*camera_fit['camera_scale']**2
         scene_events=[]
         for u in units:
-            sem=sems.get(str(u.get('semantic_unit_id'))) or {};primary=is_primary_semantic(u);cx,cy=map(float,u.get('center_norm') or [0.5,0.5]);trig=sem.get('appear_trigger') or sem.get('focus_trigger');hit=_word_time(trig,alignment,st,False)
+            sem=sems.get(str(u.get('semantic_unit_id'))) or {};primary=bool(u.get('partition_primary_member')) if u.get('render_mode')=='CHILD_PARTITION' else is_primary_semantic(u);cx,cy=map(float,u.get('center_norm') or [0.5,0.5]);trig=sem.get('appear_trigger') or sem.get('focus_trigger');hit=_word_time(trig,alignment,st,False)
             hit_source='VOICE_TRIGGER'
             if hit is None:
                 hit=(float(st['start'])+float(st['end']))/2.0;hit_source='SOURCE_INTERVAL_FALLBACK'
@@ -1178,11 +1217,12 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
                 'start_seconds':float(st['start']),'perceptual_hit_seconds':round(hit,6),'perceptual_hit_source':hit_source,'settle_seconds':float(st['end']),'end_seconds':float(st['end']),'preset_entry':None,'preset_exit':None,'preset_actions':[],
                 'appearance_method':None,'disappearance_method':None,'entry_direction':None,'position_animated':False,'position_min_frames':12,'position_interpolation':'USER_PRESET_CURVE','motion_profile':'USER_VISUAL_SAMPLE_AUTHORITY','motion_blur_enabled':False,'preset_coordinate_mode':'ABSOLUTE_OBJECT_CENTER',
                 'start_x_norm':cx,'start_y_norm':cy,'end_x_norm':cx,'end_y_norm':cy,'exit_x_norm':cx,'exit_y_norm':cy,'focus_beats':[],'story_actions':[],'story_beats':[],'continuous_drift':False,'continuous_image_scale':False,
-                'reference_camera_scale':float(camera_fit['camera_scale']),'layout_scale_multiplier':1.0,'hierarchy_level':0,'parent_semantic_unit_id':None,'composition_slot_id':u.get('composition_slot_id') or u.get('semantic_unit_id') or u.get('physical_id'),'fifth_element_overlay':False,
-                'translation_safe_after_occlusion':bool(u.get('translation_safe_after_occlusion',u.get('animation_safe',True))),'matting':u.get('matting'),'semantic_mapping_confidence':float(u.get('semantic_mapping_confidence',0.0)),'cutout_policy':'TOP_LEVEL_SEMANTIC_GROUP_ONLY__PRESERVE_ATTACHED_DETAILS','relationship_motion_policy':'EXPLICIT_METADATA_ONLY__UNSAFE_TRAVEL_BECOMES_TEMPORAL_HANDOFF','attention_priority':'PRIMARY' if primary else 'SUPPORTING','motion_energy':'HIGH' if primary else 'MEDIUM','budget_cost':0.25 if primary else 0.12,
+                'reference_camera_scale':float(camera_fit['camera_scale']),'layout_scale_multiplier':1.0,'hierarchy_level':int(u.get('hierarchy_level') or 0),'parent_semantic_unit_id':u.get('parent_semantic_unit_id'),'composition_slot_id':u.get('composition_slot_id') or u.get('semantic_unit_id') or u.get('physical_id'),'fifth_element_overlay':False,
+                'render_mode':u.get('render_mode','ROOT_ATOMIC'),'partition_root_id':u.get('partition_root_id') or u.get('root_id'),'partition_complete':bool(u.get('partition_complete')),'independent_motion_allowed':bool(u.get('independent_motion_allowed',True)),'source_layer_path':u.get('layer_path') or u.get('mask_path'),
+                'translation_safe_after_occlusion':bool(u.get('translation_safe_after_occlusion',u.get('animation_safe',True))),'reveal_safe':bool(u.get('reveal_safe',True)),'animation_safe':bool(u.get('animation_safe',True)),'matting':u.get('matting'),'semantic_mapping_confidence':float(u.get('semantic_mapping_confidence',0.0)),'cutout_policy':'TOP_LEVEL_SEMANTIC_GROUP_ONLY__PRESERVE_ATTACHED_DETAILS','relationship_motion_policy':'EXPLICIT_METADATA_ONLY__UNSAFE_TRAVEL_BECOMES_TEMPORAL_HANDOFF','attention_priority':'PRIMARY' if primary else 'SUPPORTING','motion_energy':'HIGH' if primary else 'MEDIUM','budget_cost':0.25 if primary else 0.12,
             }
             e['composite_atomic']=_event_is_atomic(e);events.append(e);scene_events.append(e)
-        scenes_out.append({'scene_id':sid,'start_seconds':float(st['start']),'end_seconds':float(st['end']),'duration_seconds':float(st['end'])-float(st['start']),'duration_class':'CARD_MEMBER','vision_mode':vr.get('mode'),'choreography_profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','relation_to_previous':_relation(scene),'transition':{'mode':'OBJECT_PRESETS_ONLY__NO_FRAME_BLEND','duration_seconds':0.0,'white_reset':False,'relation':_relation(scene),'profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','energy_cost':0.0,'strong':False},'visual_card_id':card['card_id'],'reference_camera_fit':camera_fit,'event_ids':[e['event_id'] for e in scene_events],'internal_change_count':len(scene_events),'semantic_focus_count':0,'story_beat_count':0,'story_action_count':0,'physical_story_action_count':0,'max_story_gap_seconds':min(1.4,float(card['duration_seconds'])),'hierarchical_motion_unit_count':0,'composition_slot_count':len(scene_events),'short_beat':False,'motion_budget':{'budget_points':10.0,'duration_class':'CARD_MEMBER'},'estimated_motion_cost':sum(e['budget_cost'] for e in scene_events),'budget_utilization':0.0})
+        scenes_out.append({'scene_id':sid,'start_seconds':float(st['start']),'end_seconds':float(st['end']),'duration_seconds':float(st['end'])-float(st['start']),'duration_class':'CARD_MEMBER','vision_mode':vr.get('mode'),'choreography_profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','relation_to_previous':_relation(scene),'transition':{'mode':'OBJECT_PRESETS_ONLY__NO_FRAME_BLEND','duration_seconds':0.0,'white_reset':False,'relation':_relation(scene),'profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','energy_cost':0.0,'strong':False},'visual_card_id':card['card_id'],'reference_camera_fit':camera_fit,'event_ids':[e['event_id'] for e in scene_events],'internal_change_count':len(scene_events),'semantic_focus_count':0,'story_beat_count':0,'story_action_count':0,'physical_story_action_count':0,'max_story_gap_seconds':min(1.4,float(card['duration_seconds'])),'hierarchical_motion_unit_count':hierarchy_selection['hierarchical_motion_unit_count'],'hierarchy_render_selection':hierarchy_selection,'composition_slot_count':len(set(str(e.get('composition_slot_id')) for e in scene_events)),'short_beat':False,'motion_budget':{'budget_points':10.0,'duration_class':'CARD_MEMBER'},'estimated_motion_cost':sum(e['budget_cost'] for e in scene_events),'budget_utilization':0.0})
 
     # Semantic card repartition: preserve the locked legal 3–5 second card
     # intervals, but assign each required event to the interval containing its
@@ -1229,7 +1269,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         for e in selected_events:
             if _sid(e) in rel_sources:e['relationship_source_requested']=True
             pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['composite_atomic']=bool(pl['atomic']);e['planned_rect_norm']=pl['rect_norm'];window=_phase_for_event(phase_plan,e['event_id'])
-            if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),local_events=selected_events,fps=fps)
+            if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=not bool(e.get('independent_motion_allowed',True)),local_events=selected_events,fps=fps)
         pre_conflicts=card_motion_conflicts(selected_events,float(card['start_seconds']),float(card['end_seconds']),fps)
         if pre_conflicts:
             phase_plan=repartition_story_phases(card,selected_events,pre_conflicts)
@@ -1266,14 +1306,13 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     recomposition_stats=_recomposition_optimize(events,cards,fps)
     optical_scale_stats=_optical_scale_optimize(events,cards,fps)
     spatial_choreography_stats=_spatial_choreography_optimize(events,cards,fps)
-    # This must run after all entry/exit selection.  The exact animated
-    # envelope is its authority; validating a handoff before a later spatial
-    # entry rewrite would certify a timeline that no longer exists.
-    effect_variety_stats=_effect_variety_director(events,cards,fps)
     editorial_motion_grammar=EditorialMotionGrammarDirector().direct(events)
-    pacing_diagnostics=PacingDirector().diagnose(events,alignment,fps)
+    pacing_diagnostics=PacingDirector().plan(events,alignment,fps)
     character_director=SemanticCharacterDirector().direct(events)
-    visual_continuity_qa=VisualContinuityQA().assess({'events':events,'visual_cards':cards})
+    # This must run after all entry/exit selection and after bounded editorial
+    # constraints. The exact animated envelope is its authority.
+    effect_variety_stats=_effect_variety_director(events,cards,fps)
+    continuity_planning=VisualContinuityQA().repair_once(events,cards)
     # Final semantic timing ownership starts here.  Every pass above may alter
     # entry selection, lifecycle, geometry, or trajectories; none below may.
     cross_card_stats=_cross_card_handoff_optimize(events,cards,fps)
@@ -1285,7 +1324,11 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # Pipeline hard QA consumes the same committed state after the audit; do
     # not replace that gate with a planner exception for unrelated fixtures.
     sync_qa=perceptual_sync_qa(events,fps)
-    out={'schema':'HEXA_MOTION_PLAN_V31','version':'31.0.25','fps':fps,'project_id':plan.get('project_id'),'rules_authority':'USER_UPLOADED_RULES_PDF','reference_authority':ref.get('authority_id'),'preset_authority':'HEXA_USER_PRESET_AUTHORITY_V31','timing_method':alignment.get('method'),'scenes':scenes_out,'events':events,'visual_cards':cards,'atomic_handoff_optimizer':atomic_stats,'cross_card_handoff_optimizer':cross_card_stats,'motion_dna_version':'HEXA_MOTION_DNA_V31_0_25_PREMIUM_MOTION_LANGUAGE','continuity_summary':{'scene_count':len(scenes_out),'visual_card_count':len(cards['cards']),'transition_modes':['OBJECT_PRESETS_ONLY__NO_FRAME_BLEND'],'appearance_methods':sorted(set(e.get('appearance_method') for e in events if e.get('appearance_method'))),'strong_transition_count':0,'identity_persistence_count':sum(1 for e in events if len(e.get('persistent_source_scene_ids') or [])>1),'white_reset_scene_percent':0.0},'budget_summary':{'story_action_count':sum(len(e.get('preset_actions') or []) for e in events),'choreography_action_count':sum(2+len(e.get('preset_actions') or []) for e in events if not e.get('suppressed_by_card_density')),'story_sources':['UNIVERSAL_SCENE_GRAMMAR','EXPLICIT_SEMANTIC_RELATIONSHIPS','SPATIOTEMPORAL_FEASIBILITY_SOLVER','ATOMIC_HANDOFF_TIMING_OPTIMIZER','CROSS_CARD_HANDOFF_CONSTRAINT_SOLVER','READABLE_STATE_LIFECYCLE_COMPILER','DETERMINISTIC_EFFECT_VARIETY_DIRECTOR','TYPOGRAPHY_MOTION_UNITS'],'hierarchical_motion_unit_count':0,'inferred_causal_edge_count':0,'actionable_story_edge_count':sum(1 for c in cards['cards'] for r in c.get('relationship_resolutions') or [] if r.get('mode')=='WITHIN_FRAME_PRESET'),'layout_choreography_action_count':sum(len(e.get('preset_actions') or []) for e in events),'story_eligible_scene_count':sum(1 for c in cards['cards'] if (c.get('universal_scene_grammar') or {}).get('explicit_edges'))},'hard_invariants':{'latest_user_rules_hard_authority':True,'user_prfpset_hard_authority':True,'user_visual_samples_hard_authority':True,'legacy_motion_heuristics_disabled':True,'speculative_subobject_cutouts_forbidden':True,'spatial_role_guessing_forbidden':True,'explicit_relationship_evidence_required':True,'layout_choreography_must_not_claim_semantic_relationship':True,'high_confidence_physical_semantic_mapping_required_for_relationship_motion':True,'visual_card_duration_seconds':[3.0,5.0],'primary_elements_per_card':[1,2],'primary_rule_interpretation':'MAX_CONCURRENT_VISIBLE_PRIMARY','secondary_elements_per_card':[3,8],'secondary_detail_count_may_remain_grouped_to_preserve_cutout_integrity':True,'entry_exit_primary_only':True,'within_frame_any_element':True,'appearance_prefer_secondary':True,'disappearance_any_element':True,'full_frame_crossfade_forbidden':True,'white_wash_forbidden':True,'mask_wipe_reveal_forbidden':True,'arbitrary_drift_forbidden':True,'arbitrary_diagonal_travel_forbidden':True,'auto_relationship_arrow_forbidden':True,'allowed_preset_names':sorted((preset_authority().get('preset_motion') or {}).keys()),'position_interpolation':'USER_VISUAL_SAMPLE_CURVES','position_motion_profile':'USER_PRFPSET_ENDPOINTS_PLUS_PHYSICAL_SAMPLE_TIMING','card_layout_policy':'DENSITY_AWARE_SPATIOTEMPORAL_PHASE_SOLVER__ATOMIC_ASSET_INDIVISIBILITY','topic_specific_motion_hardcoding_forbidden':True,'universal_content_type_classifier':True,'joint_story_layout_motion_planning':True}}
+    # Final continuity is an observer of the exact committed timeline.  It
+    # runs after every optimizer and is deliberately read-only.
+    visual_continuity_qa=VisualContinuityQA().assess({'events':events,'visual_cards':cards})
+    hierarchical_count=sum(1 for e in events if int(e.get('hierarchy_level') or 0)>0 and not e.get('suppressed_by_card_density'))
+    out={'schema':'HEXA_MOTION_PLAN_V31','version':'31.0.25','fps':fps,'project_id':plan.get('project_id'),'rules_authority':'USER_UPLOADED_RULES_PDF','reference_authority':ref.get('authority_id'),'preset_authority':'HEXA_USER_PRESET_AUTHORITY_V31','timing_method':alignment.get('method'),'scenes':scenes_out,'events':events,'visual_cards':cards,'atomic_handoff_optimizer':atomic_stats,'cross_card_handoff_optimizer':cross_card_stats,'motion_dna_version':'HEXA_MOTION_DNA_V31_0_25_PREMIUM_MOTION_LANGUAGE','continuity_summary':{'scene_count':len(scenes_out),'visual_card_count':len(cards['cards']),'transition_modes':['OBJECT_PRESETS_ONLY__NO_FRAME_BLEND'],'appearance_methods':sorted(set(e.get('appearance_method') for e in events if e.get('appearance_method'))),'strong_transition_count':0,'identity_persistence_count':sum(1 for e in events if len(e.get('persistent_source_scene_ids') or [])>1),'white_reset_scene_percent':0.0},'budget_summary':{'story_action_count':sum(len(e.get('preset_actions') or []) for e in events),'choreography_action_count':sum(2+len(e.get('preset_actions') or []) for e in events if not e.get('suppressed_by_card_density')),'story_sources':['UNIVERSAL_SCENE_GRAMMAR','EXPLICIT_SEMANTIC_RELATIONSHIPS','SPATIOTEMPORAL_FEASIBILITY_SOLVER','ATOMIC_HANDOFF_TIMING_OPTIMIZER','CROSS_CARD_HANDOFF_CONSTRAINT_SOLVER','READABLE_STATE_LIFECYCLE_COMPILER','DETERMINISTIC_EFFECT_VARIETY_DIRECTOR','TYPOGRAPHY_MOTION_UNITS'],'hierarchical_motion_unit_count':hierarchical_count,'inferred_causal_edge_count':0,'actionable_story_edge_count':sum(1 for c in cards['cards'] for r in c.get('relationship_resolutions') or [] if r.get('mode')=='WITHIN_FRAME_PRESET'),'layout_choreography_action_count':sum(len(e.get('preset_actions') or []) for e in events),'story_eligible_scene_count':sum(1 for c in cards['cards'] if (c.get('universal_scene_grammar') or {}).get('explicit_edges'))},'hard_invariants':{'latest_user_rules_hard_authority':True,'user_prfpset_hard_authority':True,'user_visual_samples_hard_authority':True,'legacy_motion_heuristics_disabled':True,'speculative_subobject_cutouts_forbidden':True,'spatial_role_guessing_forbidden':True,'explicit_relationship_evidence_required':True,'layout_choreography_must_not_claim_semantic_relationship':True,'high_confidence_physical_semantic_mapping_required_for_relationship_motion':True,'visual_card_duration_seconds':[3.0,5.0],'primary_elements_per_card':[1,2],'primary_rule_interpretation':'MAX_CONCURRENT_VISIBLE_PRIMARY','secondary_elements_per_card':[3,8],'secondary_detail_count_may_remain_grouped_to_preserve_cutout_integrity':True,'entry_exit_primary_only':True,'within_frame_any_element':True,'appearance_prefer_secondary':True,'disappearance_any_element':True,'full_frame_crossfade_forbidden':True,'white_wash_forbidden':True,'mask_wipe_reveal_forbidden':True,'arbitrary_drift_forbidden':True,'arbitrary_diagonal_travel_forbidden':True,'auto_relationship_arrow_forbidden':True,'allowed_preset_names':sorted((preset_authority().get('preset_motion') or {}).keys()),'position_interpolation':'USER_VISUAL_SAMPLE_CURVES','position_motion_profile':'USER_PRFPSET_ENDPOINTS_PLUS_PHYSICAL_SAMPLE_TIMING','card_layout_policy':'DENSITY_AWARE_PHASE_SOLVER__CERTIFIED_HIERARCHY_PARTITION','topic_specific_motion_hardcoding_forbidden':True,'universal_content_type_classifier':True,'joint_story_layout_motion_planning':True}}
     visual_instances,semantic_events=_compile_visual_instances(events,scenes_out)
     out['visual_instances']=visual_instances;out['semantic_events']=semantic_events
     out['semantic_segment_solver']=segment_stats
@@ -1295,6 +1338,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['editorial_motion_grammar_director']=editorial_motion_grammar
     out['pacing_director']=pacing_diagnostics
     out['semantic_character_director']=character_director
+    out['continuity_planning_repair']=continuity_planning
     out['visual_continuity_qa']=visual_continuity_qa
     out['perceptual_sync_qa']=sync_qa
     out['final_semantic_timing_composition_qa']=final_composition_qa
