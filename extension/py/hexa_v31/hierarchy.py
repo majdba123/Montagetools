@@ -20,6 +20,63 @@ class HierarchyChild:
     role_candidate: str
     mask: np.ndarray
 
+class TopologicalDecompositionValidator:
+    """Deterministic physical proof that a child partition preserves topology."""
+    version='HEXA_TOPOLOGICAL_DECOMPOSITION_VALIDATOR_V1'
+
+    @staticmethod
+    def _skeleton(binary:np.ndarray)->np.ndarray:
+        # Zhang-Suen thinning keeps connector endpoints and junctions stable
+        # without adding a heavyweight runtime dependency.
+        img=np.pad((binary>0).astype(np.uint8),1)
+        for _ in range(128):
+            changed=False
+            for first in (True,False):
+                p2=img[:-2,1:-1];p3=img[:-2,2:];p4=img[1:-1,2:];p5=img[2:,2:]
+                p6=img[2:,1:-1];p7=img[2:,:-2];p8=img[1:-1,:-2];p9=img[:-2,:-2];c=img[1:-1,1:-1]
+                neighbors=p2+p3+p4+p5+p6+p7+p8+p9
+                transitions=sum(x.astype(np.uint8) for x in (((p2==0)&(p3==1)),((p3==0)&(p4==1)),((p4==0)&(p5==1)),((p5==0)&(p6==1)),((p6==0)&(p7==1)),((p7==0)&(p8==1)),((p8==0)&(p9==1)),((p9==0)&(p2==1))))
+                if first:guard=(p2*p4*p6==0)&(p4*p6*p8==0)
+                else:guard=(p2*p4*p8==0)&(p2*p6*p8==0)
+                remove=(c==1)&(neighbors>=2)&(neighbors<=6)&(transitions==1)&guard
+                if np.any(remove):c[remove]=0;changed=True
+            if not changed:break
+        return img[1:-1,1:-1]
+
+    def validate(self,root:np.ndarray,children:list[np.ndarray],mode:str)->dict:
+        root=(root>0).astype(np.uint8);parts=[(m>0).astype(np.uint8) for m in children]
+        union=np.zeros_like(root);overlap=np.zeros_like(root,dtype=np.uint16)
+        for part in parts:union|=part;overlap+=part
+        total=max(1,int(root.sum()));reconstruction_error=float(np.count_nonzero(union!=root))/total
+        overlap_error=float(np.count_nonzero(overlap>1))/total
+        components=max(0,cv2.connectedComponents(root,8)[0]-1)
+        owner=np.full(root.shape,-1,np.int16)
+        for i,part in enumerate(parts):owner[part>0]=i
+        seam=np.zeros_like(root)
+        seam[:,1:]|=((owner[:,1:]!=owner[:,:-1])&(owner[:,1:]>=0)&(owner[:,:-1]>=0)).astype(np.uint8)
+        seam[1:,:]|=((owner[1:,:]!=owner[:-1,:])&(owner[1:,:]>=0)&(owner[:-1,:]>=0)).astype(np.uint8)
+        skeleton=self._skeleton(root);neighbors=cv2.filter2D(skeleton,-1,np.ones((3,3),np.uint8))-skeleton
+        branches=(skeleton>0)&(neighbors>=3);endpoints=(skeleton>0)&(neighbors==1)
+        seam_dil=cv2.dilate(seam,np.ones((3,3),np.uint8))
+        skeleton_cut_fraction=float(np.count_nonzero((skeleton>0)&(seam_dil>0)))/max(1,int(skeleton.sum()))
+        branch_damage_fraction=float(np.count_nonzero(branches&(seam_dil>0)))/max(1,int(np.count_nonzero(branches)))
+        seam_length_fraction=float(np.count_nonzero(seam))/max(1,int(skeleton.sum()))
+        detached=components>=len(parts) and mode=='DETACHED_LOBES'
+        reasons=[]
+        if reconstruction_error>0.001 or overlap_error>0.001:reasons.append('SOURCE_RECONSTRUCTION_ERROR')
+        if not detached and skeleton_cut_fraction>0.012:reasons.append('SKELETON_CONNECTOR_CUT')
+        if not detached and branch_damage_fraction>0.0:reasons.append('SKELETON_BRANCH_DAMAGE')
+        if not detached and seam_length_fraction>0.08:reasons.append('ARTIFICIAL_EXPOSED_SEAM')
+        if any(int(p.sum())<max(80,int(total*.055)) for p in parts):reasons.append('CHILD_NOT_INDEPENDENTLY_READABLE')
+        confidence=max(0.0,1.0-reconstruction_error*20-overlap_error*20-skeleton_cut_fraction*2-branch_damage_fraction*.6-seam_length_fraction)
+        if not detached:confidence=min(confidence,.58)
+        return {'pass':not reasons and confidence>=.64,'version':self.version,'confidence':round(confidence,4),'reasons':reasons,
+                'root_component_count':components,'child_count':len(parts),'detached_partition':detached,
+                'reconstruction_error':round(reconstruction_error,6),'overlap_error':round(overlap_error,6),
+                'skeleton_pixel_count':int(skeleton.sum()),'skeleton_endpoint_count':int(np.count_nonzero(endpoints)),
+                'skeleton_branch_count':int(np.count_nonzero(branches)),'skeleton_cut_fraction':round(skeleton_cut_fraction,6),
+                'branch_damage_fraction':round(branch_damage_fraction,6),'artificial_seam_fraction':round(seam_length_fraction,6)}
+
 
 def _bbox_gap(a:dict,b:dict)->float:
     ax1,ay1,aw,ah=a['x'],a['y'],a['w'],a['h'];bx1,by1,bw,bh=b['x'],b['y'],b['w'],b['h']
@@ -301,6 +358,10 @@ def decompose_semantic_group(mask:np.ndarray,*,W:int,H:int,semantic_type:str='',
                     if row:children.append((row,cm))
     if len(children)<2:return {'accepted':False,'reason':'NO_ANIMATABLE_SUBOBJECT_DECOMPOSITION','children':[],'confidence':0.0,'decomposition_mode':'NONE','evidence':evidence}
     children=sorted(children,key=lambda z:(z[0]['cx'],z[0]['cy']))
+    topology=TopologicalDecompositionValidator().validate(mask,[cm for _,cm in children],mode)
+    evidence.append({'method':'TOPOLOGICAL_DECOMPOSITION_VALIDATION',**topology})
+    if not topology['pass']:
+        return {'accepted':False,'reason':'TOPOLOGY_VALIDATION_FAILED','children':[],'confidence':topology['confidence'],'decomposition_mode':mode,'evidence':evidence,'topology_validation':topology}
     min_gap=999999.0;max_center=0.0
     for i in range(len(children)):
         for j in range(i+1,len(children)):
@@ -328,7 +389,7 @@ def decompose_semantic_group(mask:np.ndarray,*,W:int,H:int,semantic_type:str='',
         animation_mode='TRANSLATE_SAFE' if translate_safe else ('REVEAL_ONLY' if reveal_safe else 'GROUP_ONLY')
         occlusion='CLEAN_SEPARABLE' if translate_safe else ('CONNECTED_REVEAL_ONLY' if mode!='DETACHED_LOBES' else 'NEAR_TOUCH_REVEAL_ONLY')
         out.append(HierarchyChild(i+1,(row['x'],row['y'],row['w'],row['h']),row['area'],(round(row['cx']/W,6),round(row['cy']/H,6)),(round(row['x']/W,6),round(row['y']/H,6),round(row['w']/W,6),round(row['h']/H,6)),round(confidence,4),translate_safe,reveal_safe,animation_mode,occlusion,role,cm))
-    return {'accepted':True,'reason':mode,'children':out,'confidence':round(confidence,4),'dominant_axis':dominant_axis,'coverage':round(coverage,4),'decomposition_mode':mode,'evidence':evidence,'translation_safe_children':sum(1 for c in out if c.animation_safe),'reveal_only_children':sum(1 for c in out if c.reveal_safe and not c.animation_safe)}
+    return {'accepted':True,'reason':mode,'children':out,'confidence':round(confidence,4),'dominant_axis':dominant_axis,'coverage':round(coverage,4),'decomposition_mode':mode,'evidence':evidence,'topology_validation':topology,'translation_safe_children':sum(1 for c in out if c.animation_safe),'reveal_only_children':sum(1 for c in out if c.reveal_safe and not c.animation_safe)}
 
 
 def serialize_child(child:HierarchyChild)->dict[str,Any]:

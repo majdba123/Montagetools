@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, pathlib, re
+import os, pathlib, re, json, hashlib
 from functools import lru_cache
 from PIL import Image, ImageDraw, ImageFont, features
 
@@ -14,18 +14,28 @@ WEAK_WORDS={'و','أو','او','بس','لكن','لأن','لان','إذا','اذ�
 
 
 _CONNECTOR_RE=re.compile(r'^(?:and|or|but|because|if|then|with|from|to|of|the|a|an|this|that|it|they|he|she|we|i)$',re.I)
+_ARABIC_BOUNDARY_GLUE={'و','أو','لكن','لأن','إذا','حتى','مع','من','في','على','عن','إلى','ثم','بعد','قبل','عند','هو','هي','هم','ما','لا','لم','لن','قد'}
+
+class ArabicPhraseCompletenessAnalyzer:
+    version='HEXA_ARABIC_PHRASE_COMPLETENESS_V3'
+    def assess(self,value,canonical=None):
+        text=_clean(value);words=[_word_clean(x) for x in text.split() if _word_clean(x)]
+        reasons=[];arabic=bool(_ARABIC_RE.search(text));numeric=bool(_DIGIT_RE.search(text))
+        if canonical is not None and text not in str(canonical):reasons.append('NOT_EXACT_CANONICAL_SUBSTRING')
+        if not words:reasons.append('EMPTY')
+        if words and (words[0] in _ARABIC_BOUNDARY_GLUE or words[-1] in _ARABIC_BOUNDARY_GLUE):reasons.append('WEAK_BOUNDARY_CONNECTOR')
+        if words and (_CONNECTOR_RE.match(words[0]) or _CONNECTOR_RE.match(words[-1])):reasons.append('WEAK_BOUNDARY_CONNECTOR')
+        content=[w for w in words if w not in _ARABIC_BOUNDARY_GLUE]
+        if arabic and not numeric and len(content)<2:reasons.append('INCOMPLETE_SEMANTIC_PHRASE')
+        if len(words)>5 or len(text)>36:reasons.append('DISPLAY_BUDGET_EXCEEDED')
+        return {'pass':not reasons,'version':self.version,'text':text,'exact_substring':canonical is None or text in str(canonical),'reasons':list(dict.fromkeys(reasons)),'content_word_count':len(content),'numeric':numeric}
 
 class TypographyDirectorV2:
     """Deterministic literal-copy selection and physical treatment authority."""
     version='HEXA_TYPOGRAPHY_DIRECTOR_V2'
     @staticmethod
     def phrase_complete(value):
-        words=[_word_clean(x) for x in _clean(value).split()]
-        if not words:return False
-        first,last=words[0].lower(),words[-1].lower()
-        if first in WEAK_WORDS or last in WEAK_WORDS:return False
-        if _CONNECTOR_RE.match(first) or _CONNECTOR_RE.match(last):return False
-        return len(words)>1 or bool(_DIGIT_RE.search(value)) or len(words[0])>=4
+        return ArabicPhraseCompletenessAnalyzer().assess(value).get('pass',False)
     @staticmethod
     def treatment(value):return str(value or 'FREE_KEYWORD').upper()
 
@@ -124,12 +134,14 @@ def _exact_subphrases(raw):
         c=_strip_weak_prefix(clause)
         if _is_displayable(c):out.append((c,_phrase_quality(c)+0.8))
     tokens=raw.split()
-    # Sliding 1..4 word literal windows. This is content-agnostic and preserves exact wording.
-    for size in (2,3,1,4):
+    # Complete 2..5 word windows only; a standalone number remains eligible.
+    for size in (2,3,4,5,1):
         for i in range(0,max(0,len(tokens)-size+1)):
             cand=_clean(' '.join(tokens[i:i+size]))
             cand2=_strip_weak_prefix(cand)
             if not cand2 or cand2 not in raw:continue
+            if size==1 and not _DIGIT_RE.search(cand2):continue
+            if not ArabicPhraseCompletenessAnalyzer().assess(cand2,raw)['pass']:continue
             q=_phrase_quality(cand2)
             if q>-100:out.append((cand2,q))
     # Deduplicate while retaining highest quality.
@@ -362,8 +374,9 @@ def build_text_plan(package,alignment,vision_results,motion_plan,logger=None):
         slide_dy = 0.026 if 'TOP' in pl['slot'] else (-0.026 if 'BOTTOM' in pl['slot'] else 0.0)
         grammar={'FREE_KEYWORD':'KEYWORD_REVEAL','OBJECT_ADJACENT_LABEL':'OBJECT_THEN_LABEL','STATUS_BADGE':'STATUS_HIT','VALUE_LOCKUP':'VALUE_REVEAL','RESULT_LOCKUP':'RESULT_EMPHASIS','SIDE_CALLOUT':'SIDE_CALLOUT_REVEAL','COMPARISON_LABELS':'COMPARISON_BUILD'}.get(c.get('treatment'),'TEXT_OBJECT_HANDOFF')
         geom=pl['text_geometry'];role=c.get('typography_role')
-        out.append({'text_id':f'TEXT_{i:03d}','scene_id':c['scene_id'],'scene_order':c['scene_order'],'visual_card_id':c.get('visual_card_id'),'unit_id':c.get('unit_id'),'text':c['text'],'style':style,'typography_role':role,'treatment':c.get('treatment'),'motion_grammar':grammar,'relationship_target_unit_id':c.get('unit_id'),'relationship_placement':pl['relationship_placement'],'entry_seconds':round(start,6),'impact_seconds':round(impact,6),'settle_seconds':round(settle,6),'semantic_anchor_seconds':round(ts,6),'pre_roll_seconds':round(max(0,impact-start),6),'readable_start_seconds':round(settle,6),'readable_end_seconds':round(end-0.18,6),'start_seconds':round(start,6),'end_seconds':round(end,6),'fade_in_seconds':min(.20,entry_duration*.45),'fade_out_seconds':0.18,'pop_scale_from':.94 if role in ('VALUE','RESULT','WARNING','STATUS') else .97,'pop_scale_peak':1.018 if role in ('VALUE','RESULT') else 1.0,'pop_scale_end':1.0,'slide_dx_norm':slide_dx*.56,'slide_dy_norm':slide_dy*.56,'slide_duration_seconds':entry_duration,'read_sweep_dx_norm':round(-slide_dx*.10,6),'read_sweep_dy_norm':round(-slide_dy*.08,6),'read_sweep_duration_seconds':1.15,'motion_preset':'TEXT_'+grammar+'__V31_0_25','x_norm':pl['x_norm'],'y_norm':pl['y_norm'],'w_norm':pl['w_norm'],'h_norm':pl['h_norm'],'slot':pl['slot'],'text_geometry':geom,'font_policy':'OFFLINE_ARABIC_PREMIUM_ROLE_WEIGHTED_STACK','font_candidates':['Tajawal ExtraBold','Tajawal Bold','Tajawal Medium','Cairo Bold','Noto Sans Arabic Bold','Segoe UI Semibold','Segoe UI Bold','Segoe UI','Tahoma Bold'],'generic_background_panel':False,'semantic_source':c.get('source'),'source_lifetime_authority':'SOURCE_ANCHOR_THROUGH_CURRENT_SEMANTIC_CARD','score':c['score'],'visual_overlap_score':pl['visual_overlap_score'],'budget_cost':0.24 if style in ('KEY_TERM','MICRO_LABEL') else 0.30})
-    result={'schema':'HEXA_SELECTIVE_TYPOGRAPHY_PLAN_V31','version':'3.2-V31_0_25','policy':'TYPOGRAPHY_DIRECTOR_V4__OBJECT_RELATED_CLEAN_ARABIC_TEXT','scene_count':len(scenes),'eligible_scene_count':eligible,'opportunity_count':len(candidates),'target_count':target,'text_event_count':len(out),'coverage_scene_percent':round(100.0*len(out)/max(1,len(scenes)),2),'eligible_coverage_percent':round(100.0*len(out)/max(1,eligible),2),'events':out,'hard_rules':{'not_every_scene':True,'max_one_text_event_per_scene':True,'exact_narration_substring_required':True,'no_full_sentence_subtitles':True,'max_words':5,'max_chars':36,'negative_space_placement_required':True,'related_visual_placement_required':True,'generic_background_panels_forbidden':True,'top_center_default_forbidden':True,'face_head_primary_occlusion_forbidden':True,'arabic_shaping_required':True,'system_font_only_no_bundled_font_files':True,'adaptive_coverage':True,'topic_specific_keyword_dependency':False,'minimum_duration_seconds':0.85,'quota_filling_forbidden':True,'perceptual_settle_voice_anchored':True,'bounded_pre_roll_max_seconds':.52}}
+        out.append({'text_id':f'TEXT_{i:03d}','scene_id':c['scene_id'],'scene_order':c['scene_order'],'visual_card_id':c.get('visual_card_id'),'unit_id':c.get('unit_id'),'text':c['text'],'style':style,'typography_role':role,'treatment':c.get('treatment'),'motion_grammar':grammar,'relationship_target_unit_id':c.get('unit_id'),'relationship_placement':pl['relationship_placement'],'entry_seconds':round(start,6),'impact_seconds':round(impact,6),'settle_seconds':round(settle,6),'semantic_anchor_seconds':round(ts,6),'pre_roll_seconds':round(max(0,impact-start),6),'readable_start_seconds':round(settle,6),'readable_end_seconds':round(end-0.18,6),'start_seconds':round(start,6),'end_seconds':round(end,6),'fade_in_seconds':min(.20,entry_duration*.45),'fade_out_seconds':0.18,'pop_scale_from':.94 if role in ('VALUE','RESULT','WARNING','STATUS') else .97,'pop_scale_peak':1.018 if role in ('VALUE','RESULT') else 1.0,'pop_scale_end':1.0,'slide_dx_norm':slide_dx*.56,'slide_dy_norm':slide_dy*.56,'slide_duration_seconds':entry_duration,'read_sweep_dx_norm':round(-slide_dx*.10,6),'read_sweep_dy_norm':round(-slide_dy*.08,6),'read_sweep_duration_seconds':1.15,'motion_preset':'TEXT_'+grammar+'__V31_0_25','x_norm':pl['x_norm'],'y_norm':pl['y_norm'],'w_norm':pl['w_norm'],'h_norm':pl['h_norm'],'slot':pl['slot'],'text_geometry':geom,'font_policy':'CERTIFIED_FONT_HASH_PLUS_HARFBUZZ_GLYPH_PLAN','generic_background_panel':False,'semantic_source':c.get('source'),'source_lifetime_authority':'SOURCE_ANCHOR_THROUGH_CURRENT_SEMANTIC_CARD','score':c['score'],'visual_overlap_score':pl['visual_overlap_score'],'budget_cost':0.24 if style in ('KEY_TERM','MICRO_LABEL') else 0.30})
+    font_cert=certified_arabic_font_status()
+    result={'schema':'HEXA_SELECTIVE_TYPOGRAPHY_PLAN_V31','version':'3.3-V31_0_25_TYPOGRAPHY_V3','policy':'TYPOGRAPHY_V3__COMPLETE_ARABIC_PHRASES__CERTIFIED_HARFBUZZ','scene_count':len(scenes),'eligible_scene_count':eligible,'opportunity_count':len(candidates),'target_count':target,'text_event_count':len(out),'coverage_scene_percent':round(100.0*len(out)/max(1,len(scenes)),2),'eligible_coverage_percent':round(100.0*len(out)/max(1,eligible),2),'events':out,'typography_production_certification':font_cert,'production_review_required':not font_cert.get('pass',False),'hard_rules':{'not_every_scene':True,'max_one_text_event_per_scene':True,'exact_narration_substring_required':True,'complete_phrase_required':True,'no_full_sentence_subtitles':True,'max_words':5,'max_chars':36,'negative_space_placement_required':True,'related_visual_placement_required':True,'generic_background_panels_forbidden':True,'top_center_default_forbidden':True,'face_head_primary_occlusion_forbidden':True,'arabic_shaping_required':True,'certified_font_hash_required':True,'harfbuzz_raqm_authority':True,'no_bundled_unapproved_font':True,'adaptive_coverage':True,'topic_specific_keyword_dependency':False,'minimum_duration_seconds':0.85,'quota_filling_forbidden':True,'perceptual_settle_voice_anchored':True,'bounded_pre_roll_max_seconds':.52}}
     if logger:logger.log('PASS','SELECTIVE_TYPOGRAPHY_PLAN_BUILT',text_events=len(out),scene_count=len(scenes),eligible_scenes=eligible,opportunities=len(candidates),coverage_percent=result['coverage_scene_percent'],styles=sorted(set(e['style'] for e in out)))
     return result
 
@@ -404,8 +417,43 @@ def merge_support_typography(title_plan:dict,support_plan:dict)->dict:
 
 
 @lru_cache(maxsize=16)
+def certified_arabic_font_status():
+    cfg_path=pathlib.Path(__file__).resolve().parents[2]/'resources'/'HEXA_CERTIFIED_ARABIC_FONT.json'
+    try:cfg=json.loads(cfg_path.read_text(encoding='utf-8'))
+    except Exception:return {'pass':False,'status':'DEGRADED_REVIEW_REQUIRED','reason':'CERTIFIED_FONT_CONFIG_MISSING'}
+    windir=pathlib.Path(os.environ.get('WINDIR') or os.environ.get('SystemRoot') or r'C:\\Windows')
+    path=windir/'Fonts'/str(cfg.get('font_file') or '')
+    if not path.is_file():return {'pass':False,'status':'DEGRADED_REVIEW_REQUIRED','reason':'CERTIFIED_FONT_UNAVAILABLE','config':cfg}
+    digest=hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest.lower()!=str(cfg.get('sha256') or '').lower():return {'pass':False,'status':'DEGRADED_REVIEW_REQUIRED','reason':'CERTIFIED_FONT_HASH_MISMATCH','path':str(path),'actual_sha256':digest,'config':cfg}
+    if features.check('raqm'):
+        authority='PILLOW_RAQM_HARFBUZZ'
+    else:
+        probe=_uharfbuzz_probe(path)
+        if not probe.get('pass'):
+            return {'pass':False,'status':'DEGRADED_REVIEW_REQUIRED','reason':probe.get('reason') or 'HARFBUZZ_AUTHORITY_UNAVAILABLE','path':str(path),'sha256':digest,'config':cfg}
+        authority='UHARFBUZZ_0_56_0_GLYPH_PLAN_WITH_PRESENTATION_FORM_RASTER'
+    return {'pass':True,'status':'CERTIFIED','path':str(path),'sha256':digest,'shaping_authority':authority,'configured_shaping_authority':cfg.get('shaping_authority'),'config':cfg}
+
+def _uharfbuzz_probe(path,text='مرحبا بالعالم'):
+    """Prove the exact font can form a deterministic RTL glyph plan offline."""
+    try:
+        import uharfbuzz as hb
+        blob=hb.Blob.from_file_path(str(path));face=hb.Face(blob);font=hb.Font(face)
+        font.scale=(face.upem,face.upem);buf=hb.Buffer();buf.add_str(str(text));buf.guess_segment_properties();hb.shape(font,buf,{'kern':True,'liga':True})
+        infos=list(buf.glyph_infos);positions=list(buf.glyph_positions)
+        if not infos or len(infos)!=len(positions) or any(int(x.codepoint)<=0 for x in infos):
+            return {'pass':False,'reason':'UHARFBUZZ_INVALID_GLYPH_PLAN'}
+        signature=';'.join(f'{i.codepoint}:{i.cluster}:{p.x_advance}:{p.x_offset}:{p.y_offset}' for i,p in zip(infos,positions))
+        return {'pass':True,'glyph_count':len(infos),'glyph_plan_sha256':hashlib.sha256(signature.encode('ascii')).hexdigest()}
+    except Exception as exc:
+        return {'pass':False,'reason':'UHARFBUZZ_UNAVAILABLE','detail':type(exc).__name__}
+
+@lru_cache(maxsize=16)
 def find_arabic_font(weight='headline'):
     """Deterministic, offline-only Arabic stack selected for HEXA's rounded art."""
+    certified=certified_arabic_font_status()
+    if certified.get('pass'):return certified['path']
     if isinstance(weight,bool):weight='headline' if weight else 'context'
     role=str(weight or 'headline').lower()
     heavy=role in {'headline','hero','value','result','warning'}; support=role in {'keyword','status','callout','comparison_label','micro_label'}

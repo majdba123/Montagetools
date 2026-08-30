@@ -42,6 +42,14 @@
       "required": false,
       "strongly_recommended": true,
       "purpose": "Arabic RTL on-screen typography fallback bidi ordering"
+    },
+    {
+      "import": "uharfbuzz",
+      "pip": "uharfbuzz==0.56.0",
+      "required": true,
+      "license": "Apache-2.0",
+      "python_support": ">=3.10; Windows cp310-abi3 wheel supports certified Python 3.11",
+      "purpose": "Offline deterministic HarfBuzz Arabic glyph-plan validation against the certified font hash"
     }
   ],
   "executables": [

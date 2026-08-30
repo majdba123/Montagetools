@@ -10,6 +10,7 @@ from .composition_qa import card_motion_conflicts
 from .visual_density import build_visual_density_report
 from .editorial_motion import EditorialMotionGrammarDirector, PacingDirector
 from .continuity_character import VisualContinuityQA, SemanticCharacterDirector
+from .semantic_sentence import SemanticVisualSentenceCompiler
 
 def _entry_fraction(event):
     return .90 if str((event.get('preset_entry') or {}).get('name') or '').startswith('ENTRY_') else .70
@@ -1358,6 +1359,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     recomposition_stats=_recomposition_optimize(events,cards,fps)
     optical_scale_stats=_optical_scale_optimize(events,cards,fps)
     spatial_choreography_stats=_spatial_choreography_optimize(events,cards,fps)
+    semantic_visual_sentences=SemanticVisualSentenceCompiler().compile(events)
     editorial_motion_grammar=EditorialMotionGrammarDirector().direct(events)
     pacing_diagnostics=PacingDirector().plan(events,alignment,fps)
     character_director=SemanticCharacterDirector().direct(events)
@@ -1389,6 +1391,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['premium_recomposition_optimizer']=recomposition_stats
     out['effect_variety_director']=effect_variety_stats
     out['editorial_motion_grammar_director']=editorial_motion_grammar
+    out['semantic_visual_sentence_compiler']=semantic_visual_sentences
     out['pacing_director']=pacing_diagnostics
     out['semantic_character_director']=character_director
     out['continuity_planning_repair']=continuity_planning

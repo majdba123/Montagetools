@@ -1,0 +1,10 @@
+{
+  "schema": "HEXA_CERTIFIED_ARABIC_FONT_V1",
+  "font_family": "Segoe UI",
+  "font_file": "segoeuib.ttf",
+  "sha256": "1b242874a2f57529060e770ba313e027a99d40b3c36e1c7e8b2dece16ad6ed88",
+  "shaping_authority": "UHARFBUZZ_0_56_0_OR_PILLOW_RAQM_HARFBUZZ",
+  "license": "Microsoft Windows system font; not redistributed by HEXA",
+  "purpose": "Deterministic Arabic typography shaping and glyph metrics",
+  "runtime_downloads": false
+}
