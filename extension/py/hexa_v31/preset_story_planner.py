@@ -11,6 +11,7 @@ from .visual_density import build_visual_density_report
 from .editorial_motion import EditorialMotionGrammarDirector, PacingDirector
 from .continuity_character import VisualContinuityQA, SemanticCharacterDirector
 from .semantic_sentence import SemanticVisualSentenceCompiler
+from .semantic_beats import normalize_scene_beats
 from .visual_affordance import classify as classify_affordance, legal_operations
 from .beat_choreography import BeatChoreographyCompiler
 
@@ -1257,6 +1258,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # layout is solved on rectangles, not centers.
     for scene in scenes:
         sid=str(scene['scene_id']);st=tm[sid];vr=vis[sid];card=card_by[scene_to_card[sid]];sems=_semantic_map(scene)
+        scene_beats=normalize_scene_beats(scene,alignment)
         units,hierarchy_selection=_select_render_units(vr)
         camera_fit=compute_reference_camera_fit(float(vr.get('foreground_fraction') or 0.0),units,ref);camera_fit['camera_scale']=max(0.68,min(1.15,float(camera_fit.get('camera_scale') or 1.0)));camera_fit['expected_occupancy_percent']=float(camera_fit.get('source_occupancy_percent') or 0.0)*camera_fit['camera_scale']**2
         scene_events=[]
@@ -1267,7 +1269,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
                 hit=(float(st['start'])+float(st['end']))/2.0;hit_source='SOURCE_INTERVAL_FALLBACK'
             e={
                 'event_id':f'{sid}_{u["physical_id"]}','scene_id':sid,'visual_card_id':card['card_id'],'physical_id':u['physical_id'],'semantic_unit_id':u.get('semantic_unit_id'),'semantic_scope_id':f"{sid}::{u.get('semantic_unit_id')}" if u.get('semantic_unit_id') else f"{sid}::{u['physical_id']}",'semantic_type':u.get('semantic_type'),'semantic_role':u.get('semantic_role'),'kind':_kind(u),'identity_key':_identity(sem,u),
-                'narrative_function':sem.get('narrative_function'),'semantic_intent':sem.get('semantic_intent'),'relationship':sem.get('relationship'),'visual_concept':sem.get('visual_concept'),'package_semantic_beat':scene.get('dominant_semantic_beat'),'canonical_clause':(scene.get('script_span') or {}).get('text') or scene.get('narration') or '',
+                'narrative_function':sem.get('narrative_function'),'semantic_intent':sem.get('semantic_intent'),'relationship':sem.get('relationship'),'visual_concept':sem.get('visual_concept'),'package_semantic_beats':scene_beats,'package_semantic_beat':(scene_beats[0] if scene_beats else scene.get('dominant_semantic_beat')),'canonical_clause':(scene.get('script_span') or {}).get('text') or scene.get('narration') or '',
                 'source_scene_start_seconds':float(st['start']),'source_scene_end_seconds':float(st['end']),'source_center_norm':[cx,cy],'source_bbox_norm':u.get('bbox_norm'),'source_grouped_detail_count':int(u.get('grouped_detail_count') or ((vr.get('grouped_detail_count') or (vr.get('artifacts') or {}).get('grouped_detail_count') or 0) if len(units)==1 else 0)),
                 'start_seconds':float(st['start']),'perceptual_hit_seconds':round(hit,6),'perceptual_hit_source':hit_source,'settle_seconds':float(st['end']),'end_seconds':float(st['end']),'preset_entry':None,'preset_exit':None,'preset_actions':[],
                 'appearance_method':None,'disappearance_method':None,'entry_direction':None,'position_animated':False,'position_min_frames':12,'position_interpolation':'USER_PRESET_CURVE','motion_profile':'USER_VISUAL_SAMPLE_AUTHORITY','motion_blur_enabled':False,'preset_coordinate_mode':'ABSOLUTE_OBJECT_CENTER',
