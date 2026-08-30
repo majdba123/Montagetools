@@ -8,6 +8,8 @@ def run(cmd,timeout=300):
         cfg=json.loads(RUNTIME_CONFIG.read_text(encoding='utf-8'))
         if cfg.get('ffmpeg_path'):env['HEXA_FFMPEG']=str(cfg['ffmpeg_path'])
         if cfg.get('ffprobe_path'):env['HEXA_FFPROBE']=str(cfg['ffprobe_path'])
+        roots=[str(x) for x in (cfg.get('python_import_roots') or []) if x]
+        if roots: env['PYTHONPATH']=os.pathsep.join([src]+roots+[env.get('PYTHONPATH','')])
     print('RUN',' '.join(map(str,cmd)),flush=True);cp=subprocess.run([str(x) for x in cmd],cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=timeout,env=env);print(cp.stdout,flush=True)
     if cp.returncode:raise SystemExit(cp.returncode)
 count=0
