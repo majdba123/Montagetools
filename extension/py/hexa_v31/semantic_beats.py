@@ -3,7 +3,18 @@ import re
 
 _ACTIONS={'PRESENT','ENTER','TRANSFER','CONNECT','READ','COMPARE','INCREASE','DECREASE','BLOCK','REJECT','ACCEPT','REVEAL','REACT','RESOLVE'}
 _NEG=re.compile(r'(?<!\w)(?:ما|لا|لم|لن|ليس|غير|NOT|NO|NEVER|WITHOUT)(?!\w)',re.I)
-_DERIVE=(('READ',r'(?i)\b(?:read|check|inspect|scan)\b'),('COMPARE',r'(?i)\b(?:compare|versus|difference)\b'),('REJECT',r'(?i)\b(?:reject|fail|invalid|deny|block)\b'))
+_DERIVE=(
+ ('READ',r'(?i)\b(?:read|check|inspect|scan)\b|يقرأ|قرأ|فهم|يفهم|يراجع|مراجعة|يتحقق|فحص'),
+ ('COMPARE',r'(?i)\b(?:compare|versus|difference)\b|يقارن|مقارنة|الفرق|أكبر من|أقل من|مقابل|لكن'),
+ ('REJECT',r'(?i)\b(?:reject|fail|invalid|deny)\b|يرفض|رفض|تنرفض|مرفوض|لا يسمح|ما يسمح|ما تقدر|ما راح'),
+ ('BLOCK',r'(?i)\bblock\b|يمنع|محجوز|حد|حدود|يتوقف|مقطوع'),
+ ('TRANSFER',r'(?i)\b(?:send|move|transfer)\b|وصل|يصل|يرسل|يخرج|ينتقل'),
+ ('CONNECT',r'(?i)\b(?:connect|link)\b|متصل|يربط|يوزع|قنوات|مسارات'),
+ ('DECREASE',r'(?i)\b(?:decrease|reduce)\b|ينقص|تخفيض|أخذت جزء|أقل'),
+ ('INCREASE',r'(?i)\b(?:increase|raise)\b|يرفع|رفع|يزيد'),
+ ('REVEAL',r'(?i)\b(?:show|reveal)\b|يظهر|تشوف|واضح|يوضح'),
+ ('REACT',r'(?i)\b(?:think|react)\b|يظنون|يعتقد|يتفاعل'),
+ ('RESOLVE',r'(?i)\b(?:solution|resolve)\b|الحل|استخدام وسيلة ثانية'),)
 
 def normalize_scene_beats(scene, alignment=None):
     raw=scene.get('semantic_beats') or ([scene['semantic_beat']] if scene.get('semantic_beat') else [])
