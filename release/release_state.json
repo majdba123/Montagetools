@@ -1,0 +1,24 @@
+{
+  "overall_status": "RUNNING",
+  "version": "31.0.25",
+  "source_fingerprint": "e1a00ae6357d22fccba7f4b0ff823b76a38694c7f651f68199ca4bc14c3558db",
+  "package": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\HEXA_V11_REAL_PACKAGE.zip",
+  "voice": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\HEXA_V11_REAL_VOICE.mp3",
+  "stages": [
+    {
+      "name": "REAL_CERTIFICATION",
+      "status": "RUNNING",
+      "started_at": "2026-08-31T04:55:37+03:00",
+      "command": [
+        "C:\\Users\\INTEL CENTER\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+        "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\tools\\certify_v11_real_inputs.py",
+        "--package",
+        "HEXA_V11_REAL_PACKAGE.zip",
+        "--voice",
+        "HEXA_V11_REAL_VOICE.mp3"
+      ],
+      "log_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\logs\\01_real_certification.log"
+    }
+  ],
+  "pid": 16032
+}

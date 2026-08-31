@@ -372,6 +372,15 @@ def _final_physical_certification(events, cards, fps):
                 if window:
                     _schedule_event(e,window,card,local.index(e),len(local),force_static=True,local_events=local,fps=fps)
                     e['final_physical_repair']='CERTIFIED_STATIC_SCALE_FALLBACK';repairs.append({'card_id':cid,'event_id':e.get('event_id'),'type':'STATIC_SCALE_FALLBACK'})
+    # Sustained viewport clipping is repaired only by removing the offending
+    # optional positional lifecycle. The already-solved rest geometry remains
+    # authoritative; scale and layout are not globally degraded.
+    from .composition_qa import viewport_clipping_qa
+    viewport=viewport_clipping_qa(events,fps)
+    clipped_ids={str(x).split(':',1)[0] for x in (viewport.get('failures') or [])}
+    for e in events:
+        if str(e.get('event_id')) not in clipped_ids:continue
+        e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[];e['position_animated']=False;e['start_x_norm']=float((e.get('card_rest_position_norm') or [0.5,0.5])[0]);e['start_y_norm']=float((e.get('card_rest_position_norm') or [0.5,0.5])[1]);e['end_x_norm']=e['start_x_norm'];e['end_y_norm']=e['start_y_norm'];e['final_physical_repair']='VIEWPORT_SAFE_STATIC_FALLBACK';repairs.append({'card_id':e.get('visual_card_id'),'event_id':e.get('event_id'),'type':'VIEWPORT_SAFE_STATIC_FALLBACK'})
     after=qa()
     if not after.get('pass'):raise ValueError('FINAL_PHYSICAL_CERTIFICATION_FAILED: '+' | '.join(after.get('failures') or [])[:2000])
     return {'pass':True,'repair_passes':1,'before':before,'after':after,'repairs':repairs}
@@ -1254,10 +1263,19 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     if not cards.get('cards'):raise ValueError('Visual-card compiler failed: '+' | '.join(cards.get('hard_failures') or ['unknown partition failure']))
     scene_to_card=cards.get('scene_to_card') or {};card_by={c['card_id']:c for c in cards['cards']};events=[];scenes_out=[]
 
+    def resolve_event_card(scene_id, card_ids, start, end, anchor):
+        ids=card_ids if isinstance(card_ids,list) else [card_ids]
+        candidates=[card_by[x] for x in ids]
+        af=int(round(float(anchor)*fps))
+        for c in candidates:
+            if int(round(float(c['start_seconds'])*fps))<=af<int(round(float(c['end_seconds'])*fps)):return c
+        def overlap(c):return max(0.0,min(float(end),float(c['end_seconds']))-max(float(start),float(c['start_seconds'])))
+        return max(candidates,key=lambda c:(overlap(c),-float(c['start_seconds'])))
+
     # Physical events: conservative top-level objects only. V31 adds actual footprint metadata so
     # layout is solved on rectangles, not centers.
     for scene in scenes:
-        sid=str(scene['scene_id']);st=tm[sid];vr=vis[sid];card=card_by[scene_to_card[sid]];sems=_semantic_map(scene)
+        sid=str(scene['scene_id']);st=tm[sid];vr=vis[sid];card_ids=scene_to_card[sid];sems=_semantic_map(scene)
         scene_beats=normalize_scene_beats(scene,alignment)
         units,hierarchy_selection=_select_render_units(vr)
         camera_fit=compute_reference_camera_fit(float(vr.get('foreground_fraction') or 0.0),units,ref);camera_fit['camera_scale']=max(0.68,min(1.15,float(camera_fit.get('camera_scale') or 1.0)));camera_fit['expected_occupancy_percent']=float(camera_fit.get('source_occupancy_percent') or 0.0)*camera_fit['camera_scale']**2
@@ -1267,6 +1285,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
             hit_source='VOICE_TRIGGER'
             if hit is None:
                 hit=(float(st['start'])+float(st['end']))/2.0;hit_source='SOURCE_INTERVAL_FALLBACK'
+            card=resolve_event_card(sid,card_ids,float(st['start']),float(st['end']),hit)
             e={
                 'event_id':f'{sid}_{u["physical_id"]}','scene_id':sid,'visual_card_id':card['card_id'],'physical_id':u['physical_id'],'semantic_unit_id':u.get('semantic_unit_id'),'semantic_scope_id':f"{sid}::{u.get('semantic_unit_id')}" if u.get('semantic_unit_id') else f"{sid}::{u['physical_id']}",'semantic_type':u.get('semantic_type'),'semantic_role':u.get('semantic_role'),'kind':_kind(u),'identity_key':_identity(sem,u),
                 'narrative_function':sem.get('narrative_function'),'semantic_intent':sem.get('semantic_intent'),'relationship':sem.get('relationship'),'visual_concept':sem.get('visual_concept'),'package_semantic_beats':scene_beats,'package_semantic_beat':(scene_beats[0] if scene_beats else scene.get('dominant_semantic_beat')),'canonical_clause':(scene.get('script_span') or {}).get('text') or scene.get('narration') or '',
@@ -1287,6 +1306,12 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # intervals, but assign each required event to the interval containing its
     # voice anchor. A source scene may straddle an editorial boundary; its
     # physical state must follow the anchor rather than an obsolete scene map.
+    for child_card in cards['cards']:
+        if any(e.get('visual_card_id')==child_card['card_id'] for e in events):continue
+        sources=set(child_card.get('source_scene_ids') or [])
+        template=next((e for e in events if e.get('scene_id') in sources),None)
+        if template:
+            carry=dict(template);carry['event_id']=f"{template['event_id']}__PERSIST_{child_card['card_id']}";carry['visual_card_id']=child_card['card_id'];carry['start_seconds']=float(child_card['start_seconds']);carry['perceptual_hit_seconds']=float(child_card['start_seconds']);carry['settle_seconds']=float(child_card['end_seconds']);carry['end_seconds']=float(child_card['end_seconds']);carry['preset_entry']=None;carry['preset_exit']=None;carry['preset_actions']=[];carry['position_animated']=False;carry['independent_motion_allowed']=False;carry['same_scene_persistence_state']=True;events.append(carry)
     ordered_cards=cards['cards']
     for e in events:
         hit=float(e.get('perceptual_hit_seconds',e.get('source_scene_start_seconds',0)))
