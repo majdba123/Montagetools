@@ -147,7 +147,17 @@ def _time_window_groups(rows:list[dict],min_seconds:float,max_seconds:float,targ
 
 
 def build_visual_cards(plan:dict, alignment:dict, vision_results:list[dict], *, min_seconds:float=3.0, max_seconds:float=5.0)->dict:
-    rows=_make_rows(plan,alignment,vision_results);partition_mode='SCENE_BOUNDARY_SEMANTIC_DP'
+    rows=_make_rows(plan,alignment,vision_results); expanded=[]
+    # V1.1 source scenes may intentionally outlast one editorial card. Keep their
+    # identity while presenting legal interval rows to the existing card compiler.
+    for row in rows:
+        dur=float(row['duration'])
+        if dur<=max_seconds+1e-6: expanded.append(row); continue
+        count=max(2,int(round(dur/max_seconds))); step=dur/count
+        while step<min_seconds and count>1: count-=1;step=dur/count
+        for i in range(count):
+            r=dict(row);r['start']=float(row['start'])+i*step;r['end']=float(row['start'])+(i+1)*step;r['duration']=r['end']-r['start'];r['source_scene_segment_index']=i;r['source_scene_segment_count']=count;expanded.append(r)
+    rows=expanded;partition_mode='SCENE_BOUNDARY_SEMANTIC_DP'
     try:
         groups=_partition(rows,min_seconds,max_seconds)
         compiled=[{'rows':rows[a:b+1],'card_start':rows[a]['start'],'card_end':rows[b]['end'],'partition_mode':partition_mode} for a,b in groups]
@@ -185,7 +195,11 @@ def build_visual_cards(plan:dict, alignment:dict, vision_results:list[dict], *, 
             'card_compiler':group.get('partition_mode') or partition_mode,
         })
 
-    scene_to_card={sid:c['card_id'] for c in cards for sid in c['source_scene_ids']};hard=[]
+    scene_to_card={}
+    for c in cards:
+        for sid in c['source_scene_ids']:
+            scene_to_card.setdefault(sid,[]).append(c['card_id'])
+    scene_to_card={sid:(ids[0] if len(ids)==1 else ids) for sid,ids in scene_to_card.items()};hard=[]
     for c in cards:
         if not c['duration_rule_pass']:hard.append(f"{c['card_id']}: duration {c['duration_seconds']:.3f}s outside 3-5s")
         if not c['primary_capacity_rule_pass']:hard.append(f"{c['card_id']}: too many distinct primary handoffs for supplied preset durations")
