@@ -1,0 +1,103 @@
+{
+  "scene_id": "SCENE_003",
+  "order": 3,
+  "image": "scenes/SCENE_003.png",
+  "script_span": {
+    "global_char_start": 138,
+    "global_char_end": 292,
+    "text": "من الخارج، تشوف إن عندك مبلغ كافي. لكن وقت الدفع، النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط، بل للمبلغ المتاح فعليًا ضمن نوع العملية اللي تحاول تسويها."
+  },
+  "purpose": "شرح انتقال الرصيد الظاهر عبر فلتر نوع العملية لإنتاج المبلغ المتاح فعليًا.",
+  "visual_concept": "قيمة إجمالية كبيرة تدخل نظام فلترة متصل بمسارات أنواع عمليات، ويخرج منه مبلغ متاح أصغر نحو جهاز الدفع.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "payment_system",
+    "action": "COMPARE",
+    "object": "displayed_balance_and_available_amount",
+    "result": "transaction_specific_available_amount",
+    "polarity": "NEUTRAL",
+    "anchor_text": "للمبلغ المتاح فعليًا ضمن نوع العملية"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_005",
+      "semantic_name": "payment_system",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "COMPARE_transaction_specific_available_amount",
+      "appear_trigger": {
+        "phrase": "للمبلغ المتاح فعليًا ضمن نوع العملية",
+        "occurrence_in_scene": 1,
+        "global_char_start": 237,
+        "global_char_end": 273
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "COMPARE",
+      "interaction_target": null,
+      "relationship": null
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_003",
+      "order": 1,
+      "trigger": {
+        "phrase": "للمبلغ المتاح فعليًا ضمن نوع العملية",
+        "occurrence_in_scene": 1,
+        "global_char_start": 237,
+        "global_char_end": 273
+      },
+      "action": "COMPARE",
+      "targets": [
+        "UNIT_005"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_003",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "transaction_specific_balance_filter",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "ATOMIC",
+        "confidence": 0.99
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "payment_system",
+      "action": "COMPARE",
+      "object": "displayed_balance_and_available_amount",
+      "result": "transaction_specific_available_amount",
+      "polarity": "NEUTRAL",
+      "anchor_text": "للمبلغ المتاح فعليًا ضمن نوع العملية"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "payment_system",
+    "action": "COMPARE",
+    "object": "displayed_balance_and_available_amount",
+    "result": "transaction_specific_available_amount",
+    "polarity": "NEUTRAL",
+    "anchor_text": "للمبلغ المتاح فعليًا ضمن نوع العملية"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "transaction_specific_balance_filter",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "ATOMIC",
+      "confidence": 0.99,
+      "object_id": "transaction_specific_balance_filter",
+      "extraction_policy": "ATOMIC"
+    }
+  ]
+}

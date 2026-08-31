@@ -55,21 +55,35 @@ def verify_physical_acting(video_path:str|os.PathLike,motion_plan:dict,out_json:
     p=pathlib.Path(video_path);cap=cv2.VideoCapture(str(p))
     if not cap.isOpened():raise RuntimeError('Cannot open final MP4 for acting verification')
     fps=float(cap.get(cv2.CAP_PROP_FPS) or 30.0);duration=float(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)/max(1e-6,fps);rows=[]
-    p3=('V31_0_1_UNIVERSAL_CONSTRAINT_STORY_DIRECTOR' in str(motion_plan.get('motion_dna_version') or '') or 'USER_PRESET' in str(motion_plan.get('motion_dna_version') or ''))
+    p3=bool(str(motion_plan.get('schema') or '').startswith('HEXA_MOTION_PLAN_V31') or str(motion_plan.get('preset_authority') or '').startswith('HEXA_USER_PRESET') or 'USER_PRESET' in str(motion_plan.get('motion_dna_version') or ''))
     for e in motion_plan.get('events') or []:
         if e.get('suppressed_by_card_density'):continue
         if p3:
-            actions=e.get('preset_actions') or []
+            actions=[]
+            if not e.get('lifecycle_state_only') and e.get('preset_entry'):
+                row=dict(e.get('preset_entry') or {});row['action_type']='ENTRY';actions.append(row)
+            actions.extend(e.get('preset_actions') or [])
+            for beat in e.get('focus_beats') or []:
+                actions.append({'name':'BEAT_FOCUS_EMPHASIS','action_type':'BEAT_EMPHASIS',
+                    'start_seconds':beat.get('start_seconds'),'duration_seconds':max(0.0,float(beat.get('end_seconds',0))-float(beat.get('start_seconds',0)))})
+            if not e.get('lifecycle_state_only') and e.get('preset_exit'):
+                row=dict(e.get('preset_exit') or {});row['action_type']='EXIT';actions.append(row)
             for a in actions:
                 st=float(a.get('start_seconds',0));en=st+float(a.get('duration_seconds',0))
                 if en-st<1.0/fps:continue
-                pre=_read(cap,max(0.0,st-1.0/fps));mid=_read(cap,(st+en)/2.0);post=_read(cap,min(duration,max(st,en+1.0/fps)))
+                bbox=e.get('planned_rect_norm') or e.get('bbox_norm') or [0,0,1,1]
+                pre=_roi(_read(cap,max(0.0,st-2.0/fps)),bbox,.045);mid=_roi(_read(cap,(st+en)/2.0),bbox,.045);post=_roi(_read(cap,min(duration,max(st,en+2.0/fps))),bbox,.045)
                 d01,p01=_frame_change(pre,mid);d12,p12=_frame_change(mid,post);d02,p02=_frame_change(pre,post)
                 # Exact supplied within-frame presets produce a large object travel.  Requiring
                 # both mean energy and changed-pixel area prevents a simultaneous tiny blink
                 # elsewhere in the frame from falsely certifying the action.
                 energy=max(d01,d12,d02);coverage=max(p01,p12,p02)
-                ok=bool(energy>=0.55 and coverage>=0.0025)
+                kind=str(a.get('action_type') or 'USER_PRESET_ACTION')
+                # Local evidence is normalized to the solved object zone. A semantic
+                # emphasis may be more restrained than a spatial handoff, but it must
+                # still survive encoding across a meaningful portion of that zone.
+                min_energy,min_coverage=(0.32,0.0018) if kind=='BEAT_EMPHASIS' else (0.55,0.0025)
+                ok=bool(energy>=min_energy and coverage>=min_coverage)
                 rows.append({'event_id':e.get('event_id'),'scene_id':e.get('scene_id'),'visual_card_id':e.get('visual_card_id'),'kind':str(a.get('action_type') or 'USER_PRESET_ACTION'),'preset_name':a.get('name'),'target_semantic_unit_id':a.get('target_semantic_unit_id'),'relationship_evidence':a.get('relationship_evidence'),'start_seconds':round(st,6),'end_seconds':round(en,6),'mean_frame_change':round(energy,5),'changed_pixel_ratio':round(coverage,6),'pass':ok})
         else:
             bbox=e.get('bbox_norm') or [0,0,1,1]
@@ -88,6 +102,6 @@ def verify_physical_acting(video_path:str|os.PathLike,motion_plan:dict,out_json:
                 rows.append({'event_id':e.get('event_id'),'scene_id':e.get('scene_id'),'kind':kind,'start_seconds':st,'end_seconds':en,'expected_travel_px':round(expected,2),'observed_centroid_travel_px':round(moved,2),'occupancy_delta':round(o1-o0,5),'pass':ok})
     cap.release();planned=len(rows);passed=sum(1 for r in rows if r['pass']);ratio=0.0 if planned==0 else passed/planned
     eligible=int((motion_plan.get('budget_summary') or {}).get('story_eligible_scene_count',0)) if p3 else sum(1 for s in motion_plan.get('scenes') or [] if (s.get('semantic_object_graph') or {}).get('story_eligible'))
-    result={'schema':'HEXA_PHYSICAL_ACTING_VERIFICATION_V31','version':'31.0.9' if p3 else '1.0','video':str(p),'story_eligible_scene_count':eligible,'planned_physical_actions':planned,'verified_physical_actions':passed,'verified_ratio':round(ratio,4),'pass':bool(planned==0 or ratio>=0.88),'rows':rows,'note':'V31 verifies physically encoded USER_PRESET within-frame actions, including layout choreography and explicit semantic relationships. Zero planned actions receive no free reference-score component.','vacuous_semantic_story_score_forbidden':True}
+    result={'schema':'HEXA_PHYSICAL_ACTING_VERIFICATION_V31','version':'31.0.25-PIXEL_ACTION_SURVIVAL','video':str(p),'story_eligible_scene_count':eligible,'planned_physical_actions':planned,'verified_physical_actions':passed,'failed_physical_actions':planned-passed,'verified_ratio':round(ratio,4),'pass':bool(planned>0 and ratio>=0.88),'rows':rows,'verification_authority':'LOCAL_RENDERED_PIXEL_CHANGE_IN_SOLVED_EVENT_BBOX','note':'Every committed entry, exit, beat emphasis, and within-frame action must create measurable local pixel change. A zero-action plan hard-fails.','vacuous_semantic_story_score_forbidden':True}
     if out_json:write_json(out_json,result)
     return result

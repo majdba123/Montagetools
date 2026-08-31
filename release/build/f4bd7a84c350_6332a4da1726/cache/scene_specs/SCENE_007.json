@@ -1,0 +1,122 @@
+{
+  "scene_id": "SCENE_007",
+  "order": 7,
+  "image": "scenes/SCENE_007.png",
+  "script_span": {
+    "global_char_start": 621,
+    "global_char_end": 698,
+    "text": "هنا كثير ناس يظنون إن الموقع فيه مشكلة. مع إن طلب الدفع وصل للبنك بشكل طبيعي،"
+  },
+  "purpose": "تصحيح الاعتقاد بأن الموقع معطل وإظهار أن طلب الدفع وصل للبنك.",
+  "visual_concept": "HEXA يشير إلى مسار مضيء سليم من نافذة متجر إلكتروني عبر طلب دفع حتى مبنى البنك، بينما رمز شك صغير يبقى فوق الموقع.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "payment_request",
+    "action": "TRANSFER",
+    "object": "bank",
+    "result": "request_arrives_normally",
+    "polarity": "POSITIVE",
+    "anchor_text": "طلب الدفع وصل للبنك بشكل طبيعي"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_010",
+      "semantic_name": "payment_request",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "TRANSFER_request_arrives_normally",
+      "appear_trigger": {
+        "phrase": "طلب الدفع وصل للبنك بشكل طبيعي",
+        "occurrence_in_scene": 1,
+        "global_char_start": 667,
+        "global_char_end": 697
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "TRANSFER",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_011",
+      "semantic_name": "hexa_main_character",
+      "type": "MAIN_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "طلب الدفع وصل للبنك بشكل طبيعي",
+        "occurrence_in_scene": 1,
+        "global_char_start": 667,
+        "global_char_end": 697
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "TRANSFER",
+      "interaction_target": "UNIT_010",
+      "relationship": "EXPLAINS"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_007",
+      "order": 1,
+      "trigger": {
+        "phrase": "طلب الدفع وصل للبنك بشكل طبيعي",
+        "occurrence_in_scene": 1,
+        "global_char_start": 667,
+        "global_char_end": 697
+      },
+      "action": "TRANSFER",
+      "targets": [
+        "UNIT_010",
+        "UNIT_011"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_007",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "hexa_and_website_to_bank_route",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "ATOMIC",
+        "confidence": 0.99
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "payment_request",
+      "action": "TRANSFER",
+      "object": "bank",
+      "result": "request_arrives_normally",
+      "polarity": "POSITIVE",
+      "anchor_text": "طلب الدفع وصل للبنك بشكل طبيعي"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "payment_request",
+    "action": "TRANSFER",
+    "object": "bank",
+    "result": "request_arrives_normally",
+    "polarity": "POSITIVE",
+    "anchor_text": "طلب الدفع وصل للبنك بشكل طبيعي"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "hexa_and_website_to_bank_route",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "ATOMIC",
+      "confidence": 0.99,
+      "object_id": "hexa_and_website_to_bank_route",
+      "extraction_policy": "ATOMIC"
+    }
+  ]
+}

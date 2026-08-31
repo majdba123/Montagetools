@@ -1,0 +1,103 @@
+{
+  "scene_id": "SCENE_005",
+  "order": 5,
+  "image": "scenes/SCENE_005.png",
+  "script_span": {
+    "global_char_start": 427,
+    "global_char_end": 534,
+    "text": "وبعض البنوك تحط حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب، وحتى عدد العمليات خلال فترة معينة."
+  },
+  "purpose": "توضيح أن لكل قناة دفع حدًا مستقلاً.",
+  "visual_concept": "بنك مركزي يوزع أربع قنوات متصلة إلى هاتف شراء إلكتروني وكرة أرضية وصراف آلي وعداد عمليات زمني، ولكل قناة مقياس مستقل.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "bank",
+    "action": "CONNECT",
+    "object": "separate_transaction_limits",
+    "result": "independent_channel_caps",
+    "polarity": "NEUTRAL",
+    "anchor_text": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_007",
+      "semantic_name": "bank",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "CONNECT_independent_channel_caps",
+      "appear_trigger": {
+        "phrase": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب",
+        "occurrence_in_scene": 1,
+        "global_char_start": 443,
+        "global_char_end": 498
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "CONNECT",
+      "interaction_target": null,
+      "relationship": null
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_005",
+      "order": 1,
+      "trigger": {
+        "phrase": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب",
+        "occurrence_in_scene": 1,
+        "global_char_start": 443,
+        "global_char_end": 498
+      },
+      "action": "CONNECT",
+      "targets": [
+        "UNIT_007"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_005",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "bank_channel_limit_network",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "CONNECTED",
+        "confidence": 0.99
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "bank",
+      "action": "CONNECT",
+      "object": "separate_transaction_limits",
+      "result": "independent_channel_caps",
+      "polarity": "NEUTRAL",
+      "anchor_text": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "bank",
+    "action": "CONNECT",
+    "object": "separate_transaction_limits",
+    "result": "independent_channel_caps",
+    "polarity": "NEUTRAL",
+    "anchor_text": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "bank_channel_limit_network",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "CONNECTED",
+      "confidence": 0.99,
+      "object_id": "bank_channel_limit_network",
+      "extraction_policy": "CONNECTED"
+    }
+  ]
+}

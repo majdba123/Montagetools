@@ -1,0 +1,13 @@
+{
+  "video": "C:\\Users\\INTEL CENTER\\Desktop\\content\\Refrence\\MainCharecter\\hexacharecter\\تأثير المتفرج2.mp4",
+  "failed_metrics": {
+    "motion_activity": false,
+    "low_motion_percent": false,
+    "static_p90": false,
+    "static_max": false,
+    "motion_p95": false,
+    "underfilled": false,
+    "severe_spikes": false
+  },
+  "card_boundary_and_major_beat_frame_count": 20
+}

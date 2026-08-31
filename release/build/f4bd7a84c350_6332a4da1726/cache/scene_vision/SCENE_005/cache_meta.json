@@ -1,0 +1,29 @@
+{
+  "cache_signature": "b0b2e81c770b0d6f985873a165efa3eb400703d746bf8208f7b7e8785a63d2c7",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "79a8728dae0af0125de80687f18b913a0aea83e48e0be5485f32ee99d4868cff",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_007",
+        "semantic_name": "bank",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "CONNECT_independent_channel_caps",
+        "appear_trigger": {
+          "phrase": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب",
+          "occurrence_in_scene": 1,
+          "global_char_start": 443,
+          "global_char_end": 498
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "CONNECT",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

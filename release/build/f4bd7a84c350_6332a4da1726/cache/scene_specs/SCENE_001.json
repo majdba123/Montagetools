@@ -1,0 +1,170 @@
+{
+  "scene_id": "SCENE_001",
+  "order": 1,
+  "image": "scenes/SCENE_001.png",
+  "script_span": {
+    "global_char_start": 0,
+    "global_char_end": 68,
+    "text": "تخيل عندك محفظة فيها ألف ريال، لكن ثلاثمئة منها محجوزة لعملية سابقة."
+  },
+  "purpose": "توضيح الفرق بين الرصيد الإجمالي والجزء المحجوز.",
+  "visual_concept": "HEXA يقدم محفظة تحتوي قيمة إجمالية واضحة، مع جزء منفصل منها داخل حاوية شفافة مقفلة تمثل الحجز السابق.",
+  "relation_to_previous": null,
+  "semantic_beat": {
+    "subject": "wallet_balance",
+    "action": "REVEAL",
+    "object": "reserved_amount",
+    "result": "reduced_usable_balance",
+    "polarity": "NEGATIVE",
+    "anchor_text": "ثلاثمئة منها محجوزة لعملية سابقة"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_001",
+      "semantic_name": "wallet_balance",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "REVEAL_reduced_usable_balance",
+      "appear_trigger": {
+        "phrase": "ثلاثمئة منها محجوزة لعملية سابقة",
+        "occurrence_in_scene": 1,
+        "global_char_start": 35,
+        "global_char_end": 67
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "REVEAL",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_002",
+      "semantic_name": "hexa_main_character",
+      "type": "MAIN_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "ثلاثمئة منها محجوزة لعملية سابقة",
+        "occurrence_in_scene": 1,
+        "global_char_start": 35,
+        "global_char_end": 67
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "REVEAL",
+      "interaction_target": "UNIT_001",
+      "relationship": "EXPLAINS"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_001",
+      "order": 1,
+      "trigger": {
+        "phrase": "ثلاثمئة منها محجوزة لعملية سابقة",
+        "occurrence_in_scene": 1,
+        "global_char_start": 35,
+        "global_char_end": 67
+      },
+      "action": "REVEAL",
+      "targets": [
+        "UNIT_001",
+        "UNIT_002"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_001",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "hexa_character",
+        "label": 1,
+        "role": "CHARACTER",
+        "policy": "MOVABLE",
+        "confidence": 0.96
+      },
+      {
+        "id": "wallet_total_container",
+        "label": 2,
+        "role": "SUBJECT",
+        "policy": "MOVABLE",
+        "confidence": 0.94
+      },
+      {
+        "id": "available_money_stack",
+        "label": 3,
+        "role": "RESULT",
+        "policy": "MOVABLE",
+        "confidence": 0.95
+      },
+      {
+        "id": "reserved_money_capsule",
+        "label": 4,
+        "role": "OBJECT",
+        "policy": "ATOMIC",
+        "confidence": 0.97
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "wallet_balance",
+      "action": "REVEAL",
+      "object": "reserved_amount",
+      "result": "reduced_usable_balance",
+      "polarity": "NEGATIVE",
+      "anchor_text": "ثلاثمئة منها محجوزة لعملية سابقة"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "wallet_balance",
+    "action": "REVEAL",
+    "object": "reserved_amount",
+    "result": "reduced_usable_balance",
+    "polarity": "NEGATIVE",
+    "anchor_text": "ثلاثمئة منها محجوزة لعملية سابقة"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "hexa_character",
+      "label": 1,
+      "role": "CHARACTER",
+      "policy": "MOVABLE",
+      "confidence": 0.96,
+      "object_id": "hexa_character",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "wallet_total_container",
+      "label": 2,
+      "role": "SUBJECT",
+      "policy": "MOVABLE",
+      "confidence": 0.94,
+      "object_id": "wallet_total_container",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "available_money_stack",
+      "label": 3,
+      "role": "RESULT",
+      "policy": "MOVABLE",
+      "confidence": 0.95,
+      "object_id": "available_money_stack",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "reserved_money_capsule",
+      "label": 4,
+      "role": "OBJECT",
+      "policy": "ATOMIC",
+      "confidence": 0.97,
+      "object_id": "reserved_money_capsule",
+      "extraction_policy": "ATOMIC"
+    }
+  ]
+}

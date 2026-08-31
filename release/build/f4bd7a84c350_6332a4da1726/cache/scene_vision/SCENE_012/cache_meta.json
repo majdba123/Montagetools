@@ -1,0 +1,29 @@
+{
+  "cache_signature": "baf72eb83e0a5589c9843a720e13659ef411a30b5a485ab1cc337bc8e6f22349",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "72d2abaa95edb42e39146cd6ef77c9f6b92b44e9d11a21ece2243fe2d43d02ad",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_019",
+        "semantic_name": "payment_route",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "REVEAL_route_not_broken",
+        "appear_trigger": {
+          "phrase": "الدفع ما فشل لأن الطريق مقطوع",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1170,
+          "global_char_end": 1199
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "REVEAL",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "cache_signature": "2e63c04360777994e009c9d7bf95d721a7a18e9b297a1a282f269a2a743e9e70",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "8132dbe926228bae9b730c413585e42e389e7eae4c80db949c3e430528485412",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_015",
+        "semantic_name": "repeated_payment_attempts",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "REJECT_same_decline_result",
+        "appear_trigger": {
+          "phrase": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء",
+          "occurrence_in_scene": 1,
+          "global_char_start": 966,
+          "global_char_end": 1015
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "REJECT",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_016",
+        "semantic_name": "customer_secondary_character",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء",
+          "occurrence_in_scene": 1,
+          "global_char_start": 966,
+          "global_char_end": 1015
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "REJECT",
+        "interaction_target": "UNIT_015",
+        "relationship": "EXPERIENCES"
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

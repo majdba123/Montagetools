@@ -1,0 +1,29 @@
+{
+  "cache_signature": "56dd0b438638877f31d3473cdc7c153aa9b6714ae3f226ae61c50c5fc4c38a3b",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "5039aa31adb1534b95ad07043023d2e1ded09d9ae6ccd8b289a121ff237f6833",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_006",
+        "semantic_name": "credit_limit",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "DECREASE_partially_consumed_limit",
+        "appear_trigger": {
+          "phrase": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه",
+          "occurrence_in_scene": 1,
+          "global_char_start": 368,
+          "global_char_end": 424
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "DECREASE",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

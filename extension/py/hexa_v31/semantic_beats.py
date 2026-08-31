@@ -45,7 +45,7 @@ def normalize_scene_beats(scene, alignment=None):
     return out
 
 def _align(beat, scene, alignment):
-    interval=((alignment or {}).get('scene_intervals') or {}).get(str(scene.get('scene_id'))) or {}
+    interval=((alignment or {}).get('scene_intervals') or {}).get(str(scene.get('scene_id'))) or next((x for x in ((alignment or {}).get('scene_timings') or []) if str(x.get('scene_id'))==str(scene.get('scene_id'))),{})
     start=float(interval.get('start_seconds',interval.get('start',0.0)) or 0); end=float(interval.get('end_seconds',interval.get('end',start)) or start)
     words=(alignment or {}).get('word_timings') or []; anchor=beat['anchor_text']
     tokens=[x.casefold() for x in re.findall(r'\w+',anchor)]

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, pathlib, re, json, hashlib
+import os, pathlib, re, json, hashlib, math
 from functools import lru_cache
 from PIL import Image, ImageDraw, ImageFont, features
 
@@ -227,6 +227,22 @@ def _overlap(a,b):
     ax,ay,aw,ah=a; bx,by,bw,bh=b; ix=max(0,min(ax+aw,bx+bw)-max(ax,bx)); iy=max(0,min(ay+ah,by+bh)-max(ay,by)); return ix*iy/max(1e-9,aw*ah)
 
 
+@lru_cache(maxsize=48)
+def _alpha_channel(path):
+    try:
+        with Image.open(path) as im:
+            return im.getchannel('A').copy() if im.mode=='RGBA' else None
+    except (OSError,ValueError):
+        return None
+
+
+def _alpha_occupancy(alpha,rect):
+    if alpha is None:return None
+    x,y,w,h=rect;aw,ah=alpha.size;box=(max(0,int(x*aw)),max(0,int(y*ah)),min(aw,int((x+w)*aw)),min(ah,int((y+h)*ah)))
+    if box[2]<=box[0] or box[3]<=box[1]:return 0.0
+    hist=alpha.crop(box).histogram();total=max(1,sum(hist));return sum(hist[9:])/total
+
+
 def _role_geometry(text,role,canvas_w=1920,canvas_h=1080):
     """Return content-sized geometry from real shaped glyph bounds."""
     role=str(role or 'KEYWORD').upper(); preferred={'HERO':88,'VALUE':86,'RESULT':78,'WARNING':72,'STATUS':68,'KEYWORD':72,'CALLOUT':60,'CONTEXT':52,'MICRO_LABEL':48,'COMPARISON_LABEL':58}.get(role,64)
@@ -264,10 +280,12 @@ def _choose_slot(vscene,text,style,treatment='FREE_KEYWORD',related_unit_id=None
         ux,uy,uw,uh=map(float,rb); related_type=str((related or {}).get('semantic_type') or '').upper();gap=.075 if 'CHARACTER' in related_type else .040
         slots=[('RELATED_RIGHT',ux+uw+gap,uy+uh*.5-height*.5,width,height),('RELATED_LEFT',ux-gap-width,uy+uh*.5-height*.5,width,height),('RELATED_BELOW',ux+uw-width,uy+uh+gap,width,height),('RELATED_ABOVE',ux+uw-width,uy-gap-height,width,height)]
     slots += [('MID_RIGHT',.94-width,.38,width,height),('MID_LEFT',.06,.38,width,height),('BOTTOM_RIGHT',.94-width,.90-height,width,height),('BOTTOM_LEFT',.06,.90-height,width,height),('TOP_RIGHT',.94-width,.07,width,height),('TOP_LEFT',.06,.07,width,height)]
-    boxes=[]
+    boxes=[];alpha_layers=[]
     for u in units:
+        alpha=_alpha_channel(str(u.get('layer_path') or '')) if u.get('layer_path') else None
+        if alpha is not None:alpha_layers.append(alpha)
         b=u.get('bbox_norm') or []
-        if len(b)==4:
+        if len(b)==4 and alpha is None:
             x,y,w,h=map(float,b); pad=0.028
             # Human visual safety is stricter than ink-rectangle collision:
             # text may not crowd a face/head or a primary action region.
@@ -287,9 +305,13 @@ def _choose_slot(vscene,text,style,treatment='FREE_KEYWORD',related_unit_id=None
     best=None
     for idx,(name,x,y,w,h) in enumerate(slots):
         if x<.035 or y<.035 or x+w>.965 or y+h>.94:continue
-        ov=sum(_overlap((x,y,w,h),b[:4])*b[4] for b in boxes);score=ov+idx*.004
+        ov=sum(_overlap((x,y,w,h),b[:4])*b[4] for b in boxes)
+        # Loose semantic bboxes often wrap a sparse illustration. The original
+        # alpha canvas, not that bbox, is the negative-space authority.
+        ov+=sum(float(_alpha_occupancy(a,(x,y,w,h)) or 0.0) for a in alpha_layers)
+        score=ov+idx*.004
         if best is None or score<best[0]:best=(score,name,x,y,w,h,ov)
-    if not best or best[6]>0.015:return None
+    if not best or best[6]>0.045:return None
     _,name,x,y,w,h,ov=best
     return {'slot':name,'x_norm':x,'y_norm':y,'w_norm':w,'h_norm':h,'visual_overlap_score':round(ov,4),'text_geometry':geom,'relationship_placement':'ADJACENT_TO_RELATED_VISUAL' if name.startswith('RELATED_') else 'RESERVED_NEGATIVE_SPACE','generic_background_panel':False}
 
@@ -297,8 +319,8 @@ def _choose_slot(vscene,text,style,treatment='FREE_KEYWORD',related_unit_id=None
 def build_text_plan(package,alignment,vision_results,motion_plan,logger=None):
     scenes=package.plan.get('scenes') or []; vmap={str(v.get('scene_id')):v for v in vision_results}; tmap=_scene_timing(alignment); candidates=[]
     visual_cards=(motion_plan.get('visual_cards') or {})
-    scene_to_card={str(k):str(v) for k,v in (visual_cards.get('scene_to_card') or {}).items()}
-    card_ends={str(c.get('card_id')):float(c.get('end_seconds',0)) for c in (visual_cards.get('cards') or [])}
+    scene_to_cards={str(k):([str(x) for x in v] if isinstance(v,list) else [str(v)]) for k,v in (visual_cards.get('scene_to_card') or {}).items()}
+    card_rows={str(c.get('card_id')):c for c in (visual_cards.get('cards') or [])}
     for order,scene in enumerate(scenes,1):
         sr=tmap.get(str(scene.get('scene_id')))
         if not sr:continue
@@ -315,6 +337,7 @@ def build_text_plan(package,alignment,vision_results,motion_plan,logger=None):
         # though the scene's exact canonical fallback does.  Select the best
         # *placeable* source-literal option rather than dropping that entire
         # semantic moment after the first placement attempt.
+        placeable=[]
         for best in sorted(options,key=lambda x:(-float(x.get('score') or 0),str(x.get('text') or ''))):
             unit=next((u for u in (scene.get('units') or []) if str(u.get('unit_id'))==str(best.get('unit_id'))),{})
             best['typography_role']=_typography_role(best['unit_type'],unit.get('narrative_function') or '',best['text'],scene)
@@ -322,20 +345,29 @@ def build_text_plan(package,alignment,vision_results,motion_plan,logger=None):
             placement=_choose_slot(vmap.get(scene['scene_id'],{}),best['text'],best['style'],best['treatment'],best.get('unit_id'),best['typography_role'])
             if not placement:
                 continue
-            best=dict(best)
-            card_id=scene_to_card.get(str(scene.get('scene_id')))
-            best['scene_order']=order; best['duration_seconds']=dur; best['placement']=placement
-            best['visual_card_id']=card_id; best['card_end_seconds']=card_ends.get(card_id,float(sr.get('end',0)))
-            candidates.append(best)
-            break
+            row=dict(best);row['scene_order']=order;row['duration_seconds']=dur;row['placement']=placement
+            placeable.append(row)
+        # V1.1 creative ownership is interval-card + semantic trigger. A source
+        # scene may therefore yield several distinct opportunities, but only
+        # when their exact source phrases anchor inside distinct child cards.
+        used_cards=set();used_text=set()
+        card_ids=scene_to_cards.get(str(scene.get('scene_id'))) or []
+        for row in placeable:
+            ts,_=_trigger_time(row.get('trigger'),alignment,sr)
+            card_id=next((cid for cid in card_ids if float((card_rows.get(cid) or {}).get('start_seconds',-1))<=ts<float((card_rows.get(cid) or {}).get('end_seconds',-1))),None)
+            if card_id is None and len(card_ids)==1:card_id=card_ids[0]
+            text_key=_clean(row.get('text'))
+            if not card_id or card_id in used_cards or text_key in used_text:continue
+            card=card_rows.get(card_id) or {};row=dict(row,visual_card_id=card_id,card_start_seconds=float(card.get('start_seconds',sr.get('start',0))),card_end_seconds=float(card.get('end_seconds',sr.get('end',0))))
+            candidates.append(row);used_cards.add(card_id);used_text.add(text_key)
 
     # Adaptive opportunity-driven density, not a fixed per-project quota.
     strong=[c for c in candidates if c['score']>=8.0 or c['style'] in ('NUMERIC_HERO','STATUS_BADGE')]
-    eligible=max(1,sum(1 for s in scenes if (lambda r: r and float(r.get('end',0))-float(r.get('start',0))>=0.85)(tmap.get(str(s.get('scene_id'))))))
+    eligible=max(1,len({str(c.get('visual_card_id')) for c in candidates if c.get('visual_card_id')}))
     # Premium support typography is a recurring editorial beat, not a
     # once-per-chapter adornment.  The cap remains below one label per scene,
     # and each selected row is literal source copy rather than narration.
-    desired=int(round(eligible*0.42)); upper=int(round(eligible*0.50)); target=min(len(candidates),max(min(len(strong),upper),desired)); target=min(target,max(1,upper)) if candidates else 0
+    desired=int(math.ceil(eligible*0.42)); upper=int(math.ceil(eligible*0.58)); target=min(len(candidates),max(min(len(strong),upper),desired)); target=min(target,max(1,upper)) if candidates else 0
     selected=[]; orders=set(); texts=set(); cards_used=set()
     for c in sorted(candidates,key=lambda x:(-x['score'],x['scene_order'])):
         norm=re.sub(r'\s+',' ',c['text']).strip()
@@ -360,7 +392,8 @@ def build_text_plan(package,alignment,vision_results,motion_plan,logger=None):
     for i,c in enumerate(sorted(selected,key=lambda x:x['scene_order']),1):
         sr=tmap.get(c['scene_id'])
         if not sr:continue
-        ts,te=_trigger_time(c.get('trigger'),alignment,sr); ss=float(sr['start']); se=float(sr['end']); dur=max(0.05,se-ss)
+        ts,te=_trigger_time(c.get('trigger'),alignment,sr); ss=max(float(sr['start']),float(c.get('card_start_seconds',sr['start']))); se=min(float(sr['end']),float(c.get('card_end_seconds',sr['end']))); dur=max(0.05,se-ss)
+        if not (ss-1e-6<=ts<se-1e-6):continue
         entry_duration={'VALUE':.44,'RESULT':.48,'WARNING':.36,'STATUS':.36,'KEYWORD':.52,'MICRO_LABEL':.40,'COMPARISON_LABEL':.46}.get(str(c.get('typography_role')),.46)
         available=max(0.0,ts-ss);entry_duration=min(entry_duration,max(.26,available))
         impact=ts;start=max(ss+0.03,impact-entry_duration);settle=impact
@@ -383,7 +416,7 @@ def build_text_plan(package,alignment,vision_results,motion_plan,logger=None):
         semantic_phrase=bool(c.get('source')=='SCENE_SCRIPT_LITERAL_SUBPHRASE');phrase_end=min(end,ts+max(0.85,min(2.4,end-ts))) if semantic_phrase else end
         out.append({'text_id':f'TEXT_{i:03d}','scene_id':c['scene_id'],'scene_order':c['scene_order'],'visual_card_id':c.get('visual_card_id'),'unit_id':c.get('unit_id'),'text':c['text'],'style':style,'typography_role':role,'treatment':c.get('treatment'),'motion_grammar':grammar,'relationship_target_unit_id':c.get('unit_id'),'relationship_placement':pl['relationship_placement'],'entry_seconds':round(start,6),'impact_seconds':round(impact,6),'settle_seconds':round(settle,6),'semantic_anchor_seconds':round(ts,6),'pre_roll_seconds':round(max(0,impact-start),6),'readable_start_seconds':round(settle,6),'readable_end_seconds':round(phrase_end-0.18,6),'start_seconds':round(start,6),'end_seconds':round(phrase_end,6),'text_lifetime_kind':'SEMANTIC_PHRASE' if semantic_phrase else 'CONTEXT_LABEL','fade_in_seconds':min(.20,entry_duration*.45),'fade_out_seconds':0.18,'pop_scale_from':.94 if role in ('VALUE','RESULT','WARNING','STATUS') else .97,'pop_scale_peak':1.018 if role in ('VALUE','RESULT') else 1.0,'pop_scale_end':1.0,'slide_dx_norm':slide_dx*.56,'slide_dy_norm':slide_dy*.56,'slide_duration_seconds':entry_duration,'read_sweep_dx_norm':round(-slide_dx*.10,6),'read_sweep_dy_norm':round(-slide_dy*.08,6),'read_sweep_duration_seconds':1.15,'motion_preset':'TEXT_'+grammar+'__V31_0_25','x_norm':pl['x_norm'],'y_norm':pl['y_norm'],'w_norm':pl['w_norm'],'h_norm':pl['h_norm'],'slot':pl['slot'],'text_geometry':geom,'font_policy':'CERTIFIED_FONT_HASH_PLUS_HARFBUZZ_GLYPH_PLAN','generic_background_panel':False,'semantic_source':c.get('source'),'source_lifetime_authority':'ALIGNED_PHRASE_WINDOW' if semantic_phrase else 'SOURCE_ANCHOR_THROUGH_CURRENT_SEMANTIC_CARD','score':c['score'],'visual_overlap_score':pl['visual_overlap_score'],'budget_cost':0.24 if style in ('KEY_TERM','MICRO_LABEL') else 0.30})
     font_cert=certified_arabic_font_status()
-    result={'schema':'HEXA_SELECTIVE_TYPOGRAPHY_PLAN_V31','version':'3.3-V31_0_25_TYPOGRAPHY_V3','policy':'TYPOGRAPHY_V3__COMPLETE_ARABIC_PHRASES__CERTIFIED_HARFBUZZ','scene_count':len(scenes),'eligible_scene_count':eligible,'opportunity_count':len(candidates),'target_count':target,'text_event_count':len(out),'coverage_scene_percent':round(100.0*len(out)/max(1,len(scenes)),2),'eligible_coverage_percent':round(100.0*len(out)/max(1,eligible),2),'events':out,'typography_production_certification':font_cert,'production_review_required':not font_cert.get('pass',False),'hard_rules':{'not_every_scene':True,'max_one_text_event_per_scene':True,'exact_narration_substring_required':True,'complete_phrase_required':True,'no_full_sentence_subtitles':True,'max_words':5,'max_chars':36,'negative_space_placement_required':True,'related_visual_placement_required':True,'generic_background_panels_forbidden':True,'top_center_default_forbidden':True,'face_head_primary_occlusion_forbidden':True,'arabic_shaping_required':True,'certified_font_hash_required':True,'harfbuzz_raqm_authority':True,'no_bundled_unapproved_font':True,'adaptive_coverage':True,'topic_specific_keyword_dependency':False,'minimum_duration_seconds':0.85,'quota_filling_forbidden':True,'perceptual_settle_voice_anchored':True,'bounded_pre_roll_max_seconds':.52}}
+    result={'schema':'HEXA_SELECTIVE_TYPOGRAPHY_PLAN_V31','version':'3.4-V31_0_25_CARD_BEAT_TYPOGRAPHY','policy':'TYPOGRAPHY_V3__VISUAL_CARD_BEAT__COMPLETE_ARABIC_PHRASES__CERTIFIED_HARFBUZZ','scene_count':len(scenes),'eligible_scene_count':len({str(c.get('scene_id')) for c in candidates}),'eligible_visual_card_count':eligible,'opportunity_count':len(candidates),'target_count':target,'text_event_count':len(out),'coverage_scene_percent':round(100.0*len({str(e.get('scene_id')) for e in out})/max(1,len(scenes)),2),'eligible_coverage_percent':round(100.0*len(out)/max(1,eligible),2),'events':out,'typography_production_certification':font_cert,'production_review_required':not font_cert.get('pass',False),'hard_rules':{'not_every_card_mechanically':True,'max_one_primary_text_event_per_visual_card':True,'source_scene_may_own_multiple_distinct_card_beats':True,'exact_narration_substring_required':True,'complete_phrase_required':True,'no_full_sentence_subtitles':True,'max_words':5,'max_chars':36,'negative_space_placement_required':True,'related_visual_placement_required':True,'generic_background_panels_forbidden':True,'top_center_default_forbidden':True,'face_head_primary_occlusion_forbidden':True,'arabic_shaping_required':True,'certified_font_hash_required':True,'harfbuzz_raqm_authority':True,'no_bundled_unapproved_font':True,'adaptive_coverage':True,'topic_specific_keyword_dependency':False,'minimum_duration_seconds':0.85,'quota_filling_forbidden':True,'perceptual_settle_voice_anchored':True,'bounded_pre_roll_max_seconds':.52}}
     if logger:logger.log('PASS','SELECTIVE_TYPOGRAPHY_PLAN_BUILT',text_events=len(out),scene_count=len(scenes),eligible_scenes=eligible,opportunities=len(candidates),coverage_percent=result['coverage_scene_percent'],styles=sorted(set(e['style'] for e in out)))
     return result
 

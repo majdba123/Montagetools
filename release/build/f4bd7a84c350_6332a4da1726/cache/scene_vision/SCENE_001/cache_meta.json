@@ -1,0 +1,47 @@
+{
+  "cache_signature": "ac6c08beb73f2481934df7d107a956bcd2f2a282a6c0982622f093c8208764aa",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "9cdbdfb1ca34777d80beb9a1646cc157166833640874a1aa93f7c1f45be5a7ca",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_001",
+        "semantic_name": "wallet_balance",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "REVEAL_reduced_usable_balance",
+        "appear_trigger": {
+          "phrase": "ثلاثمئة منها محجوزة لعملية سابقة",
+          "occurrence_in_scene": 1,
+          "global_char_start": 35,
+          "global_char_end": 67
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "REVEAL",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_002",
+        "semantic_name": "hexa_main_character",
+        "type": "MAIN_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "ثلاثمئة منها محجوزة لعملية سابقة",
+          "occurrence_in_scene": 1,
+          "global_char_start": 35,
+          "global_char_end": 67
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "REVEAL",
+        "interaction_target": "UNIT_001",
+        "relationship": "EXPLAINS"
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

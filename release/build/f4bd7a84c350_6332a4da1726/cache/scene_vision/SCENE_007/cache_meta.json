@@ -1,0 +1,47 @@
+{
+  "cache_signature": "c5feb15edba0f46b0bcea1df4bdb30e30f52a60cb11695c55dbcc72868d31f35",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "3681eac8bc6ffd61dbff048750322727bfbc8a05317f62723ecce27bf787185c",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_010",
+        "semantic_name": "payment_request",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "TRANSFER_request_arrives_normally",
+        "appear_trigger": {
+          "phrase": "طلب الدفع وصل للبنك بشكل طبيعي",
+          "occurrence_in_scene": 1,
+          "global_char_start": 667,
+          "global_char_end": 697
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "TRANSFER",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_011",
+        "semantic_name": "hexa_main_character",
+        "type": "MAIN_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "طلب الدفع وصل للبنك بشكل طبيعي",
+          "occurrence_in_scene": 1,
+          "global_char_start": 667,
+          "global_char_end": 697
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "TRANSFER",
+        "interaction_target": "UNIT_010",
+        "relationship": "EXPLAINS"
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

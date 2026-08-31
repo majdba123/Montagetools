@@ -1,0 +1,47 @@
+{
+  "cache_signature": "b2da995506539d50b2a034a357c978350314cbe42c52c2b69019602940b2d54d",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "c2129659bd159cd9e73297e7625f129520ab7b3f78a3d3a9de2107814dbec9a9",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_003",
+        "semantic_name": "bank_online_limit",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "BLOCK_daily_online_cap",
+        "appear_trigger": {
+          "phrase": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم",
+          "occurrence_in_scene": 1,
+          "global_char_start": 88,
+          "global_char_end": 135
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "BLOCK",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_004",
+        "semantic_name": "customer_secondary_character",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم",
+          "occurrence_in_scene": 1,
+          "global_char_start": 88,
+          "global_char_end": 135
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "BLOCK",
+        "interaction_target": "UNIT_003",
+        "relationship": "EXPERIENCES"
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

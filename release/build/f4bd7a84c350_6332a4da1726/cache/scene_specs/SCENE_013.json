@@ -1,0 +1,122 @@
+{
+  "scene_id": "SCENE_013",
+  "order": 13,
+  "image": "scenes/SCENE_013.png",
+  "script_span": {
+    "global_char_start": 1202,
+    "global_char_end": 1281,
+    "text": "بل لأن السيارة وصلت للبوابة، لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه."
+  },
+  "purpose": "اختتام الاستعارة بوصول السيارة ورفض الحمولة الزائدة عند البوابة.",
+  "visual_concept": "HEXA يوضح شاحنة وصلت فعليًا إلى بوابة فحص، لكن حمولة الصناديق المرتفعة تتجاوز مقياس الحد فوق البوابة فتتوقف.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "loaded_vehicle",
+    "action": "BLOCK",
+    "object": "gate_limit",
+    "result": "over_limit_load_cannot_pass",
+    "polarity": "NEGATIVE",
+    "anchor_text": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_020",
+      "semantic_name": "loaded_vehicle",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "BLOCK_over_limit_load_cannot_pass",
+      "appear_trigger": {
+        "phrase": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1235,
+        "global_char_end": 1280
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "BLOCK",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_021",
+      "semantic_name": "hexa_main_character",
+      "type": "MAIN_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1235,
+        "global_char_end": 1280
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "BLOCK",
+      "interaction_target": "UNIT_020",
+      "relationship": "EXPLAINS"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_013",
+      "order": 1,
+      "trigger": {
+        "phrase": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1235,
+        "global_char_end": 1280
+      },
+      "action": "BLOCK",
+      "targets": [
+        "UNIT_020",
+        "UNIT_021"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_013",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "hexa_and_overloaded_truck_gate_scene",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "ATOMIC",
+        "confidence": 0.99
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "loaded_vehicle",
+      "action": "BLOCK",
+      "object": "gate_limit",
+      "result": "over_limit_load_cannot_pass",
+      "polarity": "NEGATIVE",
+      "anchor_text": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "loaded_vehicle",
+    "action": "BLOCK",
+    "object": "gate_limit",
+    "result": "over_limit_load_cannot_pass",
+    "polarity": "NEGATIVE",
+    "anchor_text": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "hexa_and_overloaded_truck_gate_scene",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "ATOMIC",
+      "confidence": 0.99,
+      "object_id": "hexa_and_overloaded_truck_gate_scene",
+      "extraction_policy": "ATOMIC"
+    }
+  ]
+}

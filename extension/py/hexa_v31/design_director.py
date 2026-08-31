@@ -222,7 +222,12 @@ def build_title_plan(package,alignment,vision_results,motion,alignment_report=No
    if not scene or not sr:continue
    x=_viewer(scene)
    if not x:continue
-   ts,_=_trigger_time(x['trigger'],alignment,sr);st=max(float(c['start_seconds'])+.03,float(ts)-.42);ed=min(float(c['end_seconds'])-.04,st+2.0)
+   ts,_=_trigger_time(x['trigger'],alignment,sr)
+   # A child card cannot render a title for an anchor that occurred in an
+   # earlier interval of the same source scene. Shifting only the title start
+   # produced impossible plans whose impact preceded their first frame.
+   if not (float(c['start_seconds'])+.03<=float(ts)<float(c['end_seconds'])-.20):continue
+   st=max(float(c['start_seconds'])+.03,float(ts)-.42);ed=min(float(c['end_seconds'])-.04,st+2.0)
    if ed-st<.6:continue
    pl=_slot(c,motion,st,ed) or (_reserve_title_slot(c,motion) if str(c.get('card_id')) in deferred else None)
    if not pl:continue

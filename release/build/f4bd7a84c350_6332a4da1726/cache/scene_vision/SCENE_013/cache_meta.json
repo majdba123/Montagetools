@@ -1,0 +1,47 @@
+{
+  "cache_signature": "4c63523494e274f2b33a4546d0429d069c727d846fd310b46066dfa36707d377",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "55e3a9b5165f02e04ee3e0b7baa54784080d69c7f472682b376a5f4998fe57b3",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_020",
+        "semantic_name": "loaded_vehicle",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "BLOCK_over_limit_load_cannot_pass",
+        "appear_trigger": {
+          "phrase": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1235,
+          "global_char_end": 1280
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "BLOCK",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_021",
+        "semantic_name": "hexa_main_character",
+        "type": "MAIN_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1235,
+          "global_char_end": 1280
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "BLOCK",
+        "interaction_target": "UNIT_020",
+        "relationship": "EXPLAINS"
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

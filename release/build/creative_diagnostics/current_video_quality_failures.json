@@ -1,0 +1,13 @@
+{
+  "video": "C:\\Users\\INTEL CENTER\\Documents\\HEXA Video Builder\\Exports\\HEXA_INSUFFICIENT_BALANCE_AR_V31_0_25_20260831-160354-35f309f6.mp4",
+  "failed_metrics": {
+    "motion_activity": true,
+    "low_motion_percent": true,
+    "static_p90": true,
+    "static_max": true,
+    "motion_p95": true,
+    "underfilled": true,
+    "severe_spikes": true
+  },
+  "card_boundary_and_major_beat_frame_count": 57
+}

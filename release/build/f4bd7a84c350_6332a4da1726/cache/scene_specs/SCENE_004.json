@@ -1,0 +1,103 @@
+{
+  "scene_id": "SCENE_004",
+  "order": 4,
+  "image": "scenes/SCENE_004.png",
+  "script_span": {
+    "global_char_start": 294,
+    "global_char_end": 425,
+    "text": "نفس الشيء يصير مع البطاقات الائتمانية.\n\nممكن يكون الحد الأساسي مرتفع، لكن مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه."
+  },
+  "purpose": "إظهار أن التزامات متعددة تستهلك من حد البطاقة الائتمانية المرتفع.",
+  "visual_concept": "بطاقة ائتمانية متصلة بخزان سعة كبير، وتسحب منه ثلاث قنوات واضحة تمثل مشتريات سابقة وأقساطًا وحجوزات مؤقتة.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "credit_limit",
+    "action": "DECREASE",
+    "object": "previous_purchases_installments_and_holds",
+    "result": "partially_consumed_limit",
+    "polarity": "NEGATIVE",
+    "anchor_text": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_006",
+      "semantic_name": "credit_limit",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "DECREASE_partially_consumed_limit",
+      "appear_trigger": {
+        "phrase": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه",
+        "occurrence_in_scene": 1,
+        "global_char_start": 368,
+        "global_char_end": 424
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "DECREASE",
+      "interaction_target": null,
+      "relationship": null
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_004",
+      "order": 1,
+      "trigger": {
+        "phrase": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه",
+        "occurrence_in_scene": 1,
+        "global_char_start": 368,
+        "global_char_end": 424
+      },
+      "action": "DECREASE",
+      "targets": [
+        "UNIT_006"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_004",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "credit_capacity_and_commitments_system",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "CONNECTED",
+        "confidence": 0.99
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "credit_limit",
+      "action": "DECREASE",
+      "object": "previous_purchases_installments_and_holds",
+      "result": "partially_consumed_limit",
+      "polarity": "NEGATIVE",
+      "anchor_text": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "credit_limit",
+    "action": "DECREASE",
+    "object": "previous_purchases_installments_and_holds",
+    "result": "partially_consumed_limit",
+    "polarity": "NEGATIVE",
+    "anchor_text": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "credit_capacity_and_commitments_system",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "CONNECTED",
+      "confidence": 0.99,
+      "object_id": "credit_capacity_and_commitments_system",
+      "extraction_policy": "CONNECTED"
+    }
+  ]
+}

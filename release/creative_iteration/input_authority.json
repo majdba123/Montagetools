@@ -1,0 +1,10 @@
+{
+  "schema": "HEXA_CREATIVE_ITERATION_INPUT_AUTHORITY",
+  "package": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\HEXA_V11_REAL_PACKAGE.zip",
+  "package_sha256": "f4bd7a84c350500ef1bf49f9bde8e43679dde075ac8e1fe3126d20c4fb2bce31",
+  "voice": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\HEXA_V11_REAL_VOICE.mp3",
+  "voice_sha256": "6332a4da17261e4a05ca7f5206370f372f31c72764cbc531e972d8c985d7a030",
+  "upstream_cache_policy": "PIPELINE_SIGNATURE_MUST_MATCH_PACKAGE_IMAGE_HINT_AND_AUDIO_HASHES",
+  "final_clean_certification": false,
+  "durable_build_cache_root": "C:\\Users\\INTEL CENTER\\AppData\\Local\\HEXA\\VideoBuilderV31\\builds"
+}

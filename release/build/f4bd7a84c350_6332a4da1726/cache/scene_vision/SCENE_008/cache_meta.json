@@ -1,0 +1,29 @@
+{
+  "cache_signature": "324917b992631698f91ce739d3dfe746e7b63a2ae181c552934c8b8d068e5cd8",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "c9e08920d349599377a5e96a11da140b12c48b03386e5246fc776ddaf616f1a4",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_012",
+        "semantic_name": "bank_authorization_system",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "REJECT_current_account_state_blocks_passage",
+        "appear_trigger": {
+          "phrase": "ما يسمح بتمريرها",
+          "occurrence_in_scene": 1,
+          "global_char_start": 780,
+          "global_char_end": 796
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "REJECT",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

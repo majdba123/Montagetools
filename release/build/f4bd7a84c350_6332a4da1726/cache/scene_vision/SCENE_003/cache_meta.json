@@ -1,0 +1,29 @@
+{
+  "cache_signature": "90ab3188c1735514237cfe70e01dca6316c971e4f8a8cac55acbfe62ae821f44",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "674cb2ff0f495f8e2158f6d31774027150a8ef839d943408f35035c1be2a9911",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_005",
+        "semantic_name": "payment_system",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "COMPARE_transaction_specific_available_amount",
+        "appear_trigger": {
+          "phrase": "للمبلغ المتاح فعليًا ضمن نوع العملية",
+          "occurrence_in_scene": 1,
+          "global_char_start": 237,
+          "global_char_end": 273
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "COMPARE",
+        "interaction_target": null,
+        "relationship": null
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

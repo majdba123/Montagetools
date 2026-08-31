@@ -1,0 +1,195 @@
+{
+  "scene_id": "SCENE_008",
+  "width": 1672,
+  "height": 941,
+  "source_mode": "BORDER_CONNECTED_WHITE_STAGE_MATTE",
+  "background_rgb": [
+    254,
+    254,
+    254
+  ],
+  "foreground_fraction": 0.43986,
+  "raw_component_count": 1,
+  "grouped_detail_count": 5,
+  "major_group_count": 1,
+  "expected_semantic_units": 1,
+  "reconstruction_mae": 0.2562,
+  "reconstruction_psnr": 49.836,
+  "reconstruction_pass": true,
+  "split_confidence": 1.0,
+  "mode": "CLEAN_LAYERED",
+  "edge_touching": true,
+  "units": [
+    {
+      "physical_id": "PHYS_01",
+      "bbox": [
+        3,
+        204,
+        1669,
+        526
+      ],
+      "area_px": 692055,
+      "center_norm": [
+        0.500598,
+        0.496281
+      ],
+      "bbox_norm": [
+        0.001794,
+        0.216791,
+        0.998206,
+        0.55898
+      ],
+      "mask_confidence": 0.9215,
+      "edge_touch": true,
+      "semantic_unit_id": "UNIT_012",
+      "semantic_type": "GROUP",
+      "semantic_role": "PRIMARY",
+      "hierarchy_level": 0,
+      "parent_semantic_unit_id": null,
+      "composition_slot_id": "UNIT_012",
+      "subobject_role": "CONTEXT",
+      "hierarchy_confidence": 1.0,
+      "animation_safe": true,
+      "reveal_safe": true,
+      "animation_mode": "TRANSLATE_SAFE",
+      "occlusion_class": "TOP_LEVEL_SEMANTIC_GROUP",
+      "matting": {
+        "matting_source": "TRIMAP_EDGE_MATTE",
+        "feather_px": 1.694,
+        "soft_edge_pixel_fraction": 0.025087,
+        "opaque_foreground_fraction": 0.435015,
+        "edge_halo_risk": 0.314558,
+        "stage_leak_candidate_pixels": 8577,
+        "opaque_stage_leak_pixels": 135,
+        "opaque_stage_leak_fraction": 0.000192,
+        "stage_leak_repair_applied": true,
+        "alpha_min": 0,
+        "alpha_max": 255,
+        "alpha_unique_approx": 32
+      },
+      "semantic_mapping_confidence": 0.99,
+      "layer_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\scene_vision\\SCENE_008\\PHYS_01.png",
+      "mask_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\scene_vision\\SCENE_008\\PHYS_01.png",
+      "layer_canvas_mode": "FULL_SCENE_ALPHA_CANVAS",
+      "layer_source_size_px": [
+        1672,
+        941
+      ],
+      "crop_origin_px": [
+        2,
+        203
+      ],
+      "crop_size_px": [
+        1670,
+        528
+      ],
+      "root_id": "ROOT_01",
+      "parent_id": null,
+      "child_id": null,
+      "visible_area": 0.446359,
+      "optical_center": [
+        0.500598,
+        0.496281
+      ],
+      "independence_confidence": 1.0,
+      "reconstruction_error": 0.0,
+      "fifth_element_overlay": false,
+      "occlusion_reveal_risk": 0.0,
+      "translation_safe_after_occlusion": true
+    }
+  ],
+  "artifacts": {
+    "mask": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\scene_vision\\SCENE_008\\foreground_mask.png",
+    "reconstruction": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\scene_vision\\SCENE_008\\reconstruction.png",
+    "background": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\scene_vision\\SCENE_008\\background.png",
+    "grouped_detail_count": 5,
+    "layers": [
+      {
+        "path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\scene_vision\\SCENE_008\\PHYS_01.png",
+        "origin_px": [
+          0,
+          0
+        ],
+        "size_px": [
+          1672,
+          941
+        ],
+        "content_origin_px": [
+          2,
+          203
+        ],
+        "content_size_px": [
+          1670,
+          528
+        ],
+        "canvas_mode": "FULL_SCENE_ALPHA_CANVAS"
+      }
+    ],
+    "hierarchy_decisions": [
+      {
+        "root_id": "ROOT_01",
+        "semantic_unit_id": "UNIT_012",
+        "composition_slot_id": "UNIT_012",
+        "accepted": false,
+        "reason": "NO_ANIMATABLE_SUBOBJECT_DECOMPOSITION",
+        "decomposition_mode": "NONE",
+        "child_count": 0,
+        "confidence": 0.0,
+        "evidence": []
+      }
+    ],
+    "fifth_element_overlay": null,
+    "matting_summary": {
+      "layer_count": 1,
+      "mean_soft_edge_pixel_fraction": 0.025087,
+      "max_edge_halo_risk": 0.314558,
+      "max_opaque_stage_leak_fraction": 0.000192,
+      "stage_leak_repair_layers": 1,
+      "stage_leak_hard_gate": true,
+      "soft_alpha_required": true,
+      "binary_alpha_layers": 0
+    },
+    "occlusion_graph": {
+      "schema": "HEXA_OCCLUSION_SAFETY_GRAPH_V31",
+      "version": "1.0",
+      "nodes": [
+        {
+          "physical_id": "PHYS_01",
+          "composition_slot_id": "UNIT_012",
+          "hierarchy_level": 0,
+          "animation_mode": "TRANSLATE_SAFE",
+          "semantic_type": "GROUP",
+          "semantic_role": "PRIMARY"
+        }
+      ],
+      "edges": [],
+      "translation_safe_nodes": [
+        "PHYS_01"
+      ],
+      "translation_blocked_nodes": [],
+      "unknown_z_order_edges": 0,
+      "policy": "NO_TRANSLATION_THAT_CAN_REVEAL_UNSEEN_PIXELS"
+    },
+    "hint_guided_extraction": {
+      "version": "HEXA_HINT_GUIDED_EXTRACTION_V1",
+      "regions": [
+        {
+          "object_id": "bank_read_and_authorization_system",
+          "label": 1,
+          "policy": "CONNECTED",
+          "roi_px": [
+            19,
+            192,
+            1635,
+            551
+          ],
+          "hint_only": true,
+          "resample": "NEAREST",
+          "validation_result": "PRESERVED_TOPOLOGY"
+        }
+      ],
+      "source_authority": "ORIGINAL_FULL_RESOLUTION_PNG",
+      "final_alpha_authority": "EXISTING_MATTING"
+    }
+  }
+}

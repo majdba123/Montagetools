@@ -1,0 +1,1203 @@
+{
+  "schema_name": "HEXA_V20_SCENE_PLAN",
+  "schema_version": "1.0",
+  "project_id": "HEXA_INSUFFICIENT_BALANCE_AR",
+  "project_slug": "hexa_insufficient_balance_ar",
+  "language": "ar",
+  "scene_count": 13,
+  "builder_target": "HEXA_VIDEO_BUILDER_V20",
+  "timing_authority": "FINAL_VOICE_OVER_SEPARATE_INPUT",
+  "script_audio_relationship": "EXACT_MATCH",
+  "visual_authority": "FINAL_FULL_SCENE_IMAGES",
+  "worker_metadata_authority": "ORIGINAL_PRODUCTION_DECISIONS",
+  "canonical_script": {
+    "text": "تخيل عندك محفظة فيها ألف ريال، لكن ثلاثمئة منها محجوزة لعملية سابقة. والبنك محدد لك إنك ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم.\n\nمن الخارج، تشوف إن عندك مبلغ كافي. لكن وقت الدفع، النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط، بل للمبلغ المتاح فعليًا ضمن نوع العملية اللي تحاول تسويها.\n\nنفس الشيء يصير مع البطاقات الائتمانية.\n\nممكن يكون الحد الأساسي مرتفع، لكن مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه.\n\nوبعض البنوك تحط حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب، وحتى عدد العمليات خلال فترة معينة.\n\nعشان كذا، ممكن البطاقة تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني.\n\nهنا كثير ناس يظنون إن الموقع فيه مشكلة. مع إن طلب الدفع وصل للبنك بشكل طبيعي، والبنك فهم قيمة العملية، والعملة، والبطاقة. لكنه قرر إن الحساب، بالحالة الحالية، ما يسمح بتمريرها.\n\nالمشكلة إن المتجر غالبًا ما يكون عنده اطلاع على الرصيد الحقيقي للعميل. والبنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية. لذلك، يرجع له فقط رمز رفض عام.\n\nوبهالمرحلة، إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء، لأن نفس الشروط ما تغيرت.\n\nالحل يكون بمراجعة المبلغ المتاح فعلًا، أو رفع حد الشراء الإلكتروني، أو تخفيض قيمة الطلب، أو استخدام وسيلة ثانية.\n\nالفرق هنا إن الدفع ما فشل لأن الطريق مقطوع.\n\nبل لأن السيارة وصلت للبوابة، لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه."
+  },
+  "scenes": [
+    {
+      "scene_id": "SCENE_001",
+      "order": 1,
+      "image": "scenes/SCENE_001.png",
+      "script_span": {
+        "global_char_start": 0,
+        "global_char_end": 68,
+        "text": "تخيل عندك محفظة فيها ألف ريال، لكن ثلاثمئة منها محجوزة لعملية سابقة."
+      },
+      "purpose": "توضيح الفرق بين الرصيد الإجمالي والجزء المحجوز.",
+      "visual_concept": "HEXA يقدم محفظة تحتوي قيمة إجمالية واضحة، مع جزء منفصل منها داخل حاوية شفافة مقفلة تمثل الحجز السابق.",
+      "relation_to_previous": null,
+      "semantic_beat": {
+        "subject": "wallet_balance",
+        "action": "REVEAL",
+        "object": "reserved_amount",
+        "result": "reduced_usable_balance",
+        "polarity": "NEGATIVE",
+        "anchor_text": "ثلاثمئة منها محجوزة لعملية سابقة"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_001",
+          "semantic_name": "wallet_balance",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "REVEAL_reduced_usable_balance",
+          "appear_trigger": {
+            "phrase": "ثلاثمئة منها محجوزة لعملية سابقة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 35,
+            "global_char_end": 67
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REVEAL",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_002",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "ثلاثمئة منها محجوزة لعملية سابقة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 35,
+            "global_char_end": 67
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REVEAL",
+          "interaction_target": "UNIT_001",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_001",
+          "order": 1,
+          "trigger": {
+            "phrase": "ثلاثمئة منها محجوزة لعملية سابقة",
+            "occurrence_in_scene": 1,
+            "global_char_start": 35,
+            "global_char_end": 67
+          },
+          "action": "REVEAL",
+          "targets": [
+            "UNIT_001",
+            "UNIT_002"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_001",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "hexa_character",
+            "label": 1,
+            "role": "CHARACTER",
+            "policy": "MOVABLE",
+            "confidence": 0.96
+          },
+          {
+            "id": "wallet_total_container",
+            "label": 2,
+            "role": "SUBJECT",
+            "policy": "MOVABLE",
+            "confidence": 0.94
+          },
+          {
+            "id": "available_money_stack",
+            "label": 3,
+            "role": "RESULT",
+            "policy": "MOVABLE",
+            "confidence": 0.95
+          },
+          {
+            "id": "reserved_money_capsule",
+            "label": 4,
+            "role": "OBJECT",
+            "policy": "ATOMIC",
+            "confidence": 0.97
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_002",
+      "order": 2,
+      "image": "scenes/SCENE_002.png",
+      "script_span": {
+        "global_char_start": 69,
+        "global_char_end": 136,
+        "text": "والبنك محدد لك إنك ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم."
+      },
+      "purpose": "تجسيد حد الشراء الإلكتروني اليومي الذي يفرضه البنك.",
+      "visual_concept": "المستخدم أمام هاتف شراء إلكتروني متصل بعداد يومي يتوقف عند 500 مع بوابة حد بنكية.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "bank_online_limit",
+        "action": "BLOCK",
+        "object": "spending_above_500",
+        "result": "daily_online_cap",
+        "polarity": "NEGATIVE",
+        "anchor_text": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_003",
+          "semantic_name": "bank_online_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "BLOCK_daily_online_cap",
+          "appear_trigger": {
+            "phrase": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم",
+            "occurrence_in_scene": 1,
+            "global_char_start": 88,
+            "global_char_end": 135
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "BLOCK",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_004",
+          "semantic_name": "customer_secondary_character",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم",
+            "occurrence_in_scene": 1,
+            "global_char_start": 88,
+            "global_char_end": 135
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "BLOCK",
+          "interaction_target": "UNIT_003",
+          "relationship": "EXPERIENCES"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_002",
+          "order": 1,
+          "trigger": {
+            "phrase": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم",
+            "occurrence_in_scene": 1,
+            "global_char_start": 88,
+            "global_char_end": 135
+          },
+          "action": "BLOCK",
+          "targets": [
+            "UNIT_003",
+            "UNIT_004"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_002",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "customer_character",
+            "label": 1,
+            "role": "CHARACTER",
+            "policy": "MOVABLE",
+            "confidence": 0.98
+          },
+          {
+            "id": "online_daily_limit_system",
+            "label": 2,
+            "role": "RESULT",
+            "policy": "CONNECTED",
+            "confidence": 0.97
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_003",
+      "order": 3,
+      "image": "scenes/SCENE_003.png",
+      "script_span": {
+        "global_char_start": 138,
+        "global_char_end": 292,
+        "text": "من الخارج، تشوف إن عندك مبلغ كافي. لكن وقت الدفع، النظام ما ينظر للرقم الكبير اللي ظاهر لك فقط، بل للمبلغ المتاح فعليًا ضمن نوع العملية اللي تحاول تسويها."
+      },
+      "purpose": "شرح انتقال الرصيد الظاهر عبر فلتر نوع العملية لإنتاج المبلغ المتاح فعليًا.",
+      "visual_concept": "قيمة إجمالية كبيرة تدخل نظام فلترة متصل بمسارات أنواع عمليات، ويخرج منه مبلغ متاح أصغر نحو جهاز الدفع.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "payment_system",
+        "action": "COMPARE",
+        "object": "displayed_balance_and_available_amount",
+        "result": "transaction_specific_available_amount",
+        "polarity": "NEUTRAL",
+        "anchor_text": "للمبلغ المتاح فعليًا ضمن نوع العملية"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_005",
+          "semantic_name": "payment_system",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "COMPARE_transaction_specific_available_amount",
+          "appear_trigger": {
+            "phrase": "للمبلغ المتاح فعليًا ضمن نوع العملية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 237,
+            "global_char_end": 273
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "COMPARE",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_003",
+          "order": 1,
+          "trigger": {
+            "phrase": "للمبلغ المتاح فعليًا ضمن نوع العملية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 237,
+            "global_char_end": 273
+          },
+          "action": "COMPARE",
+          "targets": [
+            "UNIT_005"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_003",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "transaction_specific_balance_filter",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "ATOMIC",
+            "confidence": 0.99
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_004",
+      "order": 4,
+      "image": "scenes/SCENE_004.png",
+      "script_span": {
+        "global_char_start": 294,
+        "global_char_end": 425,
+        "text": "نفس الشيء يصير مع البطاقات الائتمانية.\n\nممكن يكون الحد الأساسي مرتفع، لكن مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه."
+      },
+      "purpose": "إظهار أن التزامات متعددة تستهلك من حد البطاقة الائتمانية المرتفع.",
+      "visual_concept": "بطاقة ائتمانية متصلة بخزان سعة كبير، وتسحب منه ثلاث قنوات واضحة تمثل مشتريات سابقة وأقساطًا وحجوزات مؤقتة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "credit_limit",
+        "action": "DECREASE",
+        "object": "previous_purchases_installments_and_holds",
+        "result": "partially_consumed_limit",
+        "polarity": "NEGATIVE",
+        "anchor_text": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_006",
+          "semantic_name": "credit_limit",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "DECREASE_partially_consumed_limit",
+          "appear_trigger": {
+            "phrase": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه",
+            "occurrence_in_scene": 1,
+            "global_char_start": 368,
+            "global_char_end": 424
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "DECREASE",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_004",
+          "order": 1,
+          "trigger": {
+            "phrase": "مشتريات سابقة، أو أقساط، أو حجوزات مؤقتة، أخذت جزءًا منه",
+            "occurrence_in_scene": 1,
+            "global_char_start": 368,
+            "global_char_end": 424
+          },
+          "action": "DECREASE",
+          "targets": [
+            "UNIT_006"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_004",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "credit_capacity_and_commitments_system",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "CONNECTED",
+            "confidence": 0.99
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_005",
+      "order": 5,
+      "image": "scenes/SCENE_005.png",
+      "script_span": {
+        "global_char_start": 427,
+        "global_char_end": 534,
+        "text": "وبعض البنوك تحط حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب، وحتى عدد العمليات خلال فترة معينة."
+      },
+      "purpose": "توضيح أن لكل قناة دفع حدًا مستقلاً.",
+      "visual_concept": "بنك مركزي يوزع أربع قنوات متصلة إلى هاتف شراء إلكتروني وكرة أرضية وصراف آلي وعداد عمليات زمني، ولكل قناة مقياس مستقل.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "bank",
+        "action": "CONNECT",
+        "object": "separate_transaction_limits",
+        "result": "independent_channel_caps",
+        "polarity": "NEUTRAL",
+        "anchor_text": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_007",
+          "semantic_name": "bank",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "CONNECT_independent_channel_caps",
+          "appear_trigger": {
+            "phrase": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب",
+            "occurrence_in_scene": 1,
+            "global_char_start": 443,
+            "global_char_end": 498
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "CONNECT",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_005",
+          "order": 1,
+          "trigger": {
+            "phrase": "حدودًا منفصلة للشراء الإلكتروني، والشراء الدولي، والسحب",
+            "occurrence_in_scene": 1,
+            "global_char_start": 443,
+            "global_char_end": 498
+          },
+          "action": "CONNECT",
+          "targets": [
+            "UNIT_007"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_005",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "bank_channel_limit_network",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "CONNECTED",
+            "confidence": 0.99
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_006",
+      "order": 6,
+      "image": "scenes/SCENE_006.png",
+      "script_span": {
+        "global_char_start": 536,
+        "global_char_end": 619,
+        "text": "عشان كذا، ممكن البطاقة تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني."
+      },
+      "purpose": "مقارنة نجاح البطاقة في المتجر مع رفضها أونلاين.",
+      "visual_concept": "المستخدم يحمل البطاقة نفسها بين مسارين: نقطة بيع متجر ناجحة بعلامة خضراء، ومتصفح شراء إلكتروني مرفوض بعلامة حمراء.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "same_card",
+        "action": "COMPARE",
+        "object": "store_purchase_and_online_purchase",
+        "result": "accepted_in_store_rejected_online",
+        "polarity": "NEGATIVE",
+        "anchor_text": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_008",
+          "semantic_name": "same_card",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "COMPARE_accepted_in_store_rejected_online",
+          "appear_trigger": {
+            "phrase": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني",
+            "occurrence_in_scene": 1,
+            "global_char_start": 559,
+            "global_char_end": 618
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "COMPARE",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_009",
+          "semantic_name": "customer_secondary_character",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني",
+            "occurrence_in_scene": 1,
+            "global_char_start": 559,
+            "global_char_end": 618
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "COMPARE",
+          "interaction_target": "UNIT_008",
+          "relationship": "EXPERIENCES"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_006",
+          "order": 1,
+          "trigger": {
+            "phrase": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني",
+            "occurrence_in_scene": 1,
+            "global_char_start": 559,
+            "global_char_end": 618
+          },
+          "action": "COMPARE",
+          "targets": [
+            "UNIT_008",
+            "UNIT_009"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_006",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "store_acceptance_station",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "ATOMIC",
+            "confidence": 0.9
+          },
+          {
+            "id": "customer_with_card",
+            "label": 2,
+            "role": "CHARACTER",
+            "policy": "MOVABLE",
+            "confidence": 0.96
+          },
+          {
+            "id": "online_rejection_station",
+            "label": 3,
+            "role": "RESULT",
+            "policy": "ATOMIC",
+            "confidence": 0.94
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_007",
+      "order": 7,
+      "image": "scenes/SCENE_007.png",
+      "script_span": {
+        "global_char_start": 621,
+        "global_char_end": 698,
+        "text": "هنا كثير ناس يظنون إن الموقع فيه مشكلة. مع إن طلب الدفع وصل للبنك بشكل طبيعي،"
+      },
+      "purpose": "تصحيح الاعتقاد بأن الموقع معطل وإظهار أن طلب الدفع وصل للبنك.",
+      "visual_concept": "HEXA يشير إلى مسار مضيء سليم من نافذة متجر إلكتروني عبر طلب دفع حتى مبنى البنك، بينما رمز شك صغير يبقى فوق الموقع.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "payment_request",
+        "action": "TRANSFER",
+        "object": "bank",
+        "result": "request_arrives_normally",
+        "polarity": "POSITIVE",
+        "anchor_text": "طلب الدفع وصل للبنك بشكل طبيعي"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_010",
+          "semantic_name": "payment_request",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "TRANSFER_request_arrives_normally",
+          "appear_trigger": {
+            "phrase": "طلب الدفع وصل للبنك بشكل طبيعي",
+            "occurrence_in_scene": 1,
+            "global_char_start": 667,
+            "global_char_end": 697
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "TRANSFER",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_011",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "طلب الدفع وصل للبنك بشكل طبيعي",
+            "occurrence_in_scene": 1,
+            "global_char_start": 667,
+            "global_char_end": 697
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "TRANSFER",
+          "interaction_target": "UNIT_010",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_007",
+          "order": 1,
+          "trigger": {
+            "phrase": "طلب الدفع وصل للبنك بشكل طبيعي",
+            "occurrence_in_scene": 1,
+            "global_char_start": 667,
+            "global_char_end": 697
+          },
+          "action": "TRANSFER",
+          "targets": [
+            "UNIT_010",
+            "UNIT_011"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_007",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "hexa_and_website_to_bank_route",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "ATOMIC",
+            "confidence": 0.99
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_008",
+      "order": 8,
+      "image": "scenes/SCENE_008.png",
+      "script_span": {
+        "global_char_start": 699,
+        "global_char_end": 797,
+        "text": "والبنك فهم قيمة العملية، والعملة، والبطاقة. لكنه قرر إن الحساب، بالحالة الحالية، ما يسمح بتمريرها."
+      },
+      "purpose": "إظهار أن البنك قرأ بيانات العملية بنجاح ثم رفضها بسبب حالة الحساب.",
+      "visual_concept": "ماسح بنكي واحد يقرأ حزمة دفع تحتوي القيمة والعملة والبطاقة، ثم يمررها إلى خزان حالة الحساب الذي يغلق بوابة التفويض.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "bank_authorization_system",
+        "action": "REJECT",
+        "object": "understood_payment_request",
+        "result": "current_account_state_blocks_passage",
+        "polarity": "NEGATIVE",
+        "anchor_text": "ما يسمح بتمريرها"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_012",
+          "semantic_name": "bank_authorization_system",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "REJECT_current_account_state_blocks_passage",
+          "appear_trigger": {
+            "phrase": "ما يسمح بتمريرها",
+            "occurrence_in_scene": 1,
+            "global_char_start": 780,
+            "global_char_end": 796
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REJECT",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_008",
+          "order": 1,
+          "trigger": {
+            "phrase": "ما يسمح بتمريرها",
+            "occurrence_in_scene": 1,
+            "global_char_start": 780,
+            "global_char_end": 796
+          },
+          "action": "REJECT",
+          "targets": [
+            "UNIT_012"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_008",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "bank_read_and_authorization_system",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "CONNECTED",
+            "confidence": 0.99
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_009",
+      "order": 9,
+      "image": "scenes/SCENE_009.png",
+      "script_span": {
+        "global_char_start": 799,
+        "global_char_end": 952,
+        "text": "المشكلة إن المتجر غالبًا ما يكون عنده اطلاع على الرصيد الحقيقي للعميل. والبنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية. لذلك، يرجع له فقط رمز رفض عام."
+      },
+      "purpose": "شرح حجب تفاصيل الحساب عن المتجر وإرجاع رمز رفض عام فقط.",
+      "visual_concept": "تفاصيل حساب متعددة تبقى خلف درع وقفل داخل البنك، بينما يخرج إلى واجهة المتجر ظرف صغير واحد يحمل رمز رفض عام بلا تفاصيل.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "bank",
+        "action": "BLOCK",
+        "object": "private_account_details",
+        "result": "generic_decline_code_only",
+        "polarity": "NEGATIVE",
+        "anchor_text": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_013",
+          "semantic_name": "bank",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "BLOCK_generic_decline_code_only",
+          "appear_trigger": {
+            "phrase": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 871,
+            "global_char_end": 920
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "BLOCK",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_014",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 871,
+            "global_char_end": 920
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "BLOCK",
+          "interaction_target": "UNIT_013",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_009",
+          "order": 1,
+          "trigger": {
+            "phrase": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية",
+            "occurrence_in_scene": 1,
+            "global_char_start": 871,
+            "global_char_end": 920
+          },
+          "action": "BLOCK",
+          "targets": [
+            "UNIT_013",
+            "UNIT_014"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_009",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "hexa_character",
+            "label": 1,
+            "role": "CHARACTER",
+            "policy": "MOVABLE",
+            "confidence": 0.98
+          },
+          {
+            "id": "privacy_and_generic_decline_system",
+            "label": 2,
+            "role": "RESULT",
+            "policy": "CONNECTED",
+            "confidence": 0.98
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_010",
+      "order": 10,
+      "image": "scenes/SCENE_010.png",
+      "script_span": {
+        "global_char_start": 954,
+        "global_char_end": 1041,
+        "text": "وبهالمرحلة، إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء، لأن نفس الشروط ما تغيرت."
+      },
+      "purpose": "إظهار أن تكرار المحاولة لا يغير شروط الحساب أو نتيجة الرفض.",
+      "visual_concept": "المستخدم يضغط زر دفع في متصفح، عداد المحاولات يصل إلى 10، وتدور النتيجة في حلقة إلى علامة الرفض نفسها بجانب قيود مقفلة ثابتة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "repeated_payment_attempts",
+        "action": "REJECT",
+        "object": "unchanged_account_conditions",
+        "result": "same_decline_result",
+        "polarity": "NEGATIVE",
+        "anchor_text": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_015",
+          "semantic_name": "repeated_payment_attempts",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "REJECT_same_decline_result",
+          "appear_trigger": {
+            "phrase": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء",
+            "occurrence_in_scene": 1,
+            "global_char_start": 966,
+            "global_char_end": 1015
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REJECT",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_016",
+          "semantic_name": "customer_secondary_character",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء",
+            "occurrence_in_scene": 1,
+            "global_char_start": 966,
+            "global_char_end": 1015
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REJECT",
+          "interaction_target": "UNIT_015",
+          "relationship": "EXPERIENCES"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_010",
+          "order": 1,
+          "trigger": {
+            "phrase": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء",
+            "occurrence_in_scene": 1,
+            "global_char_start": 966,
+            "global_char_end": 1015
+          },
+          "action": "REJECT",
+          "targets": [
+            "UNIT_015",
+            "UNIT_016"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_010",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "customer_and_ten_attempt_retry_system",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "ATOMIC",
+            "confidence": 0.98
+          },
+          {
+            "id": "unchanged_account_conditions",
+            "label": 2,
+            "role": "OBJECT",
+            "policy": "ATOMIC",
+            "confidence": 0.96
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_011",
+      "order": 11,
+      "image": "scenes/SCENE_011.png",
+      "script_span": {
+        "global_char_start": 1043,
+        "global_char_end": 1155,
+        "text": "الحل يكون بمراجعة المبلغ المتاح فعلًا، أو رفع حد الشراء الإلكتروني، أو تخفيض قيمة الطلب، أو استخدام وسيلة ثانية."
+      },
+      "purpose": "عرض الحلول العملية الأربعة ضمن مركز قرار واحد.",
+      "visual_concept": "المستخدم أمام مركز قرار مرتب يراجع المبلغ المتاح، يرفع مقياس الحد الإلكتروني، ينقص عنصرًا من سلة الطلب، ثم يختار وسيلة دفع بديلة.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "customer",
+        "action": "RESOLVE",
+        "object": "payment_constraints",
+        "result": "four_practical_resolution_paths",
+        "polarity": "POSITIVE",
+        "anchor_text": "الحل يكون بمراجعة المبلغ المتاح فعلًا"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_017",
+          "semantic_name": "customer",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "RESOLVE_four_practical_resolution_paths",
+          "appear_trigger": {
+            "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1043,
+            "global_char_end": 1080
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "RESOLVE",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_018",
+          "semantic_name": "customer_secondary_character",
+          "type": "SECONDARY_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1043,
+            "global_char_end": 1080
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "RESOLVE",
+          "interaction_target": "UNIT_017",
+          "relationship": "EXPERIENCES"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_011",
+          "order": 1,
+          "trigger": {
+            "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1043,
+            "global_char_end": 1080
+          },
+          "action": "RESOLVE",
+          "targets": [
+            "UNIT_017",
+            "UNIT_018"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_011",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "available_amount_review",
+            "label": 1,
+            "role": "OBJECT",
+            "policy": "MOVABLE",
+            "confidence": 0.93
+          },
+          {
+            "id": "online_limit_increase",
+            "label": 2,
+            "role": "OBJECT",
+            "policy": "MOVABLE",
+            "confidence": 0.88
+          },
+          {
+            "id": "customer_character",
+            "label": 3,
+            "role": "CHARACTER",
+            "policy": "MOVABLE",
+            "confidence": 0.98
+          },
+          {
+            "id": "reduced_order_value",
+            "label": 4,
+            "role": "OBJECT",
+            "policy": "MOVABLE",
+            "confidence": 0.91
+          },
+          {
+            "id": "alternative_payment_method",
+            "label": 5,
+            "role": "RESULT",
+            "policy": "MOVABLE",
+            "confidence": 0.94
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_012",
+      "order": 12,
+      "image": "scenes/SCENE_012.png",
+      "script_span": {
+        "global_char_start": 1157,
+        "global_char_end": 1200,
+        "text": "الفرق هنا إن الدفع ما فشل لأن الطريق مقطوع."
+      },
+      "purpose": "نفي أن مسار الدفع أو الطريق كان مقطوعًا.",
+      "visual_concept": "طريق دفع أزرق متصل بالكامل من نقطة البداية حتى بوابة بنكية ظاهرة في النهاية، دون أي انقطاع أو حاجز في الطريق.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "payment_route",
+        "action": "REVEAL",
+        "object": "continuous_road",
+        "result": "route_not_broken",
+        "polarity": "POSITIVE",
+        "anchor_text": "الدفع ما فشل لأن الطريق مقطوع"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_019",
+          "semantic_name": "payment_route",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "REVEAL_route_not_broken",
+          "appear_trigger": {
+            "phrase": "الدفع ما فشل لأن الطريق مقطوع",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1170,
+            "global_char_end": 1199
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "REVEAL",
+          "interaction_target": null,
+          "relationship": null
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_012",
+          "order": 1,
+          "trigger": {
+            "phrase": "الدفع ما فشل لأن الطريق مقطوع",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1170,
+            "global_char_end": 1199
+          },
+          "action": "REVEAL",
+          "targets": [
+            "UNIT_019"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_012",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "continuous_payment_route",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "ATOMIC",
+            "confidence": 0.99
+          }
+        ]
+      }
+    },
+    {
+      "scene_id": "SCENE_013",
+      "order": 13,
+      "image": "scenes/SCENE_013.png",
+      "script_span": {
+        "global_char_start": 1202,
+        "global_char_end": 1281,
+        "text": "بل لأن السيارة وصلت للبوابة، لكن الحمولة كانت أكبر من الحد المسموح لها تمر فيه."
+      },
+      "purpose": "اختتام الاستعارة بوصول السيارة ورفض الحمولة الزائدة عند البوابة.",
+      "visual_concept": "HEXA يوضح شاحنة وصلت فعليًا إلى بوابة فحص، لكن حمولة الصناديق المرتفعة تتجاوز مقياس الحد فوق البوابة فتتوقف.",
+      "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+      "semantic_beat": {
+        "subject": "loaded_vehicle",
+        "action": "BLOCK",
+        "object": "gate_limit",
+        "result": "over_limit_load_cannot_pass",
+        "polarity": "NEGATIVE",
+        "anchor_text": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه"
+      },
+      "units": [
+        {
+          "unit_id": "UNIT_020",
+          "semantic_name": "loaded_vehicle",
+          "type": "GROUP",
+          "role": "PRIMARY",
+          "narrative_function": "BLOCK_over_limit_load_cannot_pass",
+          "appear_trigger": {
+            "phrase": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1235,
+            "global_char_end": 1280
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "BLOCK",
+          "interaction_target": null,
+          "relationship": null
+        },
+        {
+          "unit_id": "UNIT_021",
+          "semantic_name": "hexa_main_character",
+          "type": "MAIN_CHARACTER",
+          "role": "SUPPORTING",
+          "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+          "appear_trigger": {
+            "phrase": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1235,
+            "global_char_end": 1280
+          },
+          "focus_trigger": null,
+          "exit_trigger": null,
+          "semantic_intent": "BLOCK",
+          "interaction_target": "UNIT_020",
+          "relationship": "EXPLAINS"
+        }
+      ],
+      "visual_progression": [
+        {
+          "event_id": "EVENT_013",
+          "order": 1,
+          "trigger": {
+            "phrase": "الحمولة كانت أكبر من الحد المسموح لها تمر فيه",
+            "occurrence_in_scene": 1,
+            "global_char_start": 1235,
+            "global_char_end": 1280
+          },
+          "action": "BLOCK",
+          "targets": [
+            "UNIT_020",
+            "UNIT_021"
+          ]
+        }
+      ],
+      "extraction_hints": {
+        "map_key": "SCENE_013",
+        "map_size": [
+          512,
+          288
+        ],
+        "objects": [
+          {
+            "id": "hexa_and_overloaded_truck_gate_scene",
+            "label": 1,
+            "role": "RESULT",
+            "policy": "ATOMIC",
+            "confidence": 0.99
+          }
+        ]
+      }
+    }
+  ]
+}

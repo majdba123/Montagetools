@@ -176,6 +176,71 @@ def _spatial_choreography_optimize(events, cards, fps):
     return stats
 
 
+def _commit_beat_focus_emphasis(events, cards, fps):
+    """Give static interval states one source-backed, topology-safe visual beat.
+
+    Long-scene child cards are semantic intervals, not permission to replay an
+    object's entry.  An in-place optical emphasis makes the new interval visible
+    while preserving identity, solved position, collision envelope, and topology.
+    """
+    stats={'candidates':0,'committed':0,'event_ids':[],'max_scale_peak':0.0}
+    by_card={str(c.get('card_id')):c for c in cards.get('cards') or []}
+    for e in events:
+        if e.get('suppressed_by_card_density') or e.get('focus_beats'):continue
+        card=by_card.get(str(e.get('visual_card_id')))
+        if not card or str(e.get('attention_priority') or '').upper()!='PRIMARY':continue
+        st=float(e.get('start_seconds',0));en=float(e.get('end_seconds',st))
+        readable=max(st,float(e.get('perceptual_hit_seconds',st)))
+        # Entries already own their semantic hit. Add emphasis only to a
+        # persistence interval or a genuinely long readable hold.
+        persistence=bool(e.get('same_scene_persistence_state') or e.get('lifecycle_state_only'))
+        if not persistence and en-readable<1.45:continue
+        stats['candidates']+=1
+        peak=max(st+.58,min(en-.62,(float(card.get('start_seconds',st))+float(card.get('end_seconds',en)))/2.0 if persistence else readable+.86))
+        fs=peak-.58;fe=peak+.62
+        if fs<st+2.0/fps or fe>en-2.0/fps:continue
+        e['focus_beats']=[{'start_seconds':round(fs,6),'peak_seconds':round(peak,6),'end_seconds':round(fe,6),'scale_peak':1.12,'authority':'SOURCE_SEMANTIC_INTERVAL_FOCUS'}]
+        e['beat_focus_emphasis']=True;stats['committed']+=1;stats['event_ids'].append(str(e.get('event_id')));stats['max_scale_peak']=1.12
+    return stats
+
+
+def _preserve_same_instance_handoffs(events, fps):
+    """Preserve one physical geometry across adjacent same-scene child cards."""
+    stats={'candidates':0,'committed':0,'event_ids':[]};groups={}
+    for event in events:groups.setdefault(str(event.get('visual_instance_id') or event.get('event_id')),[]).append(event)
+    for members in groups.values():
+        ordered=sorted(members,key=lambda e:(float(e.get('start_seconds',0)),str(e.get('event_id'))))
+        for previous,current in zip(ordered,ordered[1:]):
+            if not current.get('same_scene_persistence_state') or str(previous.get('scene_id'))!=str(current.get('scene_id')):continue
+            if abs(float(current.get('start_seconds',0))-float(previous.get('end_seconds',0)))>2.0/max(1.0,fps):continue
+            stats['candidates']+=1
+            for key in ('card_rest_position_norm','planned_rect_norm','collision_envelope_rect_norm','layout_scale_multiplier'):
+                current[key]=copy.deepcopy(previous.get(key))
+            current['same_instance_geometry_authority']='PRECEDING_CERTIFIED_STATE'
+            stats['committed']+=1;stats['event_ids'].append(str(current.get('event_id')))
+    return stats
+
+
+def _commit_continuous_scene_scale(events, scene_rows):
+    """Apply the existing 110->100 camera-scale rule to long source scenes.
+
+    Every layer from one source scene receives the same interval and curve, so
+    hierarchy registration is preserved. This is the established continuous
+    still-image authority, never an independently cycled object effect.
+    """
+    stats={'scene_count':0,'event_count':0,'scene_ids':[]}
+    for scene in scene_rows:
+        start=float(scene.get('start_seconds',0));end=float(scene.get('end_seconds',start));sid=str(scene.get('scene_id'))
+        if end-start<3.0:continue
+        members=[e for e in events if str(e.get('scene_id'))==sid and not e.get('suppressed_by_card_density')]
+        if not members:continue
+        for e in members:
+            e['continuous_image_scale']=True;e['continuous_scale_from']=1.10;e['continuous_scale_to']=1.0;e['continuous_scale_min_seconds']=3.0
+            e['continuous_scale_group_id']='SCENE_CAMERA::'+sid;e['continuous_scale_scene_start_seconds']=start;e['continuous_scale_scene_end_seconds']=end
+        stats['scene_count']+=1;stats['event_count']+=len(members);stats['scene_ids'].append(sid)
+    return stats
+
+
 def _recomposition_optimize(events, cards, fps):
     """Create approved center-to-side reframes before a source-backed reveal."""
     stats={'candidates_evaluated':0,'candidates_committed':0,'event_ids':[],'rejections':{}}
@@ -380,7 +445,13 @@ def _final_physical_certification(events, cards, fps):
     clipped_ids={str(x).split(':',1)[0] for x in (viewport.get('failures') or [])}
     for e in events:
         if str(e.get('event_id')) not in clipped_ids:continue
-        e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[];e['position_animated']=False;e['start_x_norm']=float((e.get('card_rest_position_norm') or [0.5,0.5])[0]);e['start_y_norm']=float((e.get('card_rest_position_norm') or [0.5,0.5])[1]);e['end_x_norm']=e['start_x_norm'];e['end_y_norm']=e['start_y_norm'];e['final_physical_repair']='VIEWPORT_SAFE_STATIC_FALLBACK';repairs.append({'card_id':e.get('visual_card_id'),'event_id':e.get('event_id'),'type':'VIEWPORT_SAFE_STATIC_FALLBACK'})
+        card=next((c for c in (cards.get('cards') or []) if str(c.get('card_id'))==str(e.get('visual_card_id'))),None)
+        if card:
+            window=_phase_for_event(card.get('story_phase_plan') or {},e.get('event_id')) or (float(card['start_seconds']),float(card['end_seconds']))
+            local=[x for x in events if str(x.get('visual_card_id'))==str(card.get('card_id')) and not x.get('suppressed_by_card_density')]
+            e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
+            _schedule_event(e,window,card,local.index(e),len(local),force_static=True,local_events=local,fps=fps)
+            e['final_physical_repair']='VIEWPORT_SAFE_STATIC_SCALE_FALLBACK';repairs.append({'card_id':e.get('visual_card_id'),'event_id':e.get('event_id'),'type':'VIEWPORT_SAFE_STATIC_SCALE_FALLBACK'})
     after=qa()
     if not after.get('pass'):raise ValueError('FINAL_PHYSICAL_CERTIFICATION_FAILED: '+' | '.join(after.get('failures') or [])[:2000])
     return {'pass':True,'repair_passes':1,'before':before,'after':after,'repairs':repairs}
@@ -539,6 +610,8 @@ def _compile_visual_instances(events, scene_rows):
         iid='INSTANCE_'+master
         instances.append({'instance_id':iid,'source_identity':lead.get('identity_key'),'source_asset_ref':lead.get('physical_id'),'physical_start_seconds':physical_start,'physical_end_seconds':physical_end,'readable_intervals':[{'start_seconds':physical_start,'end_seconds':physical_end}],'role_intervals':[{'role':lead.get('attention_priority'),'start_seconds':physical_start,'end_seconds':physical_end,'source_authority':'SEMANTIC_ROLE'}],'placement_intervals':[{'start_seconds':physical_start,'end_seconds':physical_end,'rect_norm':lead.get('planned_rect_norm')}],'semantic_event_ids':[],'state_ids':source_states,'persistence_source_evidence':{'source_states':source_states,'candidate_physical_end_seconds':evidence_end,'source_backed':len(source_states)>1},'track':'VISUAL_INSTANCE'})
         for e in sorted(members,key=lambda x:(float(x.get('perceptual_hit_seconds',0)),str(x.get('event_id')))):
+            if e.get('lifecycle_state_only') or e.get('editorial_context_only'):
+                continue
             entry=e.get('preset_entry') or {}; hit=float(entry.get('start_seconds',e.get('start_seconds',0)))+_entry_fraction(e)*float(entry.get('duration_seconds') or preset_duration(entry.get('name') or 'APPEAR_HIGH_SCALE'))
             sid='SEMANTIC_'+str(e.get('event_id')); semantic.append({'event_id':sid,'anchor_id':'ANCHOR_'+str(e.get('event_id')),'anchor_time':e.get('perceptual_hit_seconds'),'target_instance_id':iid,'event_type':'ENTRY' if str(e.get('event_id'))==master else 'STATE_CHANGE','semantic_role':e.get('semantic_role'),'source_authority':'SOURCE_SEMANTIC_CONTINUITY','preset':entry.get('name'),'motion_start':entry.get('start_seconds'),'perceptual_hit':round(hit,6),'resulting_state':e.get('scene_id'),'related_instance_ids':[]}); instances[-1]['semantic_event_ids'].append(sid)
     return instances,semantic
@@ -963,6 +1036,34 @@ def _commit_readable_state_holds(events, cards, fps):
     return stats
 
 
+def _commit_startup_establishing_state(events, cards, fps):
+    """Prevent a blank opening without moving a real voice-owned semantic hit.
+
+    A source-interval midpoint is only a fallback when no spoken trigger was
+    resolved.  For the first card only, that fallback may introduce the
+    already-authored primary as an establishing visual at card start.  Exact
+    voice triggers are never retimed by this repair.
+    """
+    rows=cards.get('cards') or []
+    if not rows:return {'committed':False,'reason':'NO_CARDS'}
+    card=min(rows,key=lambda c:float(c.get('start_seconds',0)));cs=float(card.get('start_seconds',0));cid=str(card.get('card_id'))
+    local=[e for e in events if str(e.get('visual_card_id'))==cid and not e.get('suppressed_by_card_density') and not e.get('lifecycle_state_only')]
+    readable=min((float((e.get('preset_entry') or {}).get('start_seconds',e.get('start_seconds',cs))) for e in local),default=cs)
+    if readable<=cs+0.35:return {'committed':False,'reason':'START_ALREADY_POPULATED'}
+    candidate=next((e for e in local if str(e.get('attention_priority') or '').upper()=='PRIMARY'),None)
+    if not candidate:return {'committed':False,'reason':'NO_PRIMARY'}
+    candidate['source_interval_fallback_anchor_seconds']=candidate.get('perceptual_hit_seconds')
+    candidate['preserved_semantic_anchor_seconds']=candidate.get('perceptual_hit_seconds')
+    candidate['source_perceptual_hit_source']=candidate.get('perceptual_hit_source')
+    duration=preset_duration('APPEAR_HIGH_SCALE');candidate['perceptual_hit_seconds']=round(cs+_entry_fraction({'preset_entry':{'name':'APPEAR_HIGH_SCALE'}})*duration,6)
+    candidate['perceptual_hit_source']='SOURCE_BACKED_EDITORIAL_ESTABLISHING_STATE'
+    candidate['editorial_context_only']=True
+    candidate['preset_entry']=None;candidate['preset_exit']=None;candidate['preset_actions']=[]
+    _schedule_event(candidate,(cs,float(card.get('end_seconds',cs))),card,local.index(candidate),len(local),force_static=True,local_events=local,fps=fps)
+    candidate['startup_blank_repair']='EARLY_SOURCE_BACKED_APPEARANCE'
+    return {'committed':True,'event_id':candidate.get('event_id'),'card_id':cid,'preserved_fallback_anchor_seconds':candidate.get('source_interval_fallback_anchor_seconds')}
+
+
 def _tm(alignment:dict):
     return {str(x['scene_id']):x for x in (alignment.get('scene_timings') or [])}
 
@@ -1309,9 +1410,10 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     for child_card in cards['cards']:
         if any(e.get('visual_card_id')==child_card['card_id'] for e in events):continue
         sources=set(child_card.get('source_scene_ids') or [])
-        template=next((e for e in events if e.get('scene_id') in sources),None)
+        candidates=[e for e in events if e.get('scene_id') in sources and not e.get('suppressed_by_card_density')]
+        template=next((e for e in candidates if str(e.get('attention_priority') or '').upper()=='PRIMARY'),candidates[0] if candidates else None)
         if template:
-            carry=dict(template);carry['event_id']=f"{template['event_id']}__PERSIST_{child_card['card_id']}";carry['visual_card_id']=child_card['card_id'];carry['start_seconds']=float(child_card['start_seconds']);carry['perceptual_hit_seconds']=float(child_card['start_seconds']);carry['settle_seconds']=float(child_card['end_seconds']);carry['end_seconds']=float(child_card['end_seconds']);carry['preset_entry']=None;carry['preset_exit']=None;carry['preset_actions']=[];carry['position_animated']=False;carry['independent_motion_allowed']=False;carry['same_scene_persistence_state']=True;events.append(carry)
+            carry=dict(template);carry['event_id']=f"{template['event_id']}__PERSIST_{child_card['card_id']}";carry['visual_card_id']=child_card['card_id'];carry['start_seconds']=float(child_card['start_seconds']);carry['perceptual_hit_seconds']=float(child_card['start_seconds']);carry['settle_seconds']=float(child_card['end_seconds']);carry['end_seconds']=float(child_card['end_seconds']);carry['preset_entry']=None;carry['preset_exit']=None;carry['preset_actions']=[];carry['position_animated']=False;carry['independent_motion_allowed']=False;carry['same_scene_persistence_state']=True;carry['lifecycle_state_only']=True;carry['source_event_id']=template['event_id'];carry['visual_instance_id']=template.get('visual_instance_id') or f"INSTANCE_{template['event_id']}";template['visual_instance_id']=carry['visual_instance_id'];events.append(carry)
     ordered_cards=cards['cards']
     for e in events:
         hit=float(e.get('perceptual_hit_seconds',e.get('source_scene_start_seconds',0)))
@@ -1353,7 +1455,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         for e in selected_events:
             if _sid(e) in rel_sources:e['relationship_source_requested']=True
             pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['composite_atomic']=bool(pl['atomic']);e['planned_rect_norm']=pl['rect_norm'];window=_phase_for_event(phase_plan,e['event_id'])
-            if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=not bool(e.get('independent_motion_allowed',True)),local_events=selected_events,fps=fps)
+            if window and not e.get('lifecycle_state_only'):_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=not bool(e.get('independent_motion_allowed',True)),local_events=selected_events,fps=fps)
         pre_conflicts=card_motion_conflicts(selected_events,float(card['start_seconds']),float(card['end_seconds']),fps)
         if pre_conflicts:
             phase_plan=repartition_story_phases(card,selected_events,pre_conflicts)
@@ -1364,7 +1466,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
             for e in selected_events:
                 pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['planned_rect_norm']=pl['rect_norm'];e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
                 window=_phase_for_event(phase_plan,e['event_id'])
-                if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True,local_events=selected_events,fps=fps)
+                if window and not e.get('lifecycle_state_only'):_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True,local_events=selected_events,fps=fps)
             card['semantic_phase_repartition']={'detected_conflicts':len(pre_conflicts),'resolved_by_internal_phase_split':len(pre_conflicts),'cards_split':0}
         relationship_resolutions=_safe_relationship_motion(card,selected_events,rels)
         relationship_resolutions=_recover_trajectory_conflicts(card,selected_events,phase_plan,relationship_resolutions,fps)
@@ -1377,13 +1479,14 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         em={e['event_id']:e for e in selected_events}
         for ph in phase_plan.get('phases') or []:
             rr=[em[x] for x in ph.get('event_ids') or [] if x in em];peak_p=max(peak_p,sum(1 for e in rr if e['attention_priority']=='PRIMARY'));peak_s=max(peak_s,sum(1 for e in rr if e['attention_priority']!='PRIMARY'))
-        card['rendered_primary_count']=peak_p;card['independently_animated_secondary_count']=peak_s;card['grouped_nonanimated_secondary_count']=max(0,int(card.get('secondary_count_estimate') or 0)-peak_s);card['rendered_secondary_count']=min(8,max(int(card.get('secondary_count_estimate') or 0),peak_s));card['rendered_count_rule_pass']=1<=peak_p<=2;card['choreography_action_count']=sum(2+len(e.get('preset_actions') or []) for e in selected_events);card['layout_policy']='V31_DENSITY_AWARE_PHASE_SOLVER__ATOMIC_ASSET_INDIVISIBILITY'
+        card['rendered_primary_count']=peak_p;card['independently_animated_secondary_count']=peak_s;card['grouped_nonanimated_secondary_count']=max(0,int(card.get('secondary_count_estimate') or 0)-peak_s);card['rendered_secondary_count']=min(8,max(int(card.get('secondary_count_estimate') or 0),peak_s));card['rendered_count_rule_pass']=1<=peak_p<=2;card['choreography_action_count']=sum(0 if e.get('lifecycle_state_only') else 2+len(e.get('preset_actions') or []) for e in selected_events);card['layout_policy']='V31_DENSITY_AWARE_PHASE_SOLVER__ATOMIC_ASSET_INDIVISIBILITY'
         card['composition_history_variant']=composition_variant;composition_history.append({'archetype':str(grammar.get('archetype') or 'SINGLE_FOCUS'),'variant':composition_variant})
 
     for e in events:
         if e.get('suppressed_by_card_density'):
             e['start_seconds']=e['end_seconds'];e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[];e['motion_energy']='NONE'
 
+    startup_establishing_state=_commit_startup_establishing_state(events,cards,fps)
     lifetime_stats=_commit_persistent_lifetimes(events,scenes_out,fps)
     segment_stats=_solve_semantic_segments(events,cards,fps)
     readable_hold_stats=_commit_readable_state_holds(events,cards,fps)
@@ -1397,6 +1500,9 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     editorial_motion_grammar=EditorialMotionGrammarDirector().direct(events)
     pacing_diagnostics=PacingDirector().plan(events,alignment,fps)
     character_director=SemanticCharacterDirector().direct(events)
+    beat_focus_emphasis=_commit_beat_focus_emphasis(events,cards,fps)
+    same_instance_handoffs=_preserve_same_instance_handoffs(events,fps)
+    continuous_scene_scale=_commit_continuous_scene_scale(events,scenes_out)
     # This must run after all entry/exit selection and after bounded editorial
     # constraints. The exact animated envelope is its authority.
     effect_variety_stats=_effect_variety_director(events,cards,fps)
@@ -1422,6 +1528,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['visual_instances']=visual_instances;out['semantic_events']=semantic_events
     out['semantic_segment_solver']=segment_stats
     out['readable_state_hold_optimizer']=readable_hold_stats
+    out['startup_establishing_state']=startup_establishing_state
     out['premium_recomposition_optimizer']=recomposition_stats
     out['effect_variety_director']=effect_variety_stats
     out['editorial_motion_grammar_director']=editorial_motion_grammar
@@ -1429,6 +1536,9 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['visual_affordance_graph']={'version':'HEXA_VISUAL_AFFORDANCE_GRAPH_V1','classes':{k:sum(1 for e in events if e.get('visual_affordance')==k) for k in ('ROOT_ATOMIC','DETACHED_TRANSLATABLE','CONNECTED_REVEAL_ONLY','CONNECTED_LOCAL_EMPHASIS','ARTICULATED_SUBOBJECT','CONTEXT_RESIDUAL')},'consumed_by_planner':True}
     out['beat_choreography_compiler']=beat_choreography
     out['pacing_director']=pacing_diagnostics
+    out['beat_focus_emphasis']=beat_focus_emphasis
+    out['same_instance_handoffs']=same_instance_handoffs
+    out['continuous_scene_scale']=continuous_scene_scale
     out['semantic_character_director']=character_director
     out['continuity_planning_repair']=continuity_planning
     out['visual_continuity_qa']=visual_continuity_qa

@@ -1,0 +1,47 @@
+{
+  "cache_signature": "9ef638edfca5d8e2b2d9f278cab04799e74ba613f5f112df015747c563a7745e",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "6459d2fb8193c63cf2c88077e52aa142bf9ea1d0658af2e01e21c13ccf555004",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_013",
+        "semantic_name": "bank",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "BLOCK_generic_decline_code_only",
+        "appear_trigger": {
+          "phrase": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية",
+          "occurrence_in_scene": 1,
+          "global_char_start": 871,
+          "global_char_end": 920
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "BLOCK",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_014",
+        "semantic_name": "hexa_main_character",
+        "type": "MAIN_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية",
+          "occurrence_in_scene": 1,
+          "global_char_start": 871,
+          "global_char_end": 920
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "BLOCK",
+        "interaction_target": "UNIT_013",
+        "relationship": "EXPLAINS"
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

@@ -2,6 +2,7 @@ from __future__ import annotations
 import math
 from functools import lru_cache
 from .preset_authority import is_primary_semantic
+from .semantic_beats import normalize_scene_beats
 
 
 def _tm(alignment:dict):
@@ -125,9 +126,12 @@ def _time_window_groups(rows:list[dict],min_seconds:float,max_seconds:float,targ
         card_dur=total/float(k)
         if not(min_seconds-1e-6<=card_dur<=max_seconds+1e-6):continue
         buckets=[[] for _ in range(k)]
-        for r in rows:
-            mid=(float(r['start'])+float(r['end']))/2.0
-            idx=min(k-1,max(0,int((mid-start)/card_dur)));buckets[idx].append(r)
+        for i in range(k):
+            cs=start+i*card_dur;ce=end if i==k-1 else start+(i+1)*card_dur
+            # Interval ownership is authoritative for V1.1: a long source
+            # scene legitimately owns every child card it overlaps.  Midpoint
+            # bucketing loses those child intervals and creates empty cards.
+            buckets[i]=[r for r in rows if float(r['start'])<ce-1e-9 and float(r['end'])>cs+1e-9]
         if any(not b for b in buckets):continue
         score=0.0;legal=True
         for b in buckets:
@@ -146,22 +150,49 @@ def _time_window_groups(rows:list[dict],min_seconds:float,max_seconds:float,targ
     return out
 
 
+def _source_trigger_hits(plan,alignment):
+    words=alignment.get('word_timings') or [];hits=[]
+    for scene in plan.get('scenes') or []:
+        for beat in normalize_scene_beats(scene, alignment):
+            hit=beat.get('perceptual_hit_seconds')
+            if hit is not None:hits.append(float(hit))
+        for unit in scene.get('units') or []:
+            trigger=unit.get('appear_trigger') or unit.get('focus_trigger') or {}
+            a=int(trigger.get('global_char_start',-1));b=int(trigger.get('global_char_end',-1))
+            if a<0 or b<a:continue
+            selected=[w for w in words if int(w.get('char_end',-1))>a and int(w.get('char_start',10**9))<b]
+            if selected:hits.append(float(selected[0].get('start_seconds',selected[0].get('start',0))))
+    return sorted(set(round(x,6) for x in hits))
+
+
+def _retime_to_semantic_preroll(compiled,plan,alignment,min_seconds,max_seconds):
+    """Move only legal equal-window boundaries onto real source trigger pre-roll.
+
+    This preserves the number/order of cards and the 3-5 second contract while
+    preventing a semantic entry from landing in the final frames of one card.
+    """
+    if len(compiled)<2:return compiled
+    hits=_source_trigger_hits(plan,alignment);pre_roll=.56
+    for i in range(len(compiled)-1):
+        left,right=compiled[i],compiled[i+1];old=float(left['card_end']);lo=float(left['card_start'])+min_seconds;hi=float(right['card_end'])-min_seconds
+        lo=max(lo,float(right['card_end'])-max_seconds);hi=min(hi,float(left['card_start'])+max_seconds)
+        candidates=[h-pre_roll for h in hits if lo-1e-6<=h-pre_roll<=hi+1e-6 and abs((h-pre_roll)-old)<=1.30]
+        if not candidates:continue
+        boundary=min(candidates,key=lambda x:abs(x-old));left['card_end']=boundary;right['card_start']=boundary;left['partition_mode']='V11_SEMANTIC_TRIGGER_PREROLL';right['partition_mode']='V11_SEMANTIC_TRIGGER_PREROLL'
+    return compiled
+
+
 def build_visual_cards(plan:dict, alignment:dict, vision_results:list[dict], *, min_seconds:float=3.0, max_seconds:float=5.0)->dict:
-    rows=_make_rows(plan,alignment,vision_results); expanded=[];long_scene_segmented=False
-    # V1.1 source scenes may intentionally outlast one editorial card. Keep their
-    # identity while presenting legal interval rows to the existing card compiler.
-    for row in rows:
-        dur=float(row['duration'])
-        if dur<=max_seconds+1e-6: expanded.append(row); continue
-        long_scene_segmented=True;count=max(2,int(round(dur/max_seconds))); step=dur/count
-        while step<min_seconds and count>1: count-=1;step=dur/count
-        for i in range(count):
-            r=dict(row);r['start']=float(row['start'])+i*step;r['end']=float(row['start'])+(i+1)*step;r['duration']=r['end']-r['start'];r['source_scene_segment_index']=i;r['source_scene_segment_count']=count;expanded.append(r)
-    rows=expanded;partition_mode='SCENE_BOUNDARY_SEMANTIC_DP'
+    rows=_make_rows(plan,alignment,vision_results)
+    # Once any source interval exceeds the hard card maximum, compile one
+    # continuous interval-aware plan.  This avoids both >5s cards and illegal
+    # <3s orphan tails while retaining every overlapping source scene ID.
+    long_scene_segmented=any(float(r['duration'])>max_seconds+1e-6 for r in rows);partition_mode='SCENE_BOUNDARY_SEMANTIC_DP'
     try:
         if long_scene_segmented:
             partition_mode='V11_LONG_SCENE_INTERVAL_SEGMENTS'
-            compiled=[{'rows':[r],'card_start':r['start'],'card_end':r['end'],'partition_mode':partition_mode} for r in rows]
+            compiled=_time_window_groups(rows,min_seconds,max_seconds)
+            compiled=_retime_to_semantic_preroll(compiled,plan,alignment,min_seconds,max_seconds)
         else:
             groups=_partition(rows,min_seconds,max_seconds)
             compiled=[{'rows':rows[a:b+1],'card_start':rows[a]['start'],'card_end':rows[b]['end'],'partition_mode':partition_mode} for a,b in groups]

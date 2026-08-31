@@ -37,6 +37,8 @@ run([sys.executable,ROOT/'tests'/'test_v31_semantic_visual_sentence_compiler.py'
 run([sys.executable,ROOT/'tests'/'test_v31_phrase_local_pacing.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_sprint2b_editorial_intelligence.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_v11_semantic_beats.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_v11_long_scene_release.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_creative_quality_recovery.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_continuity_character_director.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_sprint1_production_integration.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_0_4_audio_semantic_design.py'],timeout=480)

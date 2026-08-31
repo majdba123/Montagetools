@@ -115,7 +115,7 @@ def build_layer_render_map(package, audio_path:str|os.PathLike, alignment:dict, 
             timeline_items.append({'clip_display_name':name,'source_path':src,'start_frame':startf,'end_frame':endf,'start_seconds':startf/fps,'end_seconds':endf/fps,'base_track_tier':2,'scene_id':sid,'item_role':'FLAT_SCENE','base_position_norm':[0.5,0.5],'base_fit_scale_percent':fit*100.0*float((srow.get('reference_camera_fit') or {}).get('camera_scale',1.0)),'source_width':v['width'],'source_height':v['height']})
             flat_ev=next((e for e in ev_by_scene.get(sid,[]) if e.get('physical_id')=='FULL_SCENE'),None)
             if flat_ev:
-                ee=dict(flat_ev); ee.update({'clip_display_name':name,'track_index':2,'source_path':src,'base_fit_scale_percent':fit*100.0*float(flat_ev.get('reference_camera_scale',1.0)),'rest_position_px':[width/2,height/2],'start_position_px':[width/2,height/2],'end_position_px':[width/2,height/2],'exit_position_px':[width/2,height/2],'micro_position_px':[width/2,height/2],'rest_position_norm':[0.5,0.5],'start_position_norm':[0.5,0.5],'end_position_norm':[0.5,0.5],'exit_position_norm':[0.5,0.5],'micro_position_norm':[0.5,0.5],'sequence_width':width,'sequence_height':height,'premiere_motion_coordinate_contract':'FULL_CANVAS_INTRINSIC_NORMALIZED_POSITION'})
+                ee=dict(flat_ev); ee.update({'clip_display_name':name,'track_index':2,'source_path':src,'render_source_kind':'FULL_SCENE_BACKGROUND','base_fit_scale_percent':fit*100.0*float(flat_ev.get('reference_camera_scale',1.0)),'rest_position_px':[width/2,height/2],'start_position_px':[width/2,height/2],'end_position_px':[width/2,height/2],'exit_position_px':[width/2,height/2],'micro_position_px':[width/2,height/2],'rest_position_norm':[0.5,0.5],'start_position_norm':[0.5,0.5],'end_position_norm':[0.5,0.5],'exit_position_norm':[0.5,0.5],'micro_position_norm':[0.5,0.5],'sequence_width':width,'sequence_height':height,'premiere_motion_coordinate_contract':'FULL_CANVAS_INTRINSIC_NORMALIZED_POSITION'})
                 edit_events.append(ee);event_item_by_id[ee['event_id']]=name
         else:
             bg=v['artifacts']['background']; name=f'{sid}__BACKGROUND'
@@ -143,6 +143,13 @@ def build_layer_render_map(package, audio_path:str|os.PathLike, alignment:dict, 
                 exit_pos=pos(e.get('exit_x_norm',e['end_x_norm']),e.get('exit_y_norm',e['end_y_norm']))
                 micro_pos=pos(e.get('micro_x_norm',e['end_x_norm']),e.get('micro_y_norm',e['end_y_norm']))
                 ee=dict(e)
+                hint_policy=str(u.get('hint_policy') or '').upper()
+                if hint_policy=='MOVABLE' and u.get('hint_guided'):render_source_kind='ISOLATED_ALPHA_LAYER'
+                elif hint_policy=='CONNECTED':render_source_kind='CONNECTED_GROUP_LAYER'
+                elif hint_policy=='ATOMIC' or e.get('composite_atomic'):render_source_kind='ATOMIC_LAYER'
+                elif u.get('layer_path') and u.get('matting'):render_source_kind='SAFE_FALLBACK'
+                else:render_source_kind='FULL_SCENE_BACKGROUND'
+                ee['render_source_kind']=render_source_kind
                 neutral=[width/2.0,height/2.0]
                 relative_motion_scale=camera_scale*motion_gain
                 def rel(abspos): return [neutral[0]+(abspos[0]-end_pos[0])*relative_motion_scale, neutral[1]+(abspos[1]-end_pos[1])*relative_motion_scale]

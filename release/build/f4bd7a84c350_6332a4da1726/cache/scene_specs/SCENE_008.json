@@ -1,0 +1,103 @@
+{
+  "scene_id": "SCENE_008",
+  "order": 8,
+  "image": "scenes/SCENE_008.png",
+  "script_span": {
+    "global_char_start": 699,
+    "global_char_end": 797,
+    "text": "والبنك فهم قيمة العملية، والعملة، والبطاقة. لكنه قرر إن الحساب، بالحالة الحالية، ما يسمح بتمريرها."
+  },
+  "purpose": "إظهار أن البنك قرأ بيانات العملية بنجاح ثم رفضها بسبب حالة الحساب.",
+  "visual_concept": "ماسح بنكي واحد يقرأ حزمة دفع تحتوي القيمة والعملة والبطاقة، ثم يمررها إلى خزان حالة الحساب الذي يغلق بوابة التفويض.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "bank_authorization_system",
+    "action": "REJECT",
+    "object": "understood_payment_request",
+    "result": "current_account_state_blocks_passage",
+    "polarity": "NEGATIVE",
+    "anchor_text": "ما يسمح بتمريرها"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_012",
+      "semantic_name": "bank_authorization_system",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "REJECT_current_account_state_blocks_passage",
+      "appear_trigger": {
+        "phrase": "ما يسمح بتمريرها",
+        "occurrence_in_scene": 1,
+        "global_char_start": 780,
+        "global_char_end": 796
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "REJECT",
+      "interaction_target": null,
+      "relationship": null
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_008",
+      "order": 1,
+      "trigger": {
+        "phrase": "ما يسمح بتمريرها",
+        "occurrence_in_scene": 1,
+        "global_char_start": 780,
+        "global_char_end": 796
+      },
+      "action": "REJECT",
+      "targets": [
+        "UNIT_012"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_008",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "bank_read_and_authorization_system",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "CONNECTED",
+        "confidence": 0.99
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "bank_authorization_system",
+      "action": "REJECT",
+      "object": "understood_payment_request",
+      "result": "current_account_state_blocks_passage",
+      "polarity": "NEGATIVE",
+      "anchor_text": "ما يسمح بتمريرها"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "bank_authorization_system",
+    "action": "REJECT",
+    "object": "understood_payment_request",
+    "result": "current_account_state_blocks_passage",
+    "polarity": "NEGATIVE",
+    "anchor_text": "ما يسمح بتمريرها"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "bank_read_and_authorization_system",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "CONNECTED",
+      "confidence": 0.99,
+      "object_id": "bank_read_and_authorization_system",
+      "extraction_policy": "CONNECTED"
+    }
+  ]
+}

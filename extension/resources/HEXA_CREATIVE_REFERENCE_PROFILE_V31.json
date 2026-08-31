@@ -1,0 +1,27 @@
+{
+  "schema": "HEXA_CREATIVE_REFERENCE_PROFILE_V31",
+  "version": "1.0",
+  "reference_authority": [
+    "physical: تأثير المتفرج2.mp4",
+    "physical: انحياز 2.mp4"
+  ],
+  "physical_reference_observations": {
+    "motion_activity": [0.024845818, 0.019745329],
+    "low_motion_percent": [17.7827, 46.9105],
+    "static_p90_seconds": [0.368, 0.34],
+    "static_max_seconds": [0.84, 1.1333],
+    "meaningful_change_gap_p90_seconds": [0.2, 0.4],
+    "localized_motion_ratio": [0.9174, 0.8853]
+  },
+  "creative_quality_floor": {
+    "static_poster_risk_ratio": {"max": 0.10},
+    "low_optical_impact_ratio": {"max": 0.25},
+    "fade_only_transition_ratio": {"max": 0.35},
+    "progressive_reveal_rate_per_minute": {"min": 12.0},
+    "meaningful_change_gap_p90_seconds": {"max": 1.35},
+    "effect_family_diversity": {"min": 2},
+    "consecutive_identical_preset_streak": {"max": 2},
+    "within_frame_recomposition_rate_per_minute": {"min": 4.0},
+    "pixel_low_motion_percent": {"max": 48.0}
+  }
+}

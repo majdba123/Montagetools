@@ -1,0 +1,103 @@
+{
+  "scene_id": "SCENE_012",
+  "order": 12,
+  "image": "scenes/SCENE_012.png",
+  "script_span": {
+    "global_char_start": 1157,
+    "global_char_end": 1200,
+    "text": "الفرق هنا إن الدفع ما فشل لأن الطريق مقطوع."
+  },
+  "purpose": "نفي أن مسار الدفع أو الطريق كان مقطوعًا.",
+  "visual_concept": "طريق دفع أزرق متصل بالكامل من نقطة البداية حتى بوابة بنكية ظاهرة في النهاية، دون أي انقطاع أو حاجز في الطريق.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "payment_route",
+    "action": "REVEAL",
+    "object": "continuous_road",
+    "result": "route_not_broken",
+    "polarity": "POSITIVE",
+    "anchor_text": "الدفع ما فشل لأن الطريق مقطوع"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_019",
+      "semantic_name": "payment_route",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "REVEAL_route_not_broken",
+      "appear_trigger": {
+        "phrase": "الدفع ما فشل لأن الطريق مقطوع",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1170,
+        "global_char_end": 1199
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "REVEAL",
+      "interaction_target": null,
+      "relationship": null
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_012",
+      "order": 1,
+      "trigger": {
+        "phrase": "الدفع ما فشل لأن الطريق مقطوع",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1170,
+        "global_char_end": 1199
+      },
+      "action": "REVEAL",
+      "targets": [
+        "UNIT_019"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_012",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "continuous_payment_route",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "ATOMIC",
+        "confidence": 0.99
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "payment_route",
+      "action": "REVEAL",
+      "object": "continuous_road",
+      "result": "route_not_broken",
+      "polarity": "POSITIVE",
+      "anchor_text": "الدفع ما فشل لأن الطريق مقطوع"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "payment_route",
+    "action": "REVEAL",
+    "object": "continuous_road",
+    "result": "route_not_broken",
+    "polarity": "POSITIVE",
+    "anchor_text": "الدفع ما فشل لأن الطريق مقطوع"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "continuous_payment_route",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "ATOMIC",
+      "confidence": 0.99,
+      "object_id": "continuous_payment_route",
+      "extraction_policy": "ATOMIC"
+    }
+  ]
+}

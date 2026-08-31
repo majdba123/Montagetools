@@ -42,6 +42,15 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
             failures.append(f"{e.get('event_id')}: primary preset capacity overflow; card compiler failed to allocate a legal 3-5s window")
         if e.get('suppressed_by_card_density'):continue
         eid=str(e.get('event_id'))
+        if e.get('lifecycle_state_only'):
+            if not e.get('same_scene_persistence_state') or not e.get('source_event_id') or not e.get('visual_instance_id'):
+                failures.append(f'{eid}: invalid persistence lifecycle state')
+            if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions'):
+                failures.append(f'{eid}: persistence lifecycle state replayed choreography')
+            for fb in e.get('focus_beats') or []:
+                if str(fb.get('authority') or '')!='SOURCE_SEMANTIC_INTERVAL_FOCUS' or float(fb.get('scale_peak') or 1)>1.12+1e-6:
+                    failures.append(f'{eid}: invalid persistence interval focus emphasis')
+            continue
         if int(e.get('hierarchy_level') or 0)>0:
             if e.get('render_mode')!='CHILD_PARTITION' or not e.get('partition_complete') or not e.get('source_layer_path'):
                 failures.append(f'{eid}: hierarchical child lacks certified partition render evidence')
@@ -76,7 +85,16 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
                 if not a.get('layout_purpose'):failures.append(f'{eid}:{name}: layout choreography purpose missing')
             else:
                 failures.append(f'{eid}:{name}: unknown action_type {action_type}')
-        if e.get('story_actions') or e.get('focus_beats') or e.get('continuous_drift') or e.get('continuous_image_scale'):
+        for fb in e.get('focus_beats') or []:
+            if str(fb.get('authority') or '')!='SOURCE_SEMANTIC_INTERVAL_FOCUS':failures.append(f'{eid}: unapproved focus-beat authority')
+            if float(fb.get('scale_peak') or 1.0)>1.12+1e-6:failures.append(f'{eid}: focus emphasis exceeds certified 1.12 scale')
+            if float(fb.get('start_seconds',0))<float(e.get('start_seconds',0))-1e-6 or float(fb.get('end_seconds',0))>float(e.get('end_seconds',0))+1e-6:failures.append(f'{eid}: focus emphasis outside event lifecycle')
+            if abs(float(fb.get('dx_norm',0)))>1e-9 or abs(float(fb.get('dy_norm',0)))>1e-9:failures.append(f'{eid}: interval focus may not translate topology')
+        if e.get('continuous_image_scale'):
+            cs=float(e.get('continuous_scale_scene_start_seconds',e.get('start_seconds',0)));ce=float(e.get('continuous_scale_scene_end_seconds',e.get('end_seconds',0)))
+            if ce-cs<3.0-1e-6 or abs(float(e.get('continuous_scale_from',0))-1.10)>1e-6 or abs(float(e.get('continuous_scale_to',0))-1.0)>1e-6 or not str(e.get('continuous_scale_group_id') or '').startswith('SCENE_CAMERA::'):
+                failures.append(f'{eid}: invalid continuous scene-camera scale authority')
+        if e.get('story_actions') or e.get('continuous_drift'):
             failures.append(f'{eid}: legacy/unapproved motion survived V31 preset lock')
         if e.get('motion_blur_enabled'):failures.append(f'{eid}: synthetic motion blur is not authorized by supplied preset map')
     hard=motion_plan.get('hard_invariants') or {}

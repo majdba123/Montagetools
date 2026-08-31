@@ -1,0 +1,47 @@
+{
+  "cache_signature": "4303a9b972344211fbdda72bb17a1f2ef746105c9de43cddb8a758a1eb15d5bd",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "517781888de362e0fc12f5c2c58ca897b81e548711a2a3d849497f9324889693",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_017",
+        "semantic_name": "customer",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "RESOLVE_four_practical_resolution_paths",
+        "appear_trigger": {
+          "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1043,
+          "global_char_end": 1080
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "RESOLVE",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_018",
+        "semantic_name": "customer_secondary_character",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا",
+          "occurrence_in_scene": 1,
+          "global_char_start": 1043,
+          "global_char_end": 1080
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "RESOLVE",
+        "interaction_target": "UNIT_017",
+        "relationship": "EXPERIENCES"
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

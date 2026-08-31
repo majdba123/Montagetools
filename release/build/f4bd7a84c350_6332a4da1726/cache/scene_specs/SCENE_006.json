@@ -1,0 +1,154 @@
+{
+  "scene_id": "SCENE_006",
+  "order": 6,
+  "image": "scenes/SCENE_006.png",
+  "script_span": {
+    "global_char_start": 536,
+    "global_char_end": 619,
+    "text": "عشان كذا، ممكن البطاقة تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني."
+  },
+  "purpose": "مقارنة نجاح البطاقة في المتجر مع رفضها أونلاين.",
+  "visual_concept": "المستخدم يحمل البطاقة نفسها بين مسارين: نقطة بيع متجر ناجحة بعلامة خضراء، ومتصفح شراء إلكتروني مرفوض بعلامة حمراء.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "same_card",
+    "action": "COMPARE",
+    "object": "store_purchase_and_online_purchase",
+    "result": "accepted_in_store_rejected_online",
+    "polarity": "NEGATIVE",
+    "anchor_text": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_008",
+      "semantic_name": "same_card",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "COMPARE_accepted_in_store_rejected_online",
+      "appear_trigger": {
+        "phrase": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني",
+        "occurrence_in_scene": 1,
+        "global_char_start": 559,
+        "global_char_end": 618
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "COMPARE",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_009",
+      "semantic_name": "customer_secondary_character",
+      "type": "SECONDARY_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني",
+        "occurrence_in_scene": 1,
+        "global_char_start": 559,
+        "global_char_end": 618
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "COMPARE",
+      "interaction_target": "UNIT_008",
+      "relationship": "EXPERIENCES"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_006",
+      "order": 1,
+      "trigger": {
+        "phrase": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني",
+        "occurrence_in_scene": 1,
+        "global_char_start": 559,
+        "global_char_end": 618
+      },
+      "action": "COMPARE",
+      "targets": [
+        "UNIT_008",
+        "UNIT_009"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_006",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "store_acceptance_station",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "ATOMIC",
+        "confidence": 0.9
+      },
+      {
+        "id": "customer_with_card",
+        "label": 2,
+        "role": "CHARACTER",
+        "policy": "MOVABLE",
+        "confidence": 0.96
+      },
+      {
+        "id": "online_rejection_station",
+        "label": 3,
+        "role": "RESULT",
+        "policy": "ATOMIC",
+        "confidence": 0.94
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "same_card",
+      "action": "COMPARE",
+      "object": "store_purchase_and_online_purchase",
+      "result": "accepted_in_store_rejected_online",
+      "polarity": "NEGATIVE",
+      "anchor_text": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "same_card",
+    "action": "COMPARE",
+    "object": "store_purchase_and_online_purchase",
+    "result": "accepted_in_store_rejected_online",
+    "polarity": "NEGATIVE",
+    "anchor_text": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "store_acceptance_station",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "ATOMIC",
+      "confidence": 0.9,
+      "object_id": "store_acceptance_station",
+      "extraction_policy": "ATOMIC"
+    },
+    {
+      "id": "customer_with_card",
+      "label": 2,
+      "role": "CHARACTER",
+      "policy": "MOVABLE",
+      "confidence": 0.96,
+      "object_id": "customer_with_card",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "online_rejection_station",
+      "label": 3,
+      "role": "RESULT",
+      "policy": "ATOMIC",
+      "confidence": 0.94,
+      "object_id": "online_rejection_station",
+      "extraction_policy": "ATOMIC"
+    }
+  ]
+}

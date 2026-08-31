@@ -1,0 +1,47 @@
+{
+  "cache_signature": "dc11601c8e6a163cb057965d513bb74a5bba38e886e095d658cf79e8a1ed51fa",
+  "input": {
+    "algorithm": "HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER",
+    "image_sha256": "47058767536b317b8363fa452ea1bac4ae39897a7736b981f87eb0e3ad5d1f2e",
+    "semantic_units": [
+      {
+        "unit_id": "UNIT_008",
+        "semantic_name": "same_card",
+        "type": "GROUP",
+        "role": "PRIMARY",
+        "narrative_function": "COMPARE_accepted_in_store_rejected_online",
+        "appear_trigger": {
+          "phrase": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني",
+          "occurrence_in_scene": 1,
+          "global_char_start": 559,
+          "global_char_end": 618
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "COMPARE",
+        "interaction_target": null,
+        "relationship": null
+      },
+      {
+        "unit_id": "UNIT_009",
+        "semantic_name": "customer_secondary_character",
+        "type": "SECONDARY_CHARACTER",
+        "role": "SUPPORTING",
+        "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+        "appear_trigger": {
+          "phrase": "تشتغل قبل شوي في متجر عادي، وبعدها تنرفض داخل موقع إلكتروني",
+          "occurrence_in_scene": 1,
+          "global_char_start": 559,
+          "global_char_end": 618
+        },
+        "focus_trigger": null,
+        "exit_trigger": null,
+        "semantic_intent": "COMPARE",
+        "interaction_target": "UNIT_008",
+        "relationship": "EXPERIENCES"
+      }
+    ],
+    "object_hints_sha256": "495a385acace30215306f3c1be2eaa29fd388ba73e6f061e00fec5bba3dee765",
+    "hint_algorithm": "HEXA_HINT_GUIDED_EXTRACTION_V1"
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "scene_id": "SCENE_002",
+  "order": 2,
+  "image": "scenes/SCENE_002.png",
+  "script_span": {
+    "global_char_start": 69,
+    "global_char_end": 136,
+    "text": "والبنك محدد لك إنك ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم."
+  },
+  "purpose": "تجسيد حد الشراء الإلكتروني اليومي الذي يفرضه البنك.",
+  "visual_concept": "المستخدم أمام هاتف شراء إلكتروني متصل بعداد يومي يتوقف عند 500 مع بوابة حد بنكية.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "bank_online_limit",
+    "action": "BLOCK",
+    "object": "spending_above_500",
+    "result": "daily_online_cap",
+    "polarity": "NEGATIVE",
+    "anchor_text": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_003",
+      "semantic_name": "bank_online_limit",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "BLOCK_daily_online_cap",
+      "appear_trigger": {
+        "phrase": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم",
+        "occurrence_in_scene": 1,
+        "global_char_start": 88,
+        "global_char_end": 135
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "BLOCK",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_004",
+      "semantic_name": "customer_secondary_character",
+      "type": "SECONDARY_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم",
+        "occurrence_in_scene": 1,
+        "global_char_start": 88,
+        "global_char_end": 135
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "BLOCK",
+      "interaction_target": "UNIT_003",
+      "relationship": "EXPERIENCES"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_002",
+      "order": 1,
+      "trigger": {
+        "phrase": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم",
+        "occurrence_in_scene": 1,
+        "global_char_start": 88,
+        "global_char_end": 135
+      },
+      "action": "BLOCK",
+      "targets": [
+        "UNIT_003",
+        "UNIT_004"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_002",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "customer_character",
+        "label": 1,
+        "role": "CHARACTER",
+        "policy": "MOVABLE",
+        "confidence": 0.98
+      },
+      {
+        "id": "online_daily_limit_system",
+        "label": 2,
+        "role": "RESULT",
+        "policy": "CONNECTED",
+        "confidence": 0.97
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "bank_online_limit",
+      "action": "BLOCK",
+      "object": "spending_above_500",
+      "result": "daily_online_cap",
+      "polarity": "NEGATIVE",
+      "anchor_text": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "bank_online_limit",
+    "action": "BLOCK",
+    "object": "spending_above_500",
+    "result": "daily_online_cap",
+    "polarity": "NEGATIVE",
+    "anchor_text": "ما تقدر تصرف أكثر من خمسمئة ريال أونلاين باليوم"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "customer_character",
+      "label": 1,
+      "role": "CHARACTER",
+      "policy": "MOVABLE",
+      "confidence": 0.98,
+      "object_id": "customer_character",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "online_daily_limit_system",
+      "label": 2,
+      "role": "RESULT",
+      "policy": "CONNECTED",
+      "confidence": 0.97,
+      "object_id": "online_daily_limit_system",
+      "extraction_policy": "CONNECTED"
+    }
+  ]
+}

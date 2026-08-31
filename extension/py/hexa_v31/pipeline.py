@@ -27,6 +27,7 @@ from .reference_critic import score_reference_10
 from .visual_density import build_visual_density_report, temporal_population_report
 from .design_director import apply_audio_semantic_timing, build_title_plan, design_qa, finalize_anchor_coverage, stabilize_timeline_density
 from .visual_choreography import build_visual_choreography_report
+from .creative_certification import certify_creative_release
 
 ALIGNMENT_ENGINE_CACHE_VERSION='HEXA_V20_ALIGNMENT_CACHE_1.2'
 
@@ -269,22 +270,12 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         log.phase('FINAL_MP4_ASSEMBLY')
         assembled=assemble_final_mp4(scene_media,voice_over,production_mp4,ensure_dir(root/'final_mp4_assembly'),logger=log)
 
-        log.phase('STORYTELLING_RENDER_VERIFICATION')
-        preset_actions=sum(len(e.get('preset_actions') or []) for e in (motion.get('events') or []))
-        story_verify={
-            'schema':'HEXA_V31_0_25_STORYTELLING_RENDER_VERIFICATION','version':'1.0',
-            'pass':True,'planned_story_actions':preset_actions,'verified_story_actions':preset_actions,
-            'verified_ratio':1.0,'verification_authority':'CONTINUOUS_RENDER_USES_THE_SAME_EVENT_STATE_FUNCTION_AS_PRESET_PLAN',
-            'non_vacuous':bool(preset_actions) or bool((motion.get('visual_cards') or {}).get('cards')),
-            'note':'V31 has no alternate per-scene bridge path. Exact preset event-state rendering is the only visual timeline path; physical perceptual/reference metrics remain the final judge.'
-        }
-        write_json(root/'HEXA_V31_STORYTELLING_RENDER_VERIFICATION.json',story_verify)
-        log.log('PASS','STORYTELLING_RENDER_VERIFICATION_PASS',planned_story_actions=preset_actions,verified_story_actions=preset_actions,verified_ratio=1.0)
-
         log.phase('PHYSICAL_ACTING_VERIFICATION')
         physical_acting=verify_physical_acting(production_mp4,motion,root/'HEXA_V31_PHYSICAL_ACTING_VERIFICATION.json')
-        if physical_acting.get('planned_physical_actions',0)>0 and not physical_acting.get('pass'):
-            log.log('WARNING','PHYSICAL_ACTING_REVIEW_REQUIRED',verified_ratio=physical_acting.get('verified_ratio'),planned=physical_acting.get('planned_physical_actions'),verified=physical_acting.get('verified_physical_actions'))
+        story_verify={'schema':'HEXA_V31_0_25_STORYTELLING_RENDER_VERIFICATION','version':'2.0-PIXEL_BACKED','pass':bool(physical_acting.get('pass')),'planned_story_actions':physical_acting.get('planned_physical_actions',0),'verified_story_actions':physical_acting.get('verified_physical_actions',0),'failed_story_actions':physical_acting.get('failed_physical_actions',0),'verified_ratio':physical_acting.get('verified_ratio',0.0),'verification_authority':'LOCAL_RENDERED_PIXEL_CHANGE_IN_SOLVED_EVENT_BBOX','non_vacuous':bool(physical_acting.get('planned_physical_actions',0))}
+        write_json(root/'HEXA_V31_STORYTELLING_RENDER_VERIFICATION.json',story_verify)
+        if not physical_acting.get('pass'):
+            log.log('ERROR','PHYSICAL_ACTING_VERIFICATION_FAILED',verified_ratio=physical_acting.get('verified_ratio'),planned=physical_acting.get('planned_physical_actions'),verified=physical_acting.get('verified_physical_actions'))
         else:
             log.log('PASS','PHYSICAL_ACTING_VERIFICATION_PASS',verified_ratio=physical_acting.get('verified_ratio'),planned=physical_acting.get('planned_physical_actions'),verified=physical_acting.get('verified_physical_actions'))
 
@@ -315,11 +306,14 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
 
         log.phase('PRODUCTION_CERTIFICATION')
         production_cert=certify_production(str(production_mp4),float(audio['duration_seconds']),str(ext),str(root),runtime_cfg)
+        creative_cert=certify_creative_release(production_mp4,motion,text_plan,render_edit_map,choreography_report,preview_metrics,preview_score,perceptual,physical_acting,reference_score_10,ext/'resources'/'HEXA_CREATIVE_REFERENCE_PROFILE_V31.json',root/'HEXA_V31_CREATIVE_RELEASE_CERTIFICATION.json')
+        failed_creative=[k for k,g in (creative_cert.get('gates') or {}).items() if not g.get('pass')]
+        log.log('PASS' if creative_cert.get('pass') else 'ERROR','CREATIVE_RELEASE_CERTIFICATION',failed_gates=failed_creative)
         if not production_cert.get('artifact_integrity_pass'):
             raise BuildFailure('V31 final MP4 artifact integrity failed: '+','.join(production_cert.get('failed_media_gates',[])+production_cert.get('failed_visual_guard_gates',[])+production_cert.get('failed_preview_parity_gates',[])))
-        quality_review_required=story_lock['semantic_story_lock_review_required'] or not bool(production_cert.get('reference_promotion_gate_pass')) or not bool(perceptual.get('pass')) or not bool(reference_score_10.get('pass_8_plus')) or (physical_acting.get('planned_physical_actions',0)>0 and not bool(physical_acting.get('pass')))
+        quality_review_required=story_lock['semantic_story_lock_review_required'] or not bool(production_cert.get('reference_promotion_gate_pass')) or not bool(perceptual.get('pass')) or not bool(reference_score_10.get('pass_8_plus')) or not bool(physical_acting.get('pass')) or not bool(creative_cert.get('pass'))
         if quality_review_required:
-            log.log('WARNING','REFERENCE_PROMOTION_REVIEW_REQUIRED',failed_gates=production_cert.get('failed_reference_gates'),mp4=str(production_mp4),note='Artifact preserved for human comparison; production promotion remains blocked.')
+            log.log('ERROR','RELEASE_PROMOTION_HARD_FAILED',failed_reference_gates=production_cert.get('failed_reference_gates'),failed_creative_gates=failed_creative,mp4=str(production_mp4),note='Artifact preserved for diagnostics; release promotion is forbidden.')
         log.phase('QUALITY_ASSURANCE')
         qa=build_qa_report(pkg,audio,alignment,vision,motion,ref,prem,root/'HEXA_V31_QA_REPORT.json',preview_metrics,preview_score)
         if not qa['technical_pass']:
@@ -329,6 +323,9 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         if not preview_score['pass']:
             ref_failed=[k for k,g in (preview_score.get('gates') or {}).items() if not g.get('pass')]
             log.log('WARNING','REFERENCE_QUALITY_REVIEW_GATE',failed_gates=ref_failed,motion_dna=motion.get('motion_dna_version'),artifact_preserved=True)
+
+        if quality_review_required:
+            raise BuildFailure('Creative release certification failed: '+(','.join(failed_creative) if failed_creative else 'REFERENCE_OR_PERCEPTUAL_PROMOTION_GATE'))
 
         # The MP4 already exists and has passed artifact-integrity certification. Premiere now performs only editable project assembly/save.
         log.phase('PREMIERE_PROJECT_PLAN')

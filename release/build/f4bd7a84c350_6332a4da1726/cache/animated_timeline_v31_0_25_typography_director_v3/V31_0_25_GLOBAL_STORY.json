@@ -1,0 +1,16 @@
+{
+  "schema": "HEXA_SCENE_MEDIA_CACHE_V31",
+  "version": "31.0.25",
+  "signature": "67e649ef684c33ad1953054cebf9efc1d27172ebce33d83b1defc86ef906a79a",
+  "frames": 2980,
+  "duration_seconds": 99.32,
+  "fps": 30.0,
+  "width": 1920,
+  "height": 1080,
+  "motion_event_count": 36,
+  "text_event_count": 4,
+  "graphic_event_count": 0,
+  "visual_card_count": 28,
+  "transition_execution": "OBJECT_PRESETS_ONLY__NO_FRAME_BLEND",
+  "path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\animated_timeline_v31_0_25_typography_director_v3\\V31_0_25_GLOBAL_STORY.mp4"
+}

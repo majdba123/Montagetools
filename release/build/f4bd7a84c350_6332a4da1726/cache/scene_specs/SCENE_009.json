@@ -1,0 +1,138 @@
+{
+  "scene_id": "SCENE_009",
+  "order": 9,
+  "image": "scenes/SCENE_009.png",
+  "script_span": {
+    "global_char_start": 799,
+    "global_char_end": 952,
+    "text": "المشكلة إن المتجر غالبًا ما يكون عنده اطلاع على الرصيد الحقيقي للعميل. والبنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية. لذلك، يرجع له فقط رمز رفض عام."
+  },
+  "purpose": "شرح حجب تفاصيل الحساب عن المتجر وإرجاع رمز رفض عام فقط.",
+  "visual_concept": "تفاصيل حساب متعددة تبقى خلف درع وقفل داخل البنك، بينما يخرج إلى واجهة المتجر ظرف صغير واحد يحمل رمز رفض عام بلا تفاصيل.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "bank",
+    "action": "BLOCK",
+    "object": "private_account_details",
+    "result": "generic_decline_code_only",
+    "polarity": "NEGATIVE",
+    "anchor_text": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_013",
+      "semantic_name": "bank",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "BLOCK_generic_decline_code_only",
+      "appear_trigger": {
+        "phrase": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية",
+        "occurrence_in_scene": 1,
+        "global_char_start": 871,
+        "global_char_end": 920
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "BLOCK",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_014",
+      "semantic_name": "hexa_main_character",
+      "type": "MAIN_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية",
+        "occurrence_in_scene": 1,
+        "global_char_start": 871,
+        "global_char_end": 920
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "BLOCK",
+      "interaction_target": "UNIT_013",
+      "relationship": "EXPLAINS"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_009",
+      "order": 1,
+      "trigger": {
+        "phrase": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية",
+        "occurrence_in_scene": 1,
+        "global_char_start": 871,
+        "global_char_end": 920
+      },
+      "action": "BLOCK",
+      "targets": [
+        "UNIT_013",
+        "UNIT_014"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_009",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "hexa_character",
+        "label": 1,
+        "role": "CHARACTER",
+        "policy": "MOVABLE",
+        "confidence": 0.98
+      },
+      {
+        "id": "privacy_and_generic_decline_system",
+        "label": 2,
+        "role": "RESULT",
+        "policy": "CONNECTED",
+        "confidence": 0.98
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "bank",
+      "action": "BLOCK",
+      "object": "private_account_details",
+      "result": "generic_decline_code_only",
+      "polarity": "NEGATIVE",
+      "anchor_text": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "bank",
+    "action": "BLOCK",
+    "object": "private_account_details",
+    "result": "generic_decline_code_only",
+    "polarity": "NEGATIVE",
+    "anchor_text": "البنك ما يرسل له كل التفاصيل، حفاظًا على الخصوصية"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "hexa_character",
+      "label": 1,
+      "role": "CHARACTER",
+      "policy": "MOVABLE",
+      "confidence": 0.98,
+      "object_id": "hexa_character",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "privacy_and_generic_decline_system",
+      "label": 2,
+      "role": "RESULT",
+      "policy": "CONNECTED",
+      "confidence": 0.98,
+      "object_id": "privacy_and_generic_decline_system",
+      "extraction_policy": "CONNECTED"
+    }
+  ]
+}

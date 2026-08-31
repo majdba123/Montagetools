@@ -1,0 +1,186 @@
+{
+  "scene_id": "SCENE_011",
+  "order": 11,
+  "image": "scenes/SCENE_011.png",
+  "script_span": {
+    "global_char_start": 1043,
+    "global_char_end": 1155,
+    "text": "الحل يكون بمراجعة المبلغ المتاح فعلًا، أو رفع حد الشراء الإلكتروني، أو تخفيض قيمة الطلب، أو استخدام وسيلة ثانية."
+  },
+  "purpose": "عرض الحلول العملية الأربعة ضمن مركز قرار واحد.",
+  "visual_concept": "المستخدم أمام مركز قرار مرتب يراجع المبلغ المتاح، يرفع مقياس الحد الإلكتروني، ينقص عنصرًا من سلة الطلب، ثم يختار وسيلة دفع بديلة.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "customer",
+    "action": "RESOLVE",
+    "object": "payment_constraints",
+    "result": "four_practical_resolution_paths",
+    "polarity": "POSITIVE",
+    "anchor_text": "الحل يكون بمراجعة المبلغ المتاح فعلًا"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_017",
+      "semantic_name": "customer",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "RESOLVE_four_practical_resolution_paths",
+      "appear_trigger": {
+        "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1043,
+        "global_char_end": 1080
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "RESOLVE",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_018",
+      "semantic_name": "customer_secondary_character",
+      "type": "SECONDARY_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1043,
+        "global_char_end": 1080
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "RESOLVE",
+      "interaction_target": "UNIT_017",
+      "relationship": "EXPERIENCES"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_011",
+      "order": 1,
+      "trigger": {
+        "phrase": "الحل يكون بمراجعة المبلغ المتاح فعلًا",
+        "occurrence_in_scene": 1,
+        "global_char_start": 1043,
+        "global_char_end": 1080
+      },
+      "action": "RESOLVE",
+      "targets": [
+        "UNIT_017",
+        "UNIT_018"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_011",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "available_amount_review",
+        "label": 1,
+        "role": "OBJECT",
+        "policy": "MOVABLE",
+        "confidence": 0.93
+      },
+      {
+        "id": "online_limit_increase",
+        "label": 2,
+        "role": "OBJECT",
+        "policy": "MOVABLE",
+        "confidence": 0.88
+      },
+      {
+        "id": "customer_character",
+        "label": 3,
+        "role": "CHARACTER",
+        "policy": "MOVABLE",
+        "confidence": 0.98
+      },
+      {
+        "id": "reduced_order_value",
+        "label": 4,
+        "role": "OBJECT",
+        "policy": "MOVABLE",
+        "confidence": 0.91
+      },
+      {
+        "id": "alternative_payment_method",
+        "label": 5,
+        "role": "RESULT",
+        "policy": "MOVABLE",
+        "confidence": 0.94
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "customer",
+      "action": "RESOLVE",
+      "object": "payment_constraints",
+      "result": "four_practical_resolution_paths",
+      "polarity": "POSITIVE",
+      "anchor_text": "الحل يكون بمراجعة المبلغ المتاح فعلًا"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "customer",
+    "action": "RESOLVE",
+    "object": "payment_constraints",
+    "result": "four_practical_resolution_paths",
+    "polarity": "POSITIVE",
+    "anchor_text": "الحل يكون بمراجعة المبلغ المتاح فعلًا"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "available_amount_review",
+      "label": 1,
+      "role": "OBJECT",
+      "policy": "MOVABLE",
+      "confidence": 0.93,
+      "object_id": "available_amount_review",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "online_limit_increase",
+      "label": 2,
+      "role": "OBJECT",
+      "policy": "MOVABLE",
+      "confidence": 0.88,
+      "object_id": "online_limit_increase",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "customer_character",
+      "label": 3,
+      "role": "CHARACTER",
+      "policy": "MOVABLE",
+      "confidence": 0.98,
+      "object_id": "customer_character",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "reduced_order_value",
+      "label": 4,
+      "role": "OBJECT",
+      "policy": "MOVABLE",
+      "confidence": 0.91,
+      "object_id": "reduced_order_value",
+      "extraction_policy": "MOVABLE"
+    },
+    {
+      "id": "alternative_payment_method",
+      "label": 5,
+      "role": "RESULT",
+      "policy": "MOVABLE",
+      "confidence": 0.94,
+      "object_id": "alternative_payment_method",
+      "extraction_policy": "MOVABLE"
+    }
+  ]
+}

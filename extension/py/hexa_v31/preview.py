@@ -153,6 +153,18 @@ def _preset_event_state(e:dict,t:float):
     if absolute and held_abs is not None:pos=held_abs
     else:pos[0]+=accx;pos[1]+=accy
 
+    # Beat-owned in-place emphasis is legal for connected and atomic artwork:
+    # it changes optical focus without translating internal topology.  The
+    # maximum scale stays inside the composition solver's authoritative 1.12
+    # motion envelope, so this cannot bypass final physical certification.
+    for fb in e.get('focus_beats') or []:
+        fs=float(fb.get('start_seconds',0));fp=float(fb.get('peak_seconds',fs));fe=float(fb.get('end_seconds',fp))
+        if fs<=t<=fe and fe>fs:
+            if t<=fp and fp>fs:q=_ease((t-fs)/(fp-fs))
+            elif fe>fp:q=1.0-_ease((t-fp)/(fe-fp))
+            else:q=0.0
+            sc*=1.0+(min(1.08,max(1.0,float(fb.get('scale_peak',1.0))))-1.0)*q
+
     px=e.get('preset_exit')
     if px:
         name=str(px.get('name')); xs=float(px.get('start_seconds',en)); xd=float(px.get('duration_seconds') or _preset_def(name).get('duration_seconds') or 0.6)

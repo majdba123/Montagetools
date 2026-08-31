@@ -1,0 +1,138 @@
+{
+  "scene_id": "SCENE_010",
+  "order": 10,
+  "image": "scenes/SCENE_010.png",
+  "script_span": {
+    "global_char_start": 954,
+    "global_char_end": 1041,
+    "text": "وبهالمرحلة، إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء، لأن نفس الشروط ما تغيرت."
+  },
+  "purpose": "إظهار أن تكرار المحاولة لا يغير شروط الحساب أو نتيجة الرفض.",
+  "visual_concept": "المستخدم يضغط زر دفع في متصفح، عداد المحاولات يصل إلى 10، وتدور النتيجة في حلقة إلى علامة الرفض نفسها بجانب قيود مقفلة ثابتة.",
+  "relation_to_previous": "CONTINUES_CANONICAL_EXPLANATION",
+  "semantic_beat": {
+    "subject": "repeated_payment_attempts",
+    "action": "REJECT",
+    "object": "unchanged_account_conditions",
+    "result": "same_decline_result",
+    "polarity": "NEGATIVE",
+    "anchor_text": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء"
+  },
+  "units": [
+    {
+      "unit_id": "UNIT_015",
+      "semantic_name": "repeated_payment_attempts",
+      "type": "GROUP",
+      "role": "PRIMARY",
+      "narrative_function": "REJECT_same_decline_result",
+      "appear_trigger": {
+        "phrase": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء",
+        "occurrence_in_scene": 1,
+        "global_char_start": 966,
+        "global_char_end": 1015
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "REJECT",
+      "interaction_target": null,
+      "relationship": null
+    },
+    {
+      "unit_id": "UNIT_016",
+      "semantic_name": "customer_secondary_character",
+      "type": "SECONDARY_CHARACTER",
+      "role": "SUPPORTING",
+      "narrative_function": "SUPPORT_SCENE_EXPLANATION",
+      "appear_trigger": {
+        "phrase": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء",
+        "occurrence_in_scene": 1,
+        "global_char_start": 966,
+        "global_char_end": 1015
+      },
+      "focus_trigger": null,
+      "exit_trigger": null,
+      "semantic_intent": "REJECT",
+      "interaction_target": "UNIT_015",
+      "relationship": "EXPERIENCES"
+    }
+  ],
+  "visual_progression": [
+    {
+      "event_id": "EVENT_010",
+      "order": 1,
+      "trigger": {
+        "phrase": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء",
+        "occurrence_in_scene": 1,
+        "global_char_start": 966,
+        "global_char_end": 1015
+      },
+      "action": "REJECT",
+      "targets": [
+        "UNIT_015",
+        "UNIT_016"
+      ]
+    }
+  ],
+  "extraction_hints": {
+    "map_key": "SCENE_010",
+    "map_size": [
+      512,
+      288
+    ],
+    "objects": [
+      {
+        "id": "customer_and_ten_attempt_retry_system",
+        "label": 1,
+        "role": "RESULT",
+        "policy": "ATOMIC",
+        "confidence": 0.98
+      },
+      {
+        "id": "unchanged_account_conditions",
+        "label": 2,
+        "role": "OBJECT",
+        "policy": "ATOMIC",
+        "confidence": 0.96
+      }
+    ]
+  },
+  "semantic_beats": [
+    {
+      "subject": "repeated_payment_attempts",
+      "action": "REJECT",
+      "object": "unchanged_account_conditions",
+      "result": "same_decline_result",
+      "polarity": "NEGATIVE",
+      "anchor_text": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء"
+    }
+  ],
+  "dominant_semantic_beat": {
+    "subject": "repeated_payment_attempts",
+    "action": "REJECT",
+    "object": "unchanged_account_conditions",
+    "result": "same_decline_result",
+    "polarity": "NEGATIVE",
+    "anchor_text": "إعادة الضغط على زر الدفع عشر مرات ما راح تغير شيء"
+  },
+  "_object_hint_map_path": "C:\\Users\\INTEL CENTER\\Documents\\GitHub\\Montagetools\\release\\build\\f4bd7a84c350_6332a4da1726\\cache\\packages\\package_f4bd7a84c350500ef1bf\\object_hints.npz",
+  "_object_hint_objects": [
+    {
+      "id": "customer_and_ten_attempt_retry_system",
+      "label": 1,
+      "role": "RESULT",
+      "policy": "ATOMIC",
+      "confidence": 0.98,
+      "object_id": "customer_and_ten_attempt_retry_system",
+      "extraction_policy": "ATOMIC"
+    },
+    {
+      "id": "unchanged_account_conditions",
+      "label": 2,
+      "role": "OBJECT",
+      "policy": "ATOMIC",
+      "confidence": 0.96,
+      "object_id": "unchanged_account_conditions",
+      "extraction_policy": "ATOMIC"
+    }
+  ]
+}
