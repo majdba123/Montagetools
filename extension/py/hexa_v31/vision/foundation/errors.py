@@ -1,0 +1,3 @@
+class FoundationVisionError(RuntimeError):pass
+class FoundationUnavailable(FoundationVisionError):pass
+class ModelIntegrityError(FoundationVisionError):pass

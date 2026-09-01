@@ -1,0 +1,55 @@
+{
+  "schema": "HEXA_FOUNDATION_VISION_MODEL_REGISTRY_1.0",
+  "version": "1.0",
+  "offline_build_required": true,
+  "models": [
+    {
+      "backend": "florence2",
+      "profile": "quality",
+      "model_id": "microsoft/Florence-2-large-ft",
+      "revision": "7c0fd5647b7d9dc0670820f053197167946cc26f",
+      "checkpoint_sha256": "8b4e610c952eef90a836c56cda0f398a672a3a6ca7b4d96b0e09a86dee42e2c3",
+      "expected_file_size": 1650581736,
+      "checkpoint_file": "model.safetensors",
+      "local_path": "florence-2-large-ft",
+      "license": "MIT",
+      "installation_status": "PROVISION_DURING_SETUP"
+    },
+    {
+      "backend": "sam2",
+      "profile": "quality",
+      "model_id": "facebook/sam2.1-hiera-large",
+      "revision": "665f8e2ad61cf5f53d65644ff27c8ee525124610",
+      "checkpoint_sha256": "2647878d5dfa5098f2f8649825738a9345572bae2d4350a2468587ece47dd318",
+      "expected_file_size": 898083611,
+      "checkpoint_file": "sam2.1_hiera_large.pt",
+      "local_path": "sam2.1-hiera-large",
+      "license": "Apache-2.0",
+      "installation_status": "PROVISION_DURING_SETUP"
+    },
+    {
+      "backend": "florence2",
+      "profile": "low_memory",
+      "model_id": "microsoft/Florence-2-base-ft",
+      "revision": "f6c1a25",
+      "checkpoint_sha256": "58757d657ff44051314c8030b68e04cb1bb618ca9a4885418f111f6fb708185a",
+      "expected_file_size": 463221266,
+      "checkpoint_file": "model.safetensors",
+      "local_path": "florence-2-base-ft",
+      "license": "MIT",
+      "installation_status": "OPTIONAL"
+    },
+    {
+      "backend": "sam2",
+      "profile": "low_memory",
+      "model_id": "facebook/sam2.1-hiera-base-plus",
+      "revision": "47b9e36ec942f6ff9900555727478a1c96f63225",
+      "checkpoint_sha256": "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5",
+      "expected_file_size": 324000000,
+      "checkpoint_file": "sam2.1_hiera_base_plus.pt",
+      "local_path": "sam2.1-hiera-base-plus",
+      "license": "Apache-2.0",
+      "installation_status": "OPTIONAL"
+    }
+  ]
+}

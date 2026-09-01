@@ -37,6 +37,9 @@ def build_occlusion_graph(units:list[dict], alpha_by_id:dict[str,np.ndarray])->d
     for i,a in enumerate(units):
         for b in units[i+1:]:
             aid=str(a.get('physical_id'));bid=str(b.get('physical_id'))
+            if (a.get('foundation_fallback_root') and b.get('candidate_source')) or (b.get('foundation_fallback_root') and a.get('candidate_source')):
+                edges.append({'a':aid,'b':bid,'relationship':'ALTERNATE_FALLBACK_REPRESENTATION','same_composition_slot':False,'bbox_overlap_ratio':0.0,'mask_touch_ratio':0.0,'mask_overlap_ratio':0.0,'reveal_risk':0.0,'z_order':'NOT_SIMULTANEOUS'})
+                continue
             same_slot=str(a.get('composition_slot_id'))==str(b.get('composition_slot_id'))
             bo=_bbox_overlap(a.get('bbox_norm') or [0,0,0,0],b.get('bbox_norm') or [0,0,0,0])
             touch,overlap=_mask_contact(alpha_by_id.get(aid,np.zeros((1,1),np.uint8)),alpha_by_id.get(bid,np.zeros((1,1),np.uint8)))

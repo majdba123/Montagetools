@@ -12,6 +12,8 @@ from hexa_v31.util import ensure_dir, sha256_file, write_json, read_json
 from hexa_v31.hierarchy import decompose_semantic_group
 from hexa_v31.matting import refine_alpha
 from hexa_v31.occlusion import build_occlusion_graph
+from hexa_v31.extraction.actor_extraction import extract_foundation_actors
+from hexa_v31.qa.actor_qa import actor_qa
 
 VISION_CACHE_SCHEMA_VERSION='HEXA_V31_SCENE_VISION_CACHE_2.0'
 VISION_CACHE_DEPENDENCIES={
@@ -496,10 +498,12 @@ def _expand_hierarchical_groups(groups:list[dict], assignments:list[dict|None], 
             out_g.append(cg);out_a.append(sem)
     return out_g,out_a,decisions
 
-def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLike, logger=None) -> SceneVisionResult:
+def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLike, logger=None,foundation_result:dict|None=None) -> SceneVisionResult:
     sid=scene['scene_id']; cache_root=ensure_dir(pathlib.Path(out_dir)); final_out=cache_root/sid
     input_payload={'image_sha256':sha256_file(image_path),'semantic_units':scene.get('units') or []}
     dependency_payload=dict(VISION_CACHE_DEPENDENCIES)
+    foundation_signature=((foundation_result or {}).get('cache_state') or {}).get('signature')
+    dependency_payload['foundation_vision']=foundation_signature or 'LEGACY_CV_FALLBACK'
     sig_payload={'cache_schema':VISION_CACHE_SCHEMA_VERSION,'input':input_payload,'dependencies':dependency_payload}
     cache_sig=hashlib.sha256(json.dumps(sig_payload,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
     meta_path=final_out/'cache_meta.json'; vision_path=final_out/'vision.json'; cache_status='GENERATED'; invalidation_reason=None
@@ -591,6 +595,14 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
             semantic_unit_id=sem.get('unit_id') if sem else None,semantic_type=sem.get('type') if sem else None,semantic_role=sem.get('role') if sem else None,
         )
         row=asdict(pu); row['hierarchy_level']=int(g.get('_hierarchy_level',0)); row['parent_semantic_unit_id']=g.get('_parent_semantic_unit_id'); row['composition_slot_id']=str(g.get('_composition_slot_id') or row.get('semantic_unit_id') or row.get('physical_id')); row['subobject_role']=g.get('_subobject_role'); row['hierarchy_confidence']=float(g.get('_hierarchy_confidence',0.0)); row['animation_safe']=bool(g.get('_animation_safe',True)); row['reveal_safe']=bool(g.get('_reveal_safe',True)); row['animation_mode']=str(g.get('_animation_mode') or ('TRANSLATE_SAFE' if row['animation_safe'] else 'GROUP_ONLY')); row['occlusion_class']=str(g.get('_occlusion_class') or ('CLEAN_SEPARABLE' if row['animation_safe'] else 'GROUP_ONLY')); row['matting']=matte; row['semantic_mapping_confidence']=round(float(g.get('_semantic_mapping_confidence',0.0)),4); row['layer_path']=str(final_lp); row['mask_path']=str(final_lp); row['layer_canvas_mode']='FULL_SCENE_ALPHA_CANVAS'; row['layer_source_size_px']=[W,H]; row['crop_origin_px']=[cx0,cy0]; row['crop_size_px']=[cx1-cx0,cy1-cy0]; row['root_id']=g.get('_decomposition_root_id'); row['parent_id']=g.get('_decomposition_root_id') if row['hierarchy_level']>0 else None; row['child_id']=f"{g.get('_decomposition_root_id')}::CHILD_{row['hierarchy_level']}_{idx}" if row['hierarchy_level']>0 else None; row['visible_area']=round(float(np.count_nonzero(layer_alpha>4))/(W*H),6); row['optical_center']=row['center_norm']; row['independence_confidence']=row['hierarchy_confidence']; row['reconstruction_error']=0.0; unit_rows.append(row)
+    foundation_rejected=[]
+    if foundation_result and foundation_result.get('status')=='PASS':
+        actors,foundation_rejected,foundation_alpha,foundation_layers=extract_foundation_actors(foundation_result,rgb,bg,mask,out,final_out,len(unit_rows)+1)
+        if len(actors)>=2:
+            for legacy in unit_rows:
+                legacy['foundation_fallback_root']=True;legacy['fallback_only_when_foundation_unavailable']=True;legacy['render_mode']='ROOT_ATOMIC'
+            for actor in actors:actor['render_mode']='CHILD_PARTITION';actor['partition_complete']=True;actor['partition_root_id']='ROOT_COMPOSITE'
+        unit_rows.extend(actors);alpha_by_id.update(foundation_alpha);layer_paths.extend(foundation_layers);matting_rows.extend([x.get('matting') or {} for x in actors])
     # Hard-rule fifth-element special case is evaluated by *composition slots*, not physical
     # animation layers. Splitting one machine into body/coin/display must not falsely create a
     # five-element layout.
@@ -665,13 +677,18 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
         'soft_alpha_required':True,
         'binary_alpha_layers':sum(1 for m in matting_rows if int(m.get('alpha_unique_approx',0))<=2),
     }
+    foundation_actors=[x for x in unit_rows if x.get('candidate_source')]
+    staged_foundation_actors=[dict(x,layer_path=str(out/pathlib.Path(x['layer_path']).name)) for x in foundation_actors]
+    foundation_qa=actor_qa(staged_foundation_actors,foundation_rejected)
+    foundation_diagnostics=dict((foundation_result or {}).get('diagnostics') or {})
+    foundation_diagnostics.update({'legacy_candidate_count':len(unit_rows)-len(foundation_actors),'merged_candidate_count':len(unit_rows),'accepted_actor_count':len(foundation_actors),'translation_safe_actor_count':sum(bool(x.get('translation_safe_after_occlusion')) for x in foundation_actors),'reveal_only_actor_count':sum(bool(x.get('reveal_safe')) and not bool(x.get('translation_safe_after_occlusion')) for x in foundation_actors),'atomic_actor_count':sum(x.get('safety_class')=='ATOMIC_PARENT_DEPENDENT' for x in foundation_actors),'rejected_actor_count':int(foundation_diagnostics.get('rejected_actor_count',0))+len(foundation_rejected)})
     result=SceneVisionResult(sid,W,H,source_mode,bg,round(foreground,6),len(comps),grouped_detail_count,gc,len(semantic),round(mae,4),round(psnr,3),reconstruction_pass,round(split_conf,4),mode,any(u['edge_touch'] for u in unit_rows),unit_rows,{
-        'mask':str(final_out/'foreground_mask.png'),'reconstruction':str(final_out/'reconstruction.png'),'background':str(final_out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph
+        'mask':str(final_out/'foreground_mask.png'),'reconstruction':str(final_out/'reconstruction.png'),'background':str(final_out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph,'foundation_vision':{'status':(foundation_result or {}).get('status','FALLBACK'),'backend_used':(foundation_result or {}).get('backend_used','LEGACY_CV'),'diagnostics':foundation_diagnostics,'accepted_actor_count':len(foundation_actors),'rejected_actors':foundation_rejected,'actor_qa':foundation_qa,'error':(foundation_result or {}).get('error')}
     },{'status':cache_status,'reason':invalidation_reason,'cache_signature':cache_sig})
     write_json(out/'vision.json',asdict(result)); write_json(out/'cache_meta.json',{'schema':VISION_CACHE_SCHEMA_VERSION,'cache_signature':cache_sig,'input':sig_payload})
     staged_data=read_json(out/'vision.json')
     staged_data['artifacts']['mask']=str(out/'foreground_mask.png'); staged_data['artifacts']['reconstruction']=str(out/'reconstruction.png'); staged_data['artifacts']['background']=str(out/'background.png')
-    for index,layer in enumerate(staged_data['artifacts'].get('layers') or [],1):layer['path']=str(out/f'PHYS_{index:02d}.png')
+    for layer in staged_data['artifacts'].get('layers') or []:layer['path']=str(out/pathlib.Path(layer['path']).name)
     if not _cache_artifacts_complete(staged_data):raise VisionError('Atomic scene cache staging validation failed for '+sid)
     _replace_scene_cache_directory(out,final_out)
     if logger: logger.log('PASS' if mode!='FLAT_SCENE' else 'WARNING','SCENE_VISION_ANALYZED',mode=mode,source_mode=source_mode,major_groups=gc,composition_slots=slot_count,expected_units=expected,reconstruction_mae=result.reconstruction_mae,reconstruction_psnr=result.reconstruction_psnr,edge_touching=result.edge_touching,hierarchical_children=sum(1 for u in unit_rows if int(u.get('hierarchy_level',0))>0),matte_halo_risk=matte_summary.get('max_edge_halo_risk'),opaque_stage_leak=matte_summary.get('max_opaque_stage_leak_fraction'),grouped_detail_count=grouped_detail_count,translation_safe_after_occlusion=len(occlusion_graph.get('translation_safe_nodes') or []))

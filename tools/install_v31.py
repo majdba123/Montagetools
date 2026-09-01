@@ -373,6 +373,8 @@ def main():
         pathlib.Path('js')/'main.js',
         pathlib.Path('jsx')/'host.jsx',
         pathlib.Path('resources')/'DEPENDENCY_MANIFEST_V20.json',
+        pathlib.Path('resources')/'HEXA_FOUNDATION_VISION_MODELS_V31.json',
+        pathlib.Path('resources')/'THIRD_PARTY_LICENSES_V31.json',
         pathlib.Path('resources')/'HEXA_LEGACY_REGRESSION_MATRIX_V20.json',
         pathlib.Path('resources')/'HEXA_REFERENCE_QA_PROFILE_V20.json',
         pathlib.Path('resources')/'HEXA_EDITING_RULES_V20.json',
@@ -551,6 +553,17 @@ def main():
     import_contract_sha=hashlib.sha256(json.dumps(import_contract_payload,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
     log('PYTHON IMPORT CONTRACT ROOTS: '+json.dumps(python_import_roots,ensure_ascii=False))
     log('PYTHON IMPORT CONTRACT SHA256: '+import_contract_sha)
+    foundation={'foundation_vision_enabled':False,'foundation_provision_error':None}
+    foundation_registry=target/'resources'/'HEXA_FOUNDATION_VISION_MODELS_V31.json'
+    provisioner=ROOT/'tools'/'provision_foundation_vision.py'
+    if foundation_registry.is_file() and provisioner.is_file():
+        log('FOUNDATION VISION SETUP: isolated environment + pinned model provisioning')
+        try:
+            pc=run([str(py),str(provisioner),'--runtime-root',str(runtime),'--registry',str(foundation_registry)],timeout=10800)
+            if pc.returncode:raise RuntimeError(pc.stdout[-4000:])
+            foundation.update(json.loads(pc.stdout.splitlines()[-1]));log('FOUNDATION VISION SETUP: PASS')
+        except Exception as exc:
+            foundation['foundation_provision_error']=str(exc);log('WARNING: Foundation Vision unavailable; legacy CV fallback remains active. '+str(exc))
     cfg={
       'schema':'HEXA_V31_RUNTIME_CONFIG','version':'1.2','created_at':now(),'python_exe':str(py),'vendor_dir':str(vendor),'vendor_overlay_dir':str(vendor_overlay),'python_import_roots':python_import_roots,'python_import_contract_sha256':import_contract_sha,'installer_inherited_pythonpath_roots':inherited_pythonpath_roots,'legacy_site_package_candidates':legacy_site_package_candidates,'selected_legacy_dependency_roots':selected_legacy_dependency_roots,
       'ffmpeg_path':str(ff),'ffprobe_path':str(fp) if fp else None,'media_probe_backend':media_probe_backend,'allow_whisper':bool(whisper_ready),'whisper_model_path':str(model_path) if model_path else None,
@@ -560,6 +573,7 @@ def main():
       'build_cache_root':str(build_cache_root),'shared_vendor_reused_from_v20':bool((prior_v20/'vendor').is_dir()),'shared_models_reused_from_v20':bool((prior_v20/'models').is_dir()),'shared_models_reused_from_v23':bool((prior_v23/'models').is_dir()),'shared_models_reused_from_v24':bool((prior_v24/'models').is_dir()),'shared_models_reused_from_v25':bool((prior_v25/'models').is_dir()),'shared_models_reused_from_v26':bool((prior_v26/'models').is_dir()),
       'runtime_policy':'EXECUTABLE_BOOTSTRAP_REQUIRED; REUSE_ONLY_EXACTLY_PROBED_PACKAGE_ROOTS; INSTALL_ONLY_MISSING; NEVER_DOWNLOAD_DURING_BUILD'
     }
+    cfg.update(foundation)
     write_json(runtime/'runtime_config.json',cfg)
     runtime_lock={
       'schema':'HEXA_V31_RUNTIME_LOCK','version':VERSION,'created_at':now(),'bundle_id':BUNDLE,

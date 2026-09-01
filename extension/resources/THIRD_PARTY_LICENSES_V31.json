@@ -1,0 +1,8 @@
+{
+  "schema": "HEXA_THIRD_PARTY_LICENSE_MANIFEST_V31",
+  "version": "1.0",
+  "components": [
+    {"name":"Microsoft Florence-2","model_id":"microsoft/Florence-2-large-ft","revision":"7c0fd5647b7d9dc0670820f053197167946cc26f","license":"MIT","redistributed_in_git":false},
+    {"name":"Meta Segment Anything 2","repository":"facebookresearch/sam2","model_id":"facebook/sam2.1-hiera-large","revision":"665f8e2ad61cf5f53d65644ff27c8ee525124610","license":"Apache-2.0","redistributed_in_git":false}
+  ]
+}

@@ -1025,6 +1025,13 @@ def _select_render_units(vision_row:dict)->tuple[list[dict],dict]:
     Otherwise the root remains the sole renderable object.
     """
     units=list(vision_row.get('units') or [])
+    foundation=[u for u in units if u.get('candidate_source') and u.get('partition_complete') and u.get('mask_path')]
+    if len(foundation)>=2:
+        selected=[]
+        for index,actor in enumerate(sorted(foundation,key=lambda u:str(u.get('physical_id') or ''))):
+            row=dict(actor);row['render_mode']='CHILD_PARTITION';row['partition_root_id']='ROOT_COMPOSITE';row['partition_complete']=True
+            row['independent_motion_allowed']=bool(row.get('translation_safe_after_occlusion',row.get('animation_safe')));row['partition_primary_member']=bool(index==0 and is_primary_semantic(row));selected.append(row)
+        return selected,{'partition_root_ids':['ROOT_COMPOSITE'],'atomic_root_ids':['ROOT_COMPOSITE_FALLBACK'],'hierarchical_motion_unit_count':len(selected),'foundation_actor_partition':True}
     roots=[u for u in units if int(u.get('hierarchy_level') or 0)==0]
     children=[u for u in units if int(u.get('hierarchy_level') or 0)>0]
     decisions={str(d.get('root_id')):d for d in ((vision_row.get('artifacts') or {}).get('hierarchy_decisions') or [])}

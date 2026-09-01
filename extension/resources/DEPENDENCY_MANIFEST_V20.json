@@ -74,4 +74,12 @@
     }
   ],
   "media_probe_policy": "FFPROBE_PREFERRED__FFMPEG_FALLBACK_CERTIFIED"
+  ,"isolated_foundation_vision": {
+    "environment": "foundation_vision/venv",
+    "python": ">=3.10",
+    "packages": ["torch==2.5.1", "torchvision==0.20.1", "transformers==4.49.0", "huggingface-hub==0.28.1", "safetensors==0.5.2", "sam2==1.1.0"],
+    "sam2_cuda_extension_required": false,
+    "normal_build_network_access": false,
+    "failure_policy": "LOG_EXACT_FAILURE_AND_USE_LEGACY_CV"
+  }
 }

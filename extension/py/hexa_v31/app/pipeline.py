@@ -27,8 +27,26 @@ from hexa_v31.reference_critic import score_reference_10
 from hexa_v31.visual_density import build_visual_density_report, temporal_population_report
 from hexa_v31.design_director import apply_audio_semantic_timing, build_title_plan, design_qa, finalize_anchor_coverage, stabilize_timeline_density
 from hexa_v31.visual_choreography import build_visual_choreography_report
+from hexa_v31.vision.foundation import FoundationVisionClient
 
 ALIGNMENT_ENGINE_CACHE_VERSION='HEXA_V20_ALIGNMENT_CACHE_1.2'
+
+def _run_scene_vision_worker(python,ext,spec,img,vroot,foundation_path=None):
+    cmd=[python,'-m','hexa_v31.vision.vision_worker','--scene-json',str(spec),'--image',str(img),'--out-dir',str(vroot)]
+    if foundation_path:cmd.extend(['--foundation-result',str(foundation_path)])
+    env=os.environ.copy();env['PYTHONPATH']=str(ext/'py')+(os.pathsep+env['PYTHONPATH'] if env.get('PYTHONPATH') else '')
+    for key in ('OMP_NUM_THREADS','OPENBLAS_NUM_THREADS','MKL_NUM_THREADS','NUMEXPR_NUM_THREADS'):env[key]='1'
+    try:cp=subprocess.run(cmd,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=180)
+    except subprocess.TimeoutExpired:raise BuildFailure('Vision worker timeout')
+    if cp.returncode!=0:raise BuildFailure('Vision worker failed: '+cp.stderr[-2500:])
+    line=next((ln for ln in cp.stdout.splitlines() if ln.startswith('HEXA_V31_VISION_RESULT=')),None)
+    if not line:raise BuildFailure('Vision worker returned no result')
+    return json.loads(line.split('=',1)[1])
+
+def _foundation_materially_useful(vision_row):
+    units=vision_row.get('units') or [];expected=int(vision_row.get('expected_semantic_units') or 0)
+    independent=sum(bool(u.get('translation_safe_after_occlusion',u.get('animation_safe'))) for u in units)
+    return bool(len(units)<=1 or independent<min(2,max(1,expected)) or (int(vision_row.get('grouped_detail_count') or 0)>=2 and independent<2))
 
 
 class BuildFailure(RuntimeError):
@@ -157,27 +175,25 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
 
         log.phase('VISION_RECONSTRUCTION')
         vision=[]; vroot=ensure_dir(cache_root/'scene_vision'); spec_root=ensure_dir(cache_root/'scene_specs')
-        # Heavy visual work is intentionally one isolated process per Scene. No parallel model pile-up.
-        for i,s in enumerate(pkg.scenes,1):
-            log.scene(s['scene_id'])
-            img=pkg.extract_root/s['image']; spec=spec_root/(s['scene_id']+'.json'); write_json(spec,s)
-            cmd=[sys.executable,'-m','hexa_v31.vision.vision_worker','--scene-json',str(spec),'--image',str(img),'--out-dir',str(vroot)]
-            env=os.environ.copy(); env['PYTHONPATH']=str(ext/'py')+(os.pathsep+env['PYTHONPATH'] if env.get('PYTHONPATH') else '')
-            env['OMP_NUM_THREADS']='1'; env['OPENBLAS_NUM_THREADS']='1'; env['MKL_NUM_THREADS']='1'; env['NUMEXPR_NUM_THREADS']='1'
-            try: cp=subprocess.run(cmd,env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=90)
-            except subprocess.TimeoutExpired: raise BuildFailure(f"Vision worker timeout at {s['scene_id']}")
-            if cp.returncode!=0: raise BuildFailure(f"Vision worker failed at {s['scene_id']}: {cp.stderr[-2500:]}")
-            line=next((ln for ln in cp.stdout.splitlines() if ln.startswith('HEXA_V31_VISION_RESULT=')),None)
-            if not line: raise BuildFailure(f"Vision worker returned no result at {s['scene_id']}")
-            vr=json.loads(line.split('=',1)[1]); vision.append(vr)
-            cache_state=(vr.get('cache_state') or {}).get('status') or 'GENERATED'
-            if cache_state=='HIT':
-                log.log('PASS','SCENE_VISION_CACHE_HIT',mode=vr.get('mode'),cache_signature=(vr.get('cache_state') or {}).get('cache_signature','')[:16],isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
-            else:
-                if cache_state in {'MISS_INPUT_CHANGED','INVALIDATED_DEPENDENCY_CHANGED'}:
-                    log.log('INFO','SCENE_VISION_CACHE_INVALIDATED',cache_state=cache_state,reason=(vr.get('cache_state') or {}).get('reason'),isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
-                log.log('PASS' if vr.get('mode')!='FLAT_SCENE' else 'WARNING','SCENE_VISION_ANALYZED',cache_state=cache_state,mode=vr.get('mode'),source_mode=vr.get('source_mode'),major_groups=vr.get('major_group_count'),expected_units=vr.get('expected_semantic_units'),reconstruction_mae=vr.get('reconstruction_mae'),reconstruction_psnr=vr.get('reconstruction_psnr'),edge_touching=vr.get('edge_touching'),isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
-            write_json(root/'last_safe_checkpoint.json',{'phase':'VISION_RECONSTRUCTION','completed_scene':s['scene_id'],'completed_index':i,'scene_count':len(pkg.scenes),'package_sha256':package_sha,'audio_sha256':audio_sha,'build_id':build_id})
+        foundation_client=FoundationVisionClient(runtime_cfg,ext);foundation_ready=foundation_client.start()
+        log.log('PASS' if foundation_ready else 'WARNING','FOUNDATION_VISION_WORKER_READY' if foundation_ready else 'FOUNDATION_VISION_FALLBACK',detail=foundation_client.failure,backend='FLORENCE2_SAM2' if foundation_ready else 'LEGACY_CV')
+        try:
+            for i,s in enumerate(pkg.scenes,1):
+                log.scene(s['scene_id']);img=pkg.extract_root/s['image'];spec=spec_root/(s['scene_id']+'.json');write_json(spec,s)
+                try:vr=_run_scene_vision_worker(sys.executable,ext,spec,img,vroot)
+                except BuildFailure as exc:raise BuildFailure(f"{exc} at {s['scene_id']}")
+                if foundation_ready and _foundation_materially_useful(vr):
+                    fr=foundation_client.analyze(s,img,cache_root,{'package_sha256':package_sha,'project_id':pkg.plan.get('project_id'),'package_version':pkg.plan.get('package_version')})
+                    foundation_path=spec_root/(s['scene_id']+'.foundation.json');write_json(foundation_path,fr.to_dict())
+                    log.log('PASS' if fr.status=='PASS' else 'WARNING','FOUNDATION_VISION_RESULT',scene_id=s['scene_id'],cache_status=fr.cache_state.get('status'),cache_invalidation_reason=fr.cache_state.get('reason'),backend=fr.backend_used,error=fr.error)
+                    if fr.status=='PASS':vr=_run_scene_vision_worker(sys.executable,ext,spec,img,vroot,foundation_path)
+                vision.append(vr);cache_state=(vr.get('cache_state') or {}).get('status') or 'GENERATED'
+                if cache_state=='HIT':log.log('PASS','SCENE_VISION_CACHE_HIT',mode=vr.get('mode'),cache_signature=(vr.get('cache_state') or {}).get('cache_signature','')[:16],isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
+                else:
+                    if cache_state in {'MISS_INPUT_CHANGED','INVALIDATED_DEPENDENCY_CHANGED'}:log.log('INFO','SCENE_VISION_CACHE_INVALIDATED',cache_state=cache_state,reason=(vr.get('cache_state') or {}).get('reason'),isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
+                    fv=(vr.get('artifacts') or {}).get('foundation_vision') or {};log.log('PASS' if vr.get('mode')!='FLAT_SCENE' else 'WARNING','SCENE_VISION_ANALYZED',cache_state=cache_state,mode=vr.get('mode'),source_mode=vr.get('source_mode'),major_groups=vr.get('major_group_count'),expected_units=vr.get('expected_semantic_units'),foundation_backend=fv.get('backend_used'),accepted_actor_count=fv.get('accepted_actor_count'),rejected_actor_count=len(fv.get('rejected_actors') or []),reconstruction_mae=vr.get('reconstruction_mae'),reconstruction_psnr=vr.get('reconstruction_psnr'),edge_touching=vr.get('edge_touching'),isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
+                write_json(root/'last_safe_checkpoint.json',{'phase':'VISION_RECONSTRUCTION','completed_scene':s['scene_id'],'completed_index':i,'scene_count':len(pkg.scenes),'package_sha256':package_sha,'audio_sha256':audio_sha,'build_id':build_id})
+        finally:foundation_client.close()
         write_json(root/'scene_vision_report_v31.json',{'schema':'HEXA_V31_SCENE_VISION_REPORT','project_id':pkg.plan.get('project_id'),'scenes':vision})
 
         log.phase('MOTION_DIRECTOR')
