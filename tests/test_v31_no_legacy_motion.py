@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
-for name in ['preset_story_planner.py','visual_cards.py']:
-    t=(Path(__file__).resolve().parents[1]/'extension/py/hexa_v31'/name).read_text()
+for relative in ['planning/preset_story_planner.py','story/visual_cards.py']:
+    t=(Path(__file__).resolve().parents[1]/'extension/py/hexa_v31'/relative).read_text()
     assert 'continuous_drift\':True' not in t
 # The continuous renderer is the sole public production entrypoint.  The
 # forensic per-scene implementation may exist only as an explicitly private helper.

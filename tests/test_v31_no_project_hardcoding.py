@@ -2,10 +2,10 @@ from __future__ import annotations
 import pathlib,re
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 core=[
-    ROOT/'extension/py/hexa_v31/scene_grammar.py',
-    ROOT/'extension/py/hexa_v31/composition_solver.py',
-    ROOT/'extension/py/hexa_v31/composition_qa.py',
-    ROOT/'extension/py/hexa_v31/preset_story_planner.py',
+    ROOT/'extension/py/hexa_v31/story/scene_grammar.py',
+    ROOT/'extension/py/hexa_v31/layout/composition_solver.py',
+    ROOT/'extension/py/hexa_v31/layout/composition_qa.py',
+    ROOT/'extension/py/hexa_v31/planning/preset_story_planner.py',
 ]
 for p in core:
     s=p.read_text(encoding='utf-8')
