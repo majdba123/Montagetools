@@ -7,7 +7,7 @@ ROOT=Path(__file__).resolve().parents[1]
 INS_PATH=ROOT/'tools'/'install_v31.py'
 INS=INS_PATH.read_text(encoding='utf-8')
 JS=(ROOT/'extension'/'js'/'main.js').read_text(encoding='utf-8')
-BAT=(ROOT/'INSTALL_HEXA_V31.bat').read_text(encoding='utf-8',errors='ignore')
+BAT=(ROOT/'tools'/'release'/'INSTALL_HEXA_V31.bat').read_text(encoding='utf-8',errors='ignore')
 
 def req(x,m):
     if not x: raise AssertionError(m)

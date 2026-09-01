@@ -4,11 +4,10 @@ AUDIO SEMANTIC DESIGN DIRECTOR
 STATUS: TEST CANDIDATE — REAL MP4 REQUIRED FOR REFERENCE PARITY CLAIM
 
 INSTALL
-1. Extract this ZIP to a short local path.
-2. Run INSTALL_HEXA_V31.bat.
-3. Wait for: HEXA V31 INSTALLATION: PASS.
-4. Open Premiere Pro 2022 and select HEXA Video Builder V31.
-5. Use the exact same HEXA Scene Package ZIP + Final Voice Over used for V30.
+1. Double-click bayer.bat in the repository root.
+2. Wait for: HEXA INSTALL COMPLETE.
+3. Open Premiere Pro 2022 and select HEXA Video Builder V31.
+4. Use the exact same HEXA Scene Package ZIP + Final Voice Over used for V30.
 
 
 V31.0.1 REAL-BUILD RECOVERY

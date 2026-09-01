@@ -1,5 +1,5 @@
 from __future__ import annotations
-import math, os, pathlib, json, hashlib
+import math, os, pathlib, json, hashlib, shutil, uuid
 from dataclasses import dataclass, asdict
 from typing import Any
 import cv2
@@ -12,6 +12,14 @@ from hexa_v31.util import ensure_dir, sha256_file, write_json, read_json
 from hexa_v31.hierarchy import decompose_semantic_group
 from hexa_v31.matting import refine_alpha
 from hexa_v31.occlusion import build_occlusion_graph
+
+VISION_CACHE_SCHEMA_VERSION='HEXA_V31_SCENE_VISION_CACHE_2.0'
+VISION_CACHE_DEPENDENCIES={
+    'vision':'VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER',
+    'extraction_matting':'EXTRACTION_MATTING_2.1_POST_SMOOTH_STAGE_CAP',
+    'hierarchy_decomposition':'HIERARCHY_10.0_TOPOLOGICAL_DECOMPOSITION',
+    'occlusion':'OCCLUSION_1.0_CONSERVATIVE_GRAPH',
+}
 
 class VisionError(RuntimeError): pass
 
@@ -48,6 +56,35 @@ class SceneVisionResult:
     edge_touching: bool
     units: list[dict]
     artifacts: dict
+    cache_state: dict|None = None
+
+
+def _cache_artifacts_complete(data:dict)->bool:
+    art=data.get('artifacts') or {}
+    required=[art.get('mask'),art.get('reconstruction'),art.get('background')]
+    layers=art.get('layers') or []
+    required.extend(x.get('path') for x in layers if isinstance(x,dict))
+    return (
+        bool(layers)
+        and isinstance(art.get('matting_summary'),dict)
+        and isinstance(art.get('hierarchy_decisions'),list)
+        and isinstance(art.get('occlusion_graph'),dict)
+        and all(x and pathlib.Path(x).is_file() for x in required)
+    )
+
+
+def _replace_scene_cache_directory(stage:pathlib.Path, target:pathlib.Path)->None:
+    backup=target.parent/f'.{target.name}.backup-{uuid.uuid4().hex}'
+    had_target=target.exists()
+    try:
+        if had_target:os.replace(target,backup)
+        os.replace(stage,target)
+    except Exception:
+        if backup.exists() and not target.exists():os.replace(backup,target)
+        raise
+    finally:
+        if stage.exists():shutil.rmtree(stage)
+    if backup.exists():shutil.rmtree(backup)
 
 
 def _bg_estimate(rgb: np.ndarray) -> tuple[int,int,int]:
@@ -460,19 +497,38 @@ def _expand_hierarchical_groups(groups:list[dict], assignments:list[dict|None], 
     return out_g,out_a,decisions
 
 def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLike, logger=None) -> SceneVisionResult:
-    sid=scene['scene_id']; out=ensure_dir(pathlib.Path(out_dir)/sid)
-    sig_payload={'algorithm':'HEXA_V31_VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER','image_sha256':sha256_file(image_path),'semantic_units':scene.get('units') or []}
+    sid=scene['scene_id']; cache_root=ensure_dir(pathlib.Path(out_dir)); final_out=cache_root/sid
+    input_payload={'image_sha256':sha256_file(image_path),'semantic_units':scene.get('units') or []}
+    dependency_payload=dict(VISION_CACHE_DEPENDENCIES)
+    sig_payload={'cache_schema':VISION_CACHE_SCHEMA_VERSION,'input':input_payload,'dependencies':dependency_payload}
     cache_sig=hashlib.sha256(json.dumps(sig_payload,sort_keys=True,ensure_ascii=False).encode('utf-8')).hexdigest()
-    meta_path=out/'cache_meta.json'; vision_path=out/'vision.json'
+    meta_path=final_out/'cache_meta.json'; vision_path=final_out/'vision.json'; cache_status='GENERATED'; invalidation_reason=None
     if meta_path.is_file() and vision_path.is_file():
         try:
             meta=read_json(meta_path); data=read_json(vision_path)
-            art=data.get('artifacts') or {}; paths=[art.get('mask'),art.get('reconstruction'),art.get('background')]+[x.get('path') for x in (art.get('layers') or []) if isinstance(x,dict)]
-            if meta.get('cache_signature')==cache_sig and all((not x) or pathlib.Path(x).is_file() for x in paths):
+            if meta.get('cache_signature')==cache_sig and _cache_artifacts_complete(data):
                 if logger: logger.log('PASS','SCENE_VISION_CACHE_HIT',mode=data.get('mode'),cache_signature=cache_sig[:16])
+                data['cache_state']={'status':'HIT','reason':None,'cache_signature':cache_sig}
                 return SceneVisionResult(**data)
+            old_payload=meta.get('input') if isinstance(meta.get('input'),dict) else {}
+            if 'input' in old_payload:
+                old_input=old_payload.get('input'); old_dependencies=old_payload.get('dependencies')
+            else:
+                # V1 cache metadata stored the image/semantic identity beside one
+                # coarse algorithm label. Preserve the input identity while treating
+                # that legacy algorithm as an obsolete dependency fingerprint.
+                old_input={'image_sha256':old_payload.get('image_sha256'),'semantic_units':old_payload.get('semantic_units') or []}
+                old_dependencies={'legacy_algorithm':old_payload.get('algorithm')}
+            if old_input==input_payload and old_dependencies!=dependency_payload:
+                cache_status='INVALIDATED_DEPENDENCY_CHANGED'; invalidation_reason='DEPENDENCY_CHANGED'
+            else:
+                cache_status='MISS_INPUT_CHANGED'; invalidation_reason='INPUT_CHANGED_OR_INCOMPLETE_ARTIFACT_SET'
         except Exception:
-            pass
+            cache_status='MISS_INPUT_CHANGED'; invalidation_reason='CACHE_READ_FAILED'
+    if logger and invalidation_reason:
+        logger.log('INFO','SCENE_VISION_CACHE_INVALIDATED',cache_state=cache_status,reason=invalidation_reason,cache_signature=cache_sig[:16])
+    out=cache_root/f'.{sid}.stage-{uuid.uuid4().hex}'
+    ensure_dir(out)
     im=Image.open(image_path)
     rgba=np.array(im.convert('RGBA'))
     raw_rgb=rgba[:,:,:3]; alpha=rgba[:,:,3] if im.mode in ('RGBA','LA') or 'transparency' in im.info else None
@@ -522,8 +578,8 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
         else:
             cx0,cy0,cx1,cy1=x,y,x+bw,y+bh
         layer_rgba=np.dstack([clean_rgb,layer_alpha])
-        lp=out/f'{pid}.png'; Image.fromarray(layer_rgba,'RGBA').save(lp)
-        layer_paths.append({'path':str(lp),'origin_px':[0,0],'size_px':[W,H],'content_origin_px':[cx0,cy0],'content_size_px':[cx1-cx0,cy1-cy0],'canvas_mode':'FULL_SCENE_ALPHA_CANVAS'})
+        lp=out/f'{pid}.png'; final_lp=final_out/f'{pid}.png'; Image.fromarray(layer_rgba,'RGBA').save(lp)
+        layer_paths.append({'path':str(final_lp),'origin_px':[0,0],'size_px':[W,H],'content_origin_px':[cx0,cy0],'content_size_px':[cx1-cx0,cy1-cy0],'canvas_mode':'FULL_SCENE_ALPHA_CANVAS'})
         # The semantic object's physical center still drives travel direction/delta, but never static layout.
         # Static layout is now encoded directly in the full-canvas alpha pixels.
         place_cx=(cx0+cx1)/2.0; place_cy=(cy0+cy1)/2.0
@@ -534,7 +590,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
             mask_confidence=round(base_conf*(0.95 if len(g['members'])>=1 else 0.7),4),edge_touch=edge,
             semantic_unit_id=sem.get('unit_id') if sem else None,semantic_type=sem.get('type') if sem else None,semantic_role=sem.get('role') if sem else None,
         )
-        row=asdict(pu); row['hierarchy_level']=int(g.get('_hierarchy_level',0)); row['parent_semantic_unit_id']=g.get('_parent_semantic_unit_id'); row['composition_slot_id']=str(g.get('_composition_slot_id') or row.get('semantic_unit_id') or row.get('physical_id')); row['subobject_role']=g.get('_subobject_role'); row['hierarchy_confidence']=float(g.get('_hierarchy_confidence',0.0)); row['animation_safe']=bool(g.get('_animation_safe',True)); row['reveal_safe']=bool(g.get('_reveal_safe',True)); row['animation_mode']=str(g.get('_animation_mode') or ('TRANSLATE_SAFE' if row['animation_safe'] else 'GROUP_ONLY')); row['occlusion_class']=str(g.get('_occlusion_class') or ('CLEAN_SEPARABLE' if row['animation_safe'] else 'GROUP_ONLY')); row['matting']=matte; row['semantic_mapping_confidence']=round(float(g.get('_semantic_mapping_confidence',0.0)),4); row['layer_path']=str(lp); row['mask_path']=str(lp); row['layer_canvas_mode']='FULL_SCENE_ALPHA_CANVAS'; row['layer_source_size_px']=[W,H]; row['crop_origin_px']=[cx0,cy0]; row['crop_size_px']=[cx1-cx0,cy1-cy0]; row['root_id']=g.get('_decomposition_root_id'); row['parent_id']=g.get('_decomposition_root_id') if row['hierarchy_level']>0 else None; row['child_id']=f"{g.get('_decomposition_root_id')}::CHILD_{row['hierarchy_level']}_{idx}" if row['hierarchy_level']>0 else None; row['visible_area']=round(float(np.count_nonzero(layer_alpha>4))/(W*H),6); row['optical_center']=row['center_norm']; row['independence_confidence']=row['hierarchy_confidence']; row['reconstruction_error']=0.0; unit_rows.append(row)
+        row=asdict(pu); row['hierarchy_level']=int(g.get('_hierarchy_level',0)); row['parent_semantic_unit_id']=g.get('_parent_semantic_unit_id'); row['composition_slot_id']=str(g.get('_composition_slot_id') or row.get('semantic_unit_id') or row.get('physical_id')); row['subobject_role']=g.get('_subobject_role'); row['hierarchy_confidence']=float(g.get('_hierarchy_confidence',0.0)); row['animation_safe']=bool(g.get('_animation_safe',True)); row['reveal_safe']=bool(g.get('_reveal_safe',True)); row['animation_mode']=str(g.get('_animation_mode') or ('TRANSLATE_SAFE' if row['animation_safe'] else 'GROUP_ONLY')); row['occlusion_class']=str(g.get('_occlusion_class') or ('CLEAN_SEPARABLE' if row['animation_safe'] else 'GROUP_ONLY')); row['matting']=matte; row['semantic_mapping_confidence']=round(float(g.get('_semantic_mapping_confidence',0.0)),4); row['layer_path']=str(final_lp); row['mask_path']=str(final_lp); row['layer_canvas_mode']='FULL_SCENE_ALPHA_CANVAS'; row['layer_source_size_px']=[W,H]; row['crop_origin_px']=[cx0,cy0]; row['crop_size_px']=[cx1-cx0,cy1-cy0]; row['root_id']=g.get('_decomposition_root_id'); row['parent_id']=g.get('_decomposition_root_id') if row['hierarchy_level']>0 else None; row['child_id']=f"{g.get('_decomposition_root_id')}::CHILD_{row['hierarchy_level']}_{idx}" if row['hierarchy_level']>0 else None; row['visible_area']=round(float(np.count_nonzero(layer_alpha>4))/(W*H),6); row['optical_center']=row['center_norm']; row['independence_confidence']=row['hierarchy_confidence']; row['reconstruction_error']=0.0; unit_rows.append(row)
     # Hard-rule fifth-element special case is evaluated by *composition slots*, not physical
     # animation layers. Splitting one machine into body/coin/display must not falsely create a
     # five-element layout.
@@ -610,8 +666,13 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
         'binary_alpha_layers':sum(1 for m in matting_rows if int(m.get('alpha_unique_approx',0))<=2),
     }
     result=SceneVisionResult(sid,W,H,source_mode,bg,round(foreground,6),len(comps),grouped_detail_count,gc,len(semantic),round(mae,4),round(psnr,3),reconstruction_pass,round(split_conf,4),mode,any(u['edge_touch'] for u in unit_rows),unit_rows,{
-        'mask':str(out/'foreground_mask.png'),'reconstruction':str(out/'reconstruction.png'),'background':str(out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph
-    })
-    write_json(out/'vision.json',asdict(result)); write_json(meta_path,{'cache_signature':cache_sig,'input':sig_payload})
+        'mask':str(final_out/'foreground_mask.png'),'reconstruction':str(final_out/'reconstruction.png'),'background':str(final_out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph
+    },{'status':cache_status,'reason':invalidation_reason,'cache_signature':cache_sig})
+    write_json(out/'vision.json',asdict(result)); write_json(out/'cache_meta.json',{'schema':VISION_CACHE_SCHEMA_VERSION,'cache_signature':cache_sig,'input':sig_payload})
+    staged_data=read_json(out/'vision.json')
+    staged_data['artifacts']['mask']=str(out/'foreground_mask.png'); staged_data['artifacts']['reconstruction']=str(out/'reconstruction.png'); staged_data['artifacts']['background']=str(out/'background.png')
+    for index,layer in enumerate(staged_data['artifacts'].get('layers') or [],1):layer['path']=str(out/f'PHYS_{index:02d}.png')
+    if not _cache_artifacts_complete(staged_data):raise VisionError('Atomic scene cache staging validation failed for '+sid)
+    _replace_scene_cache_directory(out,final_out)
     if logger: logger.log('PASS' if mode!='FLAT_SCENE' else 'WARNING','SCENE_VISION_ANALYZED',mode=mode,source_mode=source_mode,major_groups=gc,composition_slots=slot_count,expected_units=expected,reconstruction_mae=result.reconstruction_mae,reconstruction_psnr=result.reconstruction_psnr,edge_touching=result.edge_touching,hierarchical_children=sum(1 for u in unit_rows if int(u.get('hierarchy_level',0))>0),matte_halo_risk=matte_summary.get('max_edge_halo_risk'),opaque_stage_leak=matte_summary.get('max_opaque_stage_leak_fraction'),grouped_detail_count=grouped_detail_count,translation_safe_after_occlusion=len(occlusion_graph.get('translation_safe_nodes') or []))
     return result

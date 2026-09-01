@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+LAUNCHER = ROOT / 'bayer.bat'
+CLEANUP = ROOT / 'tools' / 'cleanup_generated_release_artifacts.ps1'
+
+
+def make_fixture(base: Path, *, latest: bool = True, installer: bool = True) -> Path:
+    repo = base / 'Repository With Spaces'
+    (repo / 'tools').mkdir(parents=True)
+    shutil.copy2(LAUNCHER, repo / 'bayer.bat')
+    shutil.copy2(CLEANUP, repo / 'tools' / CLEANUP.name)
+    if latest:
+        payload = repo / 'dist' / 'latest'
+        (payload / 'extension' / 'py' / 'hexa_v31').mkdir(parents=True)
+        (payload / 'tools').mkdir(parents=True)
+        (payload / 'extension' / 'py' / 'hexa_v31' / '__init__.py').write_text('', encoding='utf-8')
+        (payload / 'tools' / 'install_v31.py').write_text('# fixture\n', encoding='utf-8')
+        if installer:
+            (payload / 'INSTALL_HEXA_V31.bat').write_text(
+                '@echo off\n'
+                'if defined HEXA_TEST_INSTALL_MARKER >"%HEXA_TEST_INSTALL_MARKER%" echo LATEST_INSTALLER_INVOKED\n'
+                'if defined HEXA_TEST_INSTALL_EXIT exit /b %HEXA_TEST_INSTALL_EXIT%\n'
+                'exit /b 0\n',
+                encoding='utf-8',
+            )
+    return repo
+
+
+def run_launcher(repo: Path, cwd: Path, *, code: int = 0):
+    marker = repo / 'latest installer marker.txt'
+    env = os.environ.copy()
+    env['HEXA_TEST_INSTALL_MARKER'] = str(marker)
+    env['HEXA_TEST_INSTALL_EXIT'] = str(code)
+    command = f'cmd.exe /d /s /c call "{repo / "bayer.bat"}"'
+    cp = subprocess.run(
+        command,
+        cwd=cwd,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        timeout=60,
+    )
+    return cp, marker
+
+
+with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw:
+    base = Path(raw)
+
+    missing_latest = make_fixture(base / 'missing latest', latest=False)
+    cp, _ = run_launcher(missing_latest, base)
+    assert cp.returncode == 20 and 'Validated payload directory is missing' in cp.stdout, cp.stdout
+
+    missing_installer = make_fixture(base / 'missing installer', installer=False)
+    cp, _ = run_launcher(missing_installer, base)
+    assert cp.returncode == 21 and 'Validated installer is missing' in cp.stdout, cp.stdout
+
+    repo = make_fixture(base / 'success')
+    protected = {
+        repo / 'extension' / 'source.py': 'source',
+        repo / 'tests' / 'test.txt': 'tests',
+        repo / 'docs' / 'guide.txt': 'docs',
+        repo / 'Final Packages' / 'package.zip': 'package',
+        repo / 'voice' / 'voice.wav': 'voice',
+        repo / 'dist' / 'latest' / 'keep.txt': 'latest',
+    }
+    for path, text in protected.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding='utf-8')
+
+    stale = [
+        repo / 'dist' / 'staging' / 'old.txt',
+        repo / 'dist' / 'temp' / 'old.txt',
+        repo / 'dist' / '_tmp' / 'old.txt',
+        repo / 'dist' / '.latest-stage-deadbeef' / 'old.txt',
+        repo / '.hexa_validate' / 'old.txt',
+    ]
+    for path in stale:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('generated', encoding='utf-8')
+
+    # A repository-root installer is a trap: only dist/latest may be invoked.
+    source_marker = repo / 'source installer marker.txt'
+    (repo / 'INSTALL_HEXA_V31.bat').write_text(
+        f'@echo off\n>"{source_marker}" echo SOURCE_INSTALLER_INVOKED\nexit /b 0\n',
+        encoding='utf-8',
+    )
+
+    other_cwd = base / 'Different Current Directory'
+    other_cwd.mkdir()
+    cp, marker = run_launcher(repo, other_cwd)
+    assert cp.returncode == 0, cp.stdout
+    assert marker.read_text(encoding='utf-8').strip() == 'LATEST_INSTALLER_INVOKED'
+    assert 'HEXA INSTALL COMPLETE' in cp.stdout, cp.stdout
+    assert not source_marker.exists(), 'launcher used repository-source installer'
+    assert all(not path.parent.exists() for path in stale), 'allowlisted generated artifacts survived'
+    for path, text in protected.items():
+        assert path.read_text(encoding='utf-8') == text, f'protected path changed: {path}'
+    assert (repo / 'dist' / 'latest').is_dir(), 'dist/latest was deleted'
+
+    cp, marker = run_launcher(repo, other_cwd, code=37)
+    assert cp.returncode == 37, (cp.returncode, cp.stdout)
+    assert marker.is_file(), 'validated installer was not invoked for failure propagation test'
+    assert 'HEXA INSTALL COMPLETE' not in cp.stdout, cp.stdout
+
+print('V31_ROOT_LAUNCHER_PASS')

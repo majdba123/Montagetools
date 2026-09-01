@@ -16,7 +16,7 @@ for p in [ROOT/'tools/install_v31.py',ROOT/'tools/selftest_v31.py']:ast.parse(p.
 ET.parse(ROOT/'extension/CSXS/manifest.xml');print('PYTHON_XML_SYNTAX_PASS',count)
 run(['node','--check',ROOT/'extension/js/main.js'])
 cp=subprocess.run(['node','--check'],input=(ROOT/'extension/jsx/host.jsx').read_bytes(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT);print(cp.stdout.decode('utf-8',errors='replace'));assert cp.returncode==0;print('HOST_JSX_SYNTAX_PASS')
-for f in ['test_v31_preset_authority.py','test_v31_motion_cards.py','test_v31_explicit_relationships.py','test_v31_absolute_preset_state.py','test_v31_cutout_integrity.py','test_v31_stage_leak_matting.py','test_v31_continuous_render.py','test_v31_no_legacy_motion.py','test_v31_semantic_mapping_guard.py','test_v31_reference_critic_no_free_acting.py','test_v31_failure_log_card_compiler.py','test_v31_primary_wave_scheduler.py','test_v31_identity_persistence.py','test_v31_secondary_shortfall_review.py','test_v31_universal_scene_grammar.py','test_v31_visual_sample_calibration.py','test_v31_collision_solver.py','test_v31_generalization_layout_stress.py','test_v31_atomic_composite_exclusivity.py','test_v31_motion_path_collision_guard.py','test_v31_no_project_hardcoding.py']:
+for f in ['test_v31_preset_authority.py','test_v31_motion_cards.py','test_v31_explicit_relationships.py','test_v31_absolute_preset_state.py','test_v31_cutout_integrity.py','test_v31_stage_leak_matting.py','test_v31_edge_touching_white_foreground.py','test_v31_scene_vision_cache_dependencies.py','test_v31_continuous_render.py','test_v31_no_legacy_motion.py','test_v31_semantic_mapping_guard.py','test_v31_reference_critic_no_free_acting.py','test_v31_failure_log_card_compiler.py','test_v31_primary_wave_scheduler.py','test_v31_identity_persistence.py','test_v31_secondary_shortfall_review.py','test_v31_universal_scene_grammar.py','test_v31_visual_sample_calibration.py','test_v31_collision_solver.py','test_v31_generalization_layout_stress.py','test_v31_atomic_composite_exclusivity.py','test_v31_motion_path_collision_guard.py','test_v31_no_project_hardcoding.py']:
     run([sys.executable,ROOT/'tests'/f],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_middle_position_entry_geometry.py'],timeout=480)
 for f in ['test_v31_0_1_large_support_fallback.py','test_v31_0_1_atomic_character_split.py','test_v31_0_1_adaptive_phase_recovery.py','test_v31_0_1_large_geometry_stress.py']:
@@ -38,7 +38,7 @@ run([sys.executable,ROOT/'tests'/'test_v31_continuity_character_director.py'],ti
 run([sys.executable,ROOT/'tests'/'test_v31_sprint1_production_integration.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_0_4_audio_semantic_design.py'],timeout=480)
 # Platform/runtime regression guards remain part of the V31 shipping suite.
-for f in ['test_v31_install_path_hotfix.py','test_v31_runtime_import_path_contract.py','test_v31_media_probe_fallback.py']:
+for f in ['test_v31_install_path_hotfix.py','test_v31_runtime_import_path_contract.py','test_v31_media_probe_fallback.py','test_v31_root_launcher.py']:
     run([sys.executable,ROOT/'tests'/f],timeout=480)
 for f in ['test_v31_premiere_animated_host_mock.js','test_v31_windows_path_contract.js']:
     run(['node',ROOT/'tests'/f],timeout=480)

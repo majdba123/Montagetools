@@ -292,18 +292,14 @@ def discover_premiere_mp4_preset(home:pathlib.Path):
     scored.sort(key=lambda x:(-x[0],str(x[1]).lower()))
     return scored[0][1] if scored else None
 
-def clean_extensions(cep_root):
-    removed=[]
-    if not cep_root.exists(): return removed
-    for d in list(cep_root.iterdir()):
-        if not d.is_dir():continue
-        manifest=d/'CSXS'/'manifest.xml'; owned=d.name.lower().startswith('com.hexaterminal.videobuilder')
-        if manifest.is_file():
-            try:owned=owned or 'com.hexaterminal.videobuilder' in manifest.read_text(encoding='utf-8-sig',errors='ignore').lower()
-            except Exception:pass
-        if owned:
-            shutil.rmtree(d);removed.append(str(d))
-    return removed
+def clean_extension_target(target):
+    """Remove only the V31-owned CEP bundle before copying the staged payload."""
+    target=pathlib.Path(target)
+    if target.name!=BUNDLE or target.parent.name.lower()!='extensions':
+        raise RuntimeError('Refusing to clean unexpected CEP target: '+str(target))
+    if not target.exists():return []
+    _rmtree_long(target)
+    return [str(target)]
 
 
 def hardware_probe(runtime_root):
@@ -443,13 +439,13 @@ def main():
 
     dep=read_json(stage/'resources'/'DEPENDENCY_MANIFEST_V20.json')
     cep=appdata/'Adobe'/'CEP'/'extensions';cep.mkdir(parents=True,exist_ok=True)
-    log('PHASE 1/8 - Clean previous HEXA Video Builder CEP extensions')
-    removed=clean_extensions(cep)
-    for r in removed:log('REMOVED EXTENSION: '+r)
-    log(f'Old HEXA extension count removed: {len(removed)}')
-    log('PHASE 2/8 - Install V31 extension from verified short-path stage')
     target=cep/BUNDLE
-    if target.exists():shutil.rmtree(target)
+    log('PHASE 1/8 - Replace the known V31 CEP extension target')
+    removed=clean_extension_target(target)
+    for r in removed:log('REMOVED EXTENSION: '+r)
+    log(f'Old V31 target count removed: {len(removed)}')
+    log('PHASE 2/8 - Install V31 extension from verified short-path stage')
+    if target.exists():raise RuntimeError('V31 target cleanup did not complete: '+str(target))
     shutil.copytree(stage,target)
     deployed_missing=[str(rel) for rel in critical_relpaths if not (target/rel).is_file()]
     if deployed_missing:

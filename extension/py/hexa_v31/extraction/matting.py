@@ -151,6 +151,14 @@ def refine_alpha(
     # without moving the boundary or filling gaps between independent objects.
     a8=np.clip(base*255.0,0,255).astype(np.uint8)
     a8=cv2.bilateralFilter(a8,5,16,3)
+    if np.any(stage_soft):
+        # Bilateral smoothing may borrow opacity from adjacent foreground and lift a
+        # border-connected stage pixel back above the hard leak cutoff. Reapply the
+        # same color-derived soft cap after smoothing; enclosed white object content
+        # is not stage_soft and remains untouched.
+        cd=_color_distance(rgb,bg_rgb)
+        edge_cap=_smoothstep01((cd-1.0)/18.0)*0.96
+        a8[stage_soft]=np.minimum(a8[stage_soft],np.floor(edge_cap[stage_soft]*255.0).astype(np.uint8))
     # Restore certified opaque interiors after edge smoothing. The bilateral pass must
     # never turn solid source ink into a translucent 254-valued ghost.
     a8[(base>=0.995)&(hard>0)]=255

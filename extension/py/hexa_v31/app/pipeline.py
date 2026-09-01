@@ -170,7 +170,13 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
             line=next((ln for ln in cp.stdout.splitlines() if ln.startswith('HEXA_V31_VISION_RESULT=')),None)
             if not line: raise BuildFailure(f"Vision worker returned no result at {s['scene_id']}")
             vr=json.loads(line.split('=',1)[1]); vision.append(vr)
-            log.log('PASS' if vr.get('mode')!='FLAT_SCENE' else 'WARNING','SCENE_VISION_ANALYZED',mode=vr.get('mode'),source_mode=vr.get('source_mode'),major_groups=vr.get('major_group_count'),expected_units=vr.get('expected_semantic_units'),reconstruction_mae=vr.get('reconstruction_mae'),reconstruction_psnr=vr.get('reconstruction_psnr'),edge_touching=vr.get('edge_touching'),isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
+            cache_state=(vr.get('cache_state') or {}).get('status') or 'GENERATED'
+            if cache_state=='HIT':
+                log.log('PASS','SCENE_VISION_CACHE_HIT',mode=vr.get('mode'),cache_signature=(vr.get('cache_state') or {}).get('cache_signature','')[:16],isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
+            else:
+                if cache_state in {'MISS_INPUT_CHANGED','INVALIDATED_DEPENDENCY_CHANGED'}:
+                    log.log('INFO','SCENE_VISION_CACHE_INVALIDATED',cache_state=cache_state,reason=(vr.get('cache_state') or {}).get('reason'),isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
+                log.log('PASS' if vr.get('mode')!='FLAT_SCENE' else 'WARNING','SCENE_VISION_ANALYZED',cache_state=cache_state,mode=vr.get('mode'),source_mode=vr.get('source_mode'),major_groups=vr.get('major_group_count'),expected_units=vr.get('expected_semantic_units'),reconstruction_mae=vr.get('reconstruction_mae'),reconstruction_psnr=vr.get('reconstruction_psnr'),edge_touching=vr.get('edge_touching'),isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
             write_json(root/'last_safe_checkpoint.json',{'phase':'VISION_RECONSTRUCTION','completed_scene':s['scene_id'],'completed_index':i,'scene_count':len(pkg.scenes),'package_sha256':package_sha,'audio_sha256':audio_sha,'build_id':build_id})
         write_json(root/'scene_vision_report_v31.json',{'schema':'HEXA_V31_SCENE_VISION_REPORT','project_id':pkg.plan.get('project_id'),'scenes':vision})
 
