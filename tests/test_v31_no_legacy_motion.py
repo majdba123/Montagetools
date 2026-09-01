@@ -5,7 +5,7 @@ for name in ['preset_story_planner.py','visual_cards.py']:
     assert 'continuous_drift\':True' not in t
 # The continuous renderer is the sole public production entrypoint.  The
 # forensic per-scene implementation may exist only as an explicitly private helper.
-s=(Path(__file__).resolve().parents[1]/'extension/py/hexa_v31/scene_media.py').read_text()
+s=(Path(__file__).resolve().parents[1]/'extension/py/hexa_v31/render/scene_media.py').read_text()
 tree=ast.parse(s)
 public=[node.name for node in tree.body if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)) and node.name=='render_scene_media']
 assert public==['render_scene_media'],public

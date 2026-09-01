@@ -1,0 +1,9 @@
+{
+  "scene_id": "SCENE_040",
+  "source_mode": "BORDER_CONNECTED_WHITE_STAGE_MATTE",
+  "leak_ratio_before": 0.010494,
+  "leak_region_count": 1,
+  "root_cause": "The conservative semantic group retained a border-connected near-white stage pocket. Its broad white-stage component was allowed through the local soft band beside object ink, leaving opaque stage pixels in PHYS_01.",
+  "affected_layer_unit": "PHYS_01 / UNIT_002",
+  "repair_method": "Generic local border-connected stage-matte repair: classify only background-connected near-white pixels within each semantic group, hard-clear canonical stage, color-cap the antialias transition, and preserve enclosed white foreground interiors."
+}

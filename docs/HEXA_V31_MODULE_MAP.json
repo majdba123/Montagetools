@@ -1,0 +1,21 @@
+{
+  "schema": "HEXA_V31_MODULE_MAP",
+  "version": "1.0",
+  "layers": {
+    "app": ["cli", "orchestration", "pipeline", "diagnostics"],
+    "core": ["util"],
+    "ingest": ["package_io", "media_probe"],
+    "audio": ["audio", "alignment", "audio_prosody", "semantic_sentence"],
+    "vision": ["vision", "vision_worker", "visual_affordance", "continuity_character"],
+    "extraction": ["matting", "projected_visible_ink", "occlusion"],
+    "story": ["story_graph", "story_state", "scene_grammar", "visual_cards", "visual_sequence", "design_director"],
+    "planning": ["preset_story_planner", "preset_authority", "preset_qa"],
+    "layout": ["composition_solver", "composition_qa", "framing", "hierarchy", "visual_density", "graphics"],
+    "typography": ["typography"],
+    "motion": ["motion", "motion_solver", "motion_vocabulary", "editorial_motion", "beat_choreography", "visual_choreography"],
+    "render": ["scene_media", "preview"],
+    "integration": ["premiere"],
+    "qa": ["qa", "perceptual_qa", "physical_acting_verify", "storytelling_verify", "reference_critic", "reference_metrics", "spike_attribution", "production_cert"]
+  },
+  "compatibility": "Each historical hexa_v31.<module> import delegates to the layer implementation."
+}
