@@ -18,11 +18,46 @@ def _peak(events:list[dict],primary:bool)->int:
     return peak
 
 
+def hierarchical_render_evidence_qa(events:list[dict])->dict:
+    """Validate hierarchical render modes without treating residual pixels as actors."""
+    failures=[];defs=(load_authority().get('preset_motion') or {})
+    for e in events:
+        if e.get('suppressed_by_card_density') or int(e.get('hierarchy_level') or 0)<=0:continue
+        eid=str(e.get('event_id'));mode=str(e.get('render_mode') or '')
+        if mode=='CHILD_PARTITION':
+            if not e.get('partition_complete') or not e.get('source_layer_path'):
+                failures.append(f'{eid}: hierarchical child lacks certified partition render evidence')
+            if not e.get('reveal_safe',True):failures.append(f'{eid}: unsafe hierarchical child entered render plan')
+            continue
+        if mode!='RESIDUAL_SUPPORT':
+            failures.append(f'{eid}: hierarchical child lacks certified partition render evidence')
+            continue
+        if not e.get('source_layer_path'):failures.append(f'{eid}: residual support lacks source layer')
+        if 'foundation_residual_support' in e and not e.get('foundation_residual_support'):
+            failures.append(f'{eid}: residual support lacks Foundation reconstruction evidence')
+        if e.get('independent_motion_allowed'):
+            failures.append(f'{eid}: residual support permits independent motion')
+        if e.get('translation_safe_after_occlusion'):
+            failures.append(f'{eid}: residual support claims translation safety')
+        if 'animation_mode' in e and e.get('animation_mode')!='STATIC_SUPPORT':
+            failures.append(f'{eid}: residual support is not static reconstruction support')
+        spatial=bool(e.get('position_animated') or e.get('preset_actions'))
+        for key in ('preset_entry','preset_exit'):
+            name=str((e.get(key) or {}).get('name') or '')
+            spatial=spatial or bool(name and str((defs.get(name) or {}).get('family') or '')=='ENTRY_EXIT')
+        coords=[e.get(k) for k in ('start_x_norm','start_y_norm','end_x_norm','end_y_norm','exit_x_norm','exit_y_norm')]
+        if all(v is not None for v in coords):
+            spatial=spatial or abs(float(coords[0])-float(coords[2]))>1e-6 or abs(float(coords[1])-float(coords[3]))>1e-6 or abs(float(coords[2])-float(coords[4]))>1e-6 or abs(float(coords[3])-float(coords[5]))>1e-6
+        if spatial:failures.append(f'{eid}: residual support has independent spatial animation')
+    return {'pass':not failures,'failures':failures}
+
+
 def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
     failures=[];warnings=[]
     auth=load_authority();defs=auth.get('preset_motion') or {};allowed=set(defs)
     cards=list((motion_plan.get('visual_cards') or {}).get('cards') or [])
     all_events=list(motion_plan.get('events') or [])
+    failures.extend(hierarchical_render_evidence_qa(all_events)['failures'])
     for c in cards:
         cid=str(c.get('card_id'));dur=float(c.get('duration_seconds') or 0.0)
         if dur<3.0-1e-5 or dur>5.0+1e-5:failures.append(f'{cid}: visual card duration {dur:.3f}s outside 3-5s')
@@ -42,10 +77,6 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
             failures.append(f"{e.get('event_id')}: primary preset capacity overflow; card compiler failed to allocate a legal 3-5s window")
         if e.get('suppressed_by_card_density'):continue
         eid=str(e.get('event_id'))
-        if int(e.get('hierarchy_level') or 0)>0:
-            if e.get('render_mode')!='CHILD_PARTITION' or not e.get('partition_complete') or not e.get('source_layer_path'):
-                failures.append(f'{eid}: hierarchical child lacks certified partition render evidence')
-            if not e.get('reveal_safe',True):failures.append(f'{eid}: unsafe hierarchical child entered render plan')
         primary=str(e.get('attention_priority') or '').upper()=='PRIMARY'
         for key in ('preset_entry','preset_exit'):
             p=e.get(key)

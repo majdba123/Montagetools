@@ -1090,6 +1090,18 @@ def _foundation_partition_motion_contract(events:list[dict])->dict:
     signatures={(str((e.get('preset_entry') or {}).get('name')),tuple(str(a.get('name')) for a in (e.get('preset_actions') or []))) for e in independent}
     return {'eligible_foundation_actor_count':eligible,'independently_animated_actor_count':len(independent),'independent_actor_motion_ratio':round(len(independent)/max(1,eligible),4),'spatially_displaced_actor_count':len(independent),'distinct_motion_signature_count':len(signatures),'static_support_actor_count':sum(e.get('attention_priority')=='SUPPORTING' and not e.get('position_animated') for e in rows),'reveal_only_actor_count':sum(e.get('foundation_motion_decision')=='REVEAL_ONLY' for e in rows)}
 
+def _hierarchical_render_metadata(unit:dict)->dict:
+    return {
+        'render_mode':unit.get('render_mode','ROOT_ATOMIC'),
+        'partition_root_id':unit.get('partition_root_id') or unit.get('root_id'),
+        'partition_complete':bool(unit.get('partition_complete')),
+        'independent_motion_allowed':bool(unit.get('independent_motion_allowed',True)),
+        'source_layer_path':unit.get('layer_path') or unit.get('mask_path'),
+        'foundation_residual_support':bool(unit.get('foundation_residual_support')),
+        'animation_mode':unit.get('animation_mode'),
+        'translation_safe_after_occlusion':bool(unit.get('translation_safe_after_occlusion',unit.get('animation_safe',True))),
+    }
+
 def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:int, total:int, *, force_static:bool=False, local_events:list[dict]|None=None, fps:float=30.0):
     """Schedule one already collision-solved object using only user preset families."""
     ps,pe=phase_window;card_end=float(card['end_seconds']);primary=str(e.get('attention_priority') or '').upper()=='PRIMARY'
@@ -1306,8 +1318,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
                 'appearance_method':None,'disappearance_method':None,'entry_direction':None,'position_animated':False,'position_min_frames':12,'position_interpolation':'USER_PRESET_CURVE','motion_profile':'USER_VISUAL_SAMPLE_AUTHORITY','motion_blur_enabled':False,'preset_coordinate_mode':'ABSOLUTE_OBJECT_CENTER',
                 'start_x_norm':cx,'start_y_norm':cy,'end_x_norm':cx,'end_y_norm':cy,'exit_x_norm':cx,'exit_y_norm':cy,'focus_beats':[],'story_actions':[],'story_beats':[],'continuous_drift':False,'continuous_image_scale':False,
                 'reference_camera_scale':float(camera_fit['camera_scale']),'layout_scale_multiplier':1.0,'hierarchy_level':int(u.get('hierarchy_level') or 0),'parent_semantic_unit_id':u.get('parent_semantic_unit_id'),'composition_slot_id':u.get('composition_slot_id') or u.get('semantic_unit_id') or u.get('physical_id'),'fifth_element_overlay':False,
-                'render_mode':u.get('render_mode','ROOT_ATOMIC'),'partition_root_id':u.get('partition_root_id') or u.get('root_id'),'partition_complete':bool(u.get('partition_complete')),'independent_motion_allowed':bool(u.get('independent_motion_allowed',True)),'source_layer_path':u.get('layer_path') or u.get('mask_path'),
-                'translation_safe_after_occlusion':bool(u.get('translation_safe_after_occlusion',u.get('animation_safe',True))),'reveal_safe':bool(u.get('reveal_safe',True)),'animation_safe':bool(u.get('animation_safe',True)),'matting':u.get('matting'),'semantic_mapping_confidence':float(u.get('semantic_mapping_confidence',0.0)),'cutout_policy':'TOP_LEVEL_SEMANTIC_GROUP_ONLY__PRESERVE_ATTACHED_DETAILS','relationship_motion_policy':'EXPLICIT_METADATA_ONLY__UNSAFE_TRAVEL_BECOMES_TEMPORAL_HANDOFF','attention_priority':'PRIMARY' if primary else 'SUPPORTING','motion_energy':'HIGH' if primary else 'MEDIUM','budget_cost':0.25 if primary else 0.12,
+                **_hierarchical_render_metadata(u),'reveal_safe':bool(u.get('reveal_safe',True)),'animation_safe':bool(u.get('animation_safe',True)),'matting':u.get('matting'),'semantic_mapping_confidence':float(u.get('semantic_mapping_confidence',0.0)),'cutout_policy':'TOP_LEVEL_SEMANTIC_GROUP_ONLY__PRESERVE_ATTACHED_DETAILS','relationship_motion_policy':'EXPLICIT_METADATA_ONLY__UNSAFE_TRAVEL_BECOMES_TEMPORAL_HANDOFF','attention_priority':'PRIMARY' if primary else 'SUPPORTING','motion_energy':'HIGH' if primary else 'MEDIUM','budget_cost':0.25 if primary else 0.12,
             }
             e['composite_atomic']=_event_is_atomic(e);events.append(e);scene_events.append(e)
         scenes_out.append({'scene_id':sid,'start_seconds':float(st['start']),'end_seconds':float(st['end']),'duration_seconds':float(st['end'])-float(st['start']),'duration_class':'CARD_MEMBER','vision_mode':vr.get('mode'),'choreography_profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','relation_to_previous':_relation(scene),'transition':{'mode':'OBJECT_PRESETS_ONLY__NO_FRAME_BLEND','duration_seconds':0.0,'white_reset':False,'relation':_relation(scene),'profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','energy_cost':0.0,'strong':False},'visual_card_id':card['card_id'],'reference_camera_fit':camera_fit,'event_ids':[e['event_id'] for e in scene_events],'internal_change_count':len(scene_events),'semantic_focus_count':0,'story_beat_count':0,'story_action_count':0,'physical_story_action_count':0,'max_story_gap_seconds':min(1.4,float(card['duration_seconds'])),'hierarchical_motion_unit_count':hierarchy_selection['hierarchical_motion_unit_count'],'hierarchy_render_selection':hierarchy_selection,'composition_slot_count':len(set(str(e.get('composition_slot_id')) for e in scene_events)),'short_beat':False,'motion_budget':{'budget_points':10.0,'duration_class':'CARD_MEMBER'},'estimated_motion_cost':sum(e['budget_cost'] for e in scene_events),'budget_utilization':0.0})
