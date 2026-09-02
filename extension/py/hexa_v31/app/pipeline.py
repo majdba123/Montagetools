@@ -295,8 +295,8 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         preset_actions=sum(len(e.get('preset_actions') or []) for e in (motion.get('events') or []))
         story_verify={
             'schema':'HEXA_V31_0_25_STORYTELLING_RENDER_VERIFICATION','version':'1.0',
-            'pass':True,'planned_story_actions':preset_actions,'verified_story_actions':preset_actions,
-            'verified_ratio':1.0,'verification_authority':'CONTINUOUS_RENDER_USES_THE_SAME_EVENT_STATE_FUNCTION_AS_PRESET_PLAN',
+            'pass':False,'planned_story_actions':preset_actions,'render_addressable_story_actions':preset_actions,'verified_story_actions':0,
+            'verified_ratio':0.0,'verification_authority':'PENDING_ENCODED_PIXEL_VERIFICATION',
             'non_vacuous':bool(preset_actions) or bool((motion.get('visual_cards') or {}).get('cards')),
             'note':'V31 has no alternate per-scene bridge path. Exact preset event-state rendering is the only visual timeline path; physical perceptual/reference metrics remain the final judge.'
         }
@@ -305,7 +305,12 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
 
         log.phase('PHYSICAL_ACTING_VERIFICATION')
         physical_acting=verify_physical_acting(production_mp4,motion,root/'HEXA_V31_PHYSICAL_ACTING_VERIFICATION.json')
-        if physical_acting.get('planned_physical_actions',0)>0 and not physical_acting.get('pass'):
+        foundation_contract=motion.get('foundation_partition_motion_contract') or {}
+        actor_rows=[{'physical_id':e.get('physical_id'),'render_mode':e.get('render_mode'),'translation_safe':e.get('translation_safe_after_occlusion'),'planned_motion_type':(e.get('preset_entry') or {}).get('name'),'start_state':(e.get('preset_entry') or {}).get('name'),'rest_state':e.get('card_rest_position_norm'),'end_state':(e.get('preset_exit') or {}).get('name'),'total_displacement':1.0 if e.get('position_animated') else 0.0,'motion_signature':str((e.get('preset_entry') or {}).get('name')),'verification_result':next((r.get('pass') for r in physical_acting.get('rows') or [] if r.get('event_id')==e.get('event_id') and r.get('kind')=='FOUNDATION_PARTITION_POSITION_ENTRY'),None)} for e in motion.get('events') or [] if e.get('render_mode')=='CHILD_PARTITION']
+        write_json(root/'HEXA_V31_ACTOR_MOTION_VERIFICATION.json',{'schema':'HEXA_V31_ACTOR_MOTION_VERIFICATION','version':'1.0','contract':foundation_contract,'actors':actor_rows,'physical_verification':physical_acting})
+        story_verify.update({'pass':bool(physical_acting.get('pass')),'verified_story_actions':physical_acting.get('verified_physical_actions',0),'verified_ratio':physical_acting.get('verified_ratio',0.0),'verification_authority':'ENCODED_PIXEL_PHYSICAL_ACTING_VERIFICATION'})
+        write_json(root/'HEXA_V31_STORYTELLING_RENDER_VERIFICATION.json',story_verify)
+        if not physical_acting.get('pass'):
             log.log('WARNING','PHYSICAL_ACTING_REVIEW_REQUIRED',verified_ratio=physical_acting.get('verified_ratio'),planned=physical_acting.get('planned_physical_actions'),verified=physical_acting.get('verified_physical_actions'))
         else:
             log.log('PASS','PHYSICAL_ACTING_VERIFICATION_PASS',verified_ratio=physical_acting.get('verified_ratio'),planned=physical_acting.get('planned_physical_actions'),verified=physical_acting.get('verified_physical_actions'))
@@ -339,7 +344,7 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         production_cert=certify_production(str(production_mp4),float(audio['duration_seconds']),str(ext),str(root),runtime_cfg)
         if not production_cert.get('artifact_integrity_pass'):
             raise BuildFailure('V31 final MP4 artifact integrity failed: '+','.join(production_cert.get('failed_media_gates',[])+production_cert.get('failed_visual_guard_gates',[])+production_cert.get('failed_preview_parity_gates',[])))
-        quality_review_required=story_lock['semantic_story_lock_review_required'] or not bool(production_cert.get('reference_promotion_gate_pass')) or not bool(perceptual.get('pass')) or not bool(reference_score_10.get('pass_8_plus')) or (physical_acting.get('planned_physical_actions',0)>0 and not bool(physical_acting.get('pass')))
+        quality_review_required=story_lock['semantic_story_lock_review_required'] or not bool(production_cert.get('reference_promotion_gate_pass')) or not bool(perceptual.get('pass')) or not bool(reference_score_10.get('pass_8_plus')) or not bool(physical_acting.get('pass'))
         if quality_review_required:
             log.log('WARNING','REFERENCE_PROMOTION_REVIEW_REQUIRED',failed_gates=production_cert.get('failed_reference_gates'),mp4=str(production_mp4),note='Artifact preserved for human comparison; production promotion remains blocked.')
         log.phase('QUALITY_ASSURANCE')

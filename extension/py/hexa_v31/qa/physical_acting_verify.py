@@ -86,8 +86,17 @@ def verify_physical_acting(video_path:str|os.PathLike,motion_plan:dict,out_json:
                 if kind=='POSITION_TRANSFER':ok=bool(moved>=max(5.0,min(20.0,expected*0.12)))
                 else:ok=bool(abs(o1-o0)>=0.004 or (c0 and c1 and moved>=4.0))
                 rows.append({'event_id':e.get('event_id'),'scene_id':e.get('scene_id'),'kind':kind,'start_seconds':st,'end_seconds':en,'expected_travel_px':round(expected,2),'observed_centroid_travel_px':round(moved,2),'occupancy_delta':round(o1-o0,5),'pass':ok})
+    foundation=[e for e in motion_plan.get('events') or [] if e.get('render_mode')=='CHILD_PARTITION' and not e.get('suppressed_by_card_density')]
+    eligible_foundation=[e for e in foundation if e.get('translation_safe_after_occlusion') and e.get('independent_motion_allowed')]
+    # Position entries are independent physical actions; scale/opacity alone are not.
+    for e in eligible_foundation:
+        if not e.get('position_animated'):continue
+        pe=e.get('preset_entry') or {};st=float(pe.get('start_seconds',e.get('start_seconds',0)));en=st+float(pe.get('duration_seconds',0))
+        pre=_read(cap,max(0.0,st-1.0/fps));post=_read(cap,min(duration,en));energy,coverage=_frame_change(pre,post)
+        rows.append({'event_id':e.get('event_id'),'physical_id':e.get('physical_id'),'kind':'FOUNDATION_PARTITION_POSITION_ENTRY','preset_name':pe.get('name'),'start_seconds':round(st,6),'end_seconds':round(en,6),'mean_frame_change':round(energy,5),'changed_pixel_ratio':round(coverage,6),'pass':bool(energy>=0.55 and coverage>=0.0025)})
     cap.release();planned=len(rows);passed=sum(1 for r in rows if r['pass']);ratio=0.0 if planned==0 else passed/planned
     eligible=int((motion_plan.get('budget_summary') or {}).get('story_eligible_scene_count',0)) if p3 else sum(1 for s in motion_plan.get('scenes') or [] if (s.get('semantic_object_graph') or {}).get('story_eligible'))
-    result={'schema':'HEXA_PHYSICAL_ACTING_VERIFICATION_V31','version':'31.0.9' if p3 else '1.0','video':str(p),'story_eligible_scene_count':eligible,'planned_physical_actions':planned,'verified_physical_actions':passed,'verified_ratio':round(ratio,4),'pass':bool(planned==0 or ratio>=0.88),'rows':rows,'note':'V31 verifies physically encoded USER_PRESET within-frame actions, including layout choreography and explicit semantic relationships. Zero planned actions receive no free reference-score component.','vacuous_semantic_story_score_forbidden':True}
+    eligible_count=len(eligible_foundation);status='NOT_APPLICABLE' if not eligible_count and not planned else ('PASS' if planned and ratio>=0.88 else 'FAIL')
+    result={'schema':'HEXA_PHYSICAL_ACTING_VERIFICATION_V31','version':'31.0.26' if p3 else '1.0','video':str(p),'story_eligible_scene_count':eligible,'eligible_foundation_actor_count':eligible_count,'planned_physical_actions':planned,'verified_physical_actions':passed,'verified_ratio':round(ratio,4),'status':status,'pass':status in {'PASS','NOT_APPLICABLE'},'rows':rows,'note':'Eligible Foundation partitions with zero independent actions fail; NOT_APPLICABLE is reserved for no eligible actors.','vacuous_semantic_story_score_forbidden':True}
     if out_json:write_json(out_json,result)
     return result

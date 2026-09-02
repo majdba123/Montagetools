@@ -1069,6 +1069,19 @@ def _phase_for_event(phase_plan:dict,eid:str):
 
 def _clamp(v,a,b):return max(a,min(b,v))
 
+def _plan_foundation_partition_choreography(events:list[dict], phase_plan:dict)->dict:
+    """Approve only layout-compatible, source-backed partition motion before scheduling."""
+    eligible=[];approved=[];blocked=[]
+    for e in sorted(events,key=lambda x:str(x.get('physical_id') or x.get('event_id'))):
+        if e.get('render_mode')!='CHILD_PARTITION':continue
+        if not e.get('translation_safe_after_occlusion') or not e.get('independent_motion_allowed'):
+            e['foundation_motion_decision']='REVEAL_ONLY';blocked.append({'physical_id':e.get('physical_id'),'reason':'TRANSLATION_UNSAFE_OR_OCCLUSION_DEPENDENT'});continue
+        eligible.append(e);window=_phase_for_event(phase_plan,str(e.get('event_id')));duration=0.0 if not window else window[1]-window[0];candidate=candidate_middle_envelope_geometry(e)
+        if duration < preset_duration('ENTRY_LEFT_TO_MIDDLE')+.72 or e.get('composite_atomic') or not candidate.get('safe'):
+            e['foundation_motion_decision']='REVEAL_ONLY';blocked.append({'physical_id':e.get('physical_id'),'reason':'INSUFFICIENT_DURATION_OR_UNSAFE_MIDDLE_ENVELOPE'});continue
+        e['foundation_motion_decision']='APPROVED_POSITION_ENTRY';e['foundation_motion_layout_candidate']=candidate;approved.append(e)
+    return {'eligible_foundation_actor_count':len(eligible),'approved_foundation_actor_count':len(approved),'blocked':blocked}
+
 def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:int, total:int, *, force_static:bool=False, local_events:list[dict]|None=None, fps:float=30.0):
     """Schedule one already collision-solved object using only user preset families."""
     ps,pe=phase_window;card_end=float(card['end_seconds']);primary=str(e.get('attention_priority') or '').upper()=='PRIMARY'
@@ -1082,7 +1095,8 @@ def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:in
     # near-middle solved object to that endpoint is a geometry change, so it must
     # reuse the solver's 112% motion envelope before becoming committed state.
     middle_candidate=candidate_middle_envelope_geometry(e)
-    use_position_entry=bool(total>1 and not force_static and primary and exact_middle and middle_candidate.get('safe') and room_for_entry and not e.get('composite_atomic') and not e.get('relationship_source_requested'))
+    foundation_approved=e.get('foundation_motion_decision')=='APPROVED_POSITION_ENTRY'
+    use_position_entry=bool(not force_static and room_for_entry and middle_candidate.get('safe') and not e.get('composite_atomic') and (foundation_approved or (total>1 and primary and exact_middle and not e.get('relationship_source_requested'))))
     pn=pd=st=None
     if use_position_entry:
         pn=choose_entry_for_center(float(e.get('source_center_norm',[0.5,0.5])[0]));pd=preset_duration(pn);st=max(ps,min(hit-pd*.90,pe-pd-0.62));st=max(ps+0.02,st)
@@ -1335,6 +1349,9 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         for e in selected_events:
             if _sid(e) in rel_sources:e['relationship_source_requested']=True
             pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['composite_atomic']=bool(pl['atomic']);e['planned_rect_norm']=pl['rect_norm'];window=_phase_for_event(phase_plan,e['event_id'])
+        foundation_contract=_plan_foundation_partition_choreography(selected_events,phase_plan)
+        for e in selected_events:
+            window=_phase_for_event(phase_plan,e['event_id'])
             if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=not bool(e.get('independent_motion_allowed',True)),local_events=selected_events,fps=fps)
         pre_conflicts=card_motion_conflicts(selected_events,float(card['start_seconds']),float(card['end_seconds']),fps)
         if pre_conflicts:
@@ -1353,7 +1370,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         for zi,e in enumerate(sorted(selected_events,key=lambda x:(0 if x.get('attention_priority')!='PRIMARY' else 1,1 if 'CHARACTER' in str(x.get('semantic_type') or '') else 0,str(x.get('event_id')))),2):
             e['z_order']=zi;e['visibility_interval_seconds']=[e.get('start_seconds'),e.get('end_seconds')]
             e['collision_envelope_rect_norm']=e.get('planned_rect_norm')
-        card['universal_scene_grammar']=grammar;card['story_phase_plan']=phase_plan;card['constraint_layout']=layout;card['relationship_resolutions']=relationship_resolutions
+        card['universal_scene_grammar']=grammar;card['story_phase_plan']=phase_plan;card['constraint_layout']=layout;card['relationship_resolutions']=relationship_resolutions;card['foundation_partition_motion_contract']=foundation_contract
         # Observed concurrent primary/support count comes from story phases, not all card objects.
         peak_p=peak_s=0
         em={e['event_id']:e for e in selected_events}
@@ -1402,6 +1419,10 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out={'schema':'HEXA_MOTION_PLAN_V31','version':'31.0.25','fps':fps,'project_id':plan.get('project_id'),'rules_authority':'USER_UPLOADED_RULES_PDF','reference_authority':ref.get('authority_id'),'preset_authority':'HEXA_USER_PRESET_AUTHORITY_V31','timing_method':alignment.get('method'),'scenes':scenes_out,'events':events,'visual_cards':cards,'atomic_handoff_optimizer':atomic_stats,'cross_card_handoff_optimizer':cross_card_stats,'motion_dna_version':'HEXA_MOTION_DNA_V31_0_25_PREMIUM_MOTION_LANGUAGE','continuity_summary':{'scene_count':len(scenes_out),'visual_card_count':len(cards['cards']),'transition_modes':['OBJECT_PRESETS_ONLY__NO_FRAME_BLEND'],'appearance_methods':sorted(set(e.get('appearance_method') for e in events if e.get('appearance_method'))),'strong_transition_count':0,'identity_persistence_count':sum(1 for e in events if len(e.get('persistent_source_scene_ids') or [])>1),'white_reset_scene_percent':0.0},'budget_summary':{'story_action_count':sum(len(e.get('preset_actions') or []) for e in events),'choreography_action_count':sum(2+len(e.get('preset_actions') or []) for e in events if not e.get('suppressed_by_card_density')),'story_sources':['UNIVERSAL_SCENE_GRAMMAR','EXPLICIT_SEMANTIC_RELATIONSHIPS','SPATIOTEMPORAL_FEASIBILITY_SOLVER','ATOMIC_HANDOFF_TIMING_OPTIMIZER','CROSS_CARD_HANDOFF_CONSTRAINT_SOLVER','READABLE_STATE_LIFECYCLE_COMPILER','DETERMINISTIC_EFFECT_VARIETY_DIRECTOR','TYPOGRAPHY_MOTION_UNITS'],'hierarchical_motion_unit_count':hierarchical_count,'inferred_causal_edge_count':0,'actionable_story_edge_count':sum(1 for c in cards['cards'] for r in c.get('relationship_resolutions') or [] if r.get('mode')=='WITHIN_FRAME_PRESET'),'layout_choreography_action_count':sum(len(e.get('preset_actions') or []) for e in events),'story_eligible_scene_count':sum(1 for c in cards['cards'] if (c.get('universal_scene_grammar') or {}).get('explicit_edges'))},'hard_invariants':{'latest_user_rules_hard_authority':True,'user_prfpset_hard_authority':True,'user_visual_samples_hard_authority':True,'legacy_motion_heuristics_disabled':True,'speculative_subobject_cutouts_forbidden':True,'spatial_role_guessing_forbidden':True,'explicit_relationship_evidence_required':True,'layout_choreography_must_not_claim_semantic_relationship':True,'high_confidence_physical_semantic_mapping_required_for_relationship_motion':True,'visual_card_duration_seconds':[3.0,5.0],'primary_elements_per_card':[1,2],'primary_rule_interpretation':'MAX_CONCURRENT_VISIBLE_PRIMARY','secondary_elements_per_card':[3,8],'secondary_detail_count_may_remain_grouped_to_preserve_cutout_integrity':True,'entry_exit_primary_only':True,'within_frame_any_element':True,'appearance_prefer_secondary':True,'disappearance_any_element':True,'full_frame_crossfade_forbidden':True,'white_wash_forbidden':True,'mask_wipe_reveal_forbidden':True,'arbitrary_drift_forbidden':True,'arbitrary_diagonal_travel_forbidden':True,'auto_relationship_arrow_forbidden':True,'allowed_preset_names':sorted((preset_authority().get('preset_motion') or {}).keys()),'position_interpolation':'USER_VISUAL_SAMPLE_CURVES','position_motion_profile':'USER_PRFPSET_ENDPOINTS_PLUS_PHYSICAL_SAMPLE_TIMING','card_layout_policy':'DENSITY_AWARE_PHASE_SOLVER__CERTIFIED_HIERARCHY_PARTITION','topic_specific_motion_hardcoding_forbidden':True,'universal_content_type_classifier':True,'joint_story_layout_motion_planning':True}}
     visual_instances,semantic_events=_compile_visual_instances(events,scenes_out)
     out['visual_instances']=visual_instances;out['semantic_events']=semantic_events
+    foundation_rows=[e for e in events if e.get('render_mode')=='CHILD_PARTITION' and not e.get('suppressed_by_card_density')]
+    independent=[e for e in foundation_rows if e.get('position_animated')]
+    eligible=sum(bool(e.get('translation_safe_after_occlusion') and e.get('independent_motion_allowed')) for e in foundation_rows)
+    out['foundation_partition_motion_contract']={'eligible_foundation_actor_count':eligible,'independently_animated_actor_count':len(independent),'independent_actor_motion_ratio':round(len(independent)/max(1,eligible),4),'spatially_displaced_actor_count':len(independent),'distinct_motion_signature_count':len({str((e.get('preset_entry') or {}).get('name')) for e in independent}),'static_support_actor_count':sum(e.get('attention_priority')=='SUPPORTING' and not e.get('position_animated') for e in foundation_rows),'reveal_only_actor_count':sum(e.get('foundation_motion_decision')=='REVEAL_ONLY' for e in foundation_rows)}
     out['semantic_segment_solver']=segment_stats
     out['readable_state_hold_optimizer']=readable_hold_stats
     out['premium_recomposition_optimizer']=recomposition_stats

@@ -369,7 +369,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
     # Cache signature is tied to the exact user preset authority, complete event
     # plan, and implementation that rasterizes it.
     sig_payload={
-        'version':'HEXA_SCENE_MEDIA_V31_RENDERER_AUTHORITY_2',
+        'version':'HEXA_SCENE_MEDIA_V31_RENDERER_AUTHORITY_3_FOUNDATION_PARTITION_CHOREOGRAPHY',
         'renderer_source_sha256':renderer_source_sha256,
         'typography_source_sha256':typography_source_sha256,
         'compositor_source_sha256':compositor_source_sha256,
@@ -379,7 +379,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
         'hard_invariants':motion_plan.get('hard_invariants'),
     }
     sig=hashlib.sha256(json.dumps(sig_payload,sort_keys=True,ensure_ascii=False,default=str).encode('utf-8')).hexdigest()
-    media=pathlib.Path(cache)/'V31_0_25_GLOBAL_STORY.mp4';meta=pathlib.Path(cache)/'V31_0_25_GLOBAL_STORY.json'
+    media=pathlib.Path(cache)/'V31_0_26_FOUNDATION_PARTITION_STORY.mp4';meta=pathlib.Path(cache)/'V31_0_26_FOUNDATION_PARTITION_STORY.json'
     hit=False
     if media.is_file() and media.stat().st_size>4096 and meta.is_file():
         try: hit=read_json(meta).get('signature')==sig
@@ -405,7 +405,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
             starts[r['sf']].append(i)
             if r['ef']+1<=total:ends[r['ef']+1].append(i)
 
-        tmp=pathlib.Path(cache)/'V31_0_25_GLOBAL_STORY__tmp.mp4'
+        tmp=pathlib.Path(cache)/'V31_0_26_FOUNDATION_PARTITION_STORY__tmp.mp4'
         ff=os.environ.get('HEXA_FFMPEG') or 'ffmpeg'
         # A previous interrupted render can leave the temporary MP4 in place.
         # Start from a new inode and keep x264 single-threaded on the certified
