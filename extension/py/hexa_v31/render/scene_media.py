@@ -344,7 +344,7 @@ def assemble_final_mp4(scene_media:dict,audio_path,output_path,work_dir,logger=N
 # transition operators.  Every visible change is an object preset event.
 # ---------------------------------------------------------------------------
 def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,graphics_plan,out_dir,cache_dir,width=1920,height=1080,fps=30.0,logger=None):
-    from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa, encoded_visual_gap_qa
+    from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa, encoded_visual_gap_qa, frame_survival_signature
     out=ensure_dir(out_dir);cache=ensure_dir(cache_dir)
     events=[e for e in (render_edit_map.get('events') or []) if not e.get('suppressed_by_card_density') and float(e.get('physical_end_seconds',e.get('end_seconds',0)))>float(e.get('physical_start_seconds',e.get('start_seconds',0)))+1e-6]
     duration=max([float(s.get('end_seconds',0)) for s in (motion_plan.get('scenes') or [])]+[float(e.get('physical_end_seconds',e.get('end_seconds',0))) for e in events]+[0.0])
@@ -390,9 +390,9 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
     }
     sig=hashlib.sha256(json.dumps(sig_payload,sort_keys=True,ensure_ascii=False,default=str).encode('utf-8')).hexdigest()
     media=pathlib.Path(cache)/'V31_0_26_FOUNDATION_PARTITION_STORY.mp4';meta=pathlib.Path(cache)/'V31_0_26_FOUNDATION_PARTITION_STORY.json'
-    hit=False
+    hit=False;cache_meta={}
     if media.is_file() and media.stat().st_size>4096 and meta.is_file():
-        try: hit=read_json(meta).get('signature')==sig
+        try: cache_meta=read_json(meta);hit=cache_meta.get('signature')==sig
         except Exception: hit=False
 
     if not hit:
@@ -427,7 +427,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
             tmp.unlink()
         cmd=[ff,'-y','-v','error','-f','rawvideo','-pix_fmt','rgb24','-s:v',f'{width}x{height}','-r',str(float(fps)),'-i','pipe:0','-an','-c:v','libx264','-threads','1','-preset','veryfast','-crf','16','-pix_fmt','yuv420p',str(tmp)]
         proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
-        active=set()
+        active=set();expected_evidence=[];evidence_stride=max(1,int(round(float(fps)/6.0)))
         try:
             for fi in range(total):
                 # End before start on a shared boundary: retired card objects are removed,
@@ -466,6 +466,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
                     upcoming=min((e for e in events if float(e.get('physical_start_seconds',e.get('start_seconds',0)))>t),key=lambda e:float(e.get('physical_start_seconds',e.get('start_seconds',0))),default=None)
                     raise SceneMediaError(f"VISUAL_TIMELINE_COVERAGE_GAP timestamp={t:.6f} frame={fi} visual_card_id={card.get('card_id')} previous_carrier={None if previous is None else previous.get('visual_carrier_id')} next_carrier={None if upcoming is None else upcoming.get('visual_carrier_id')} active_actor_ids=[]")
                 canvas=np.empty((height,width,3),dtype=np.uint8);canvas[:]=255
+                expected_members=[]
                 for i in sorted(active,key=lambda k:(rows[k]['z'],str(rows[k]['e'].get('event_id')))):
                     r=rows[i];state=_event_state(r['e'],t)
                     if not state:continue
@@ -473,6 +474,13 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
                     # The exact user presets are the motion authority. V31 intentionally
                     # adds no synthetic blur/pulse/drift on top of them.
                     _apply(canvas,r['img'],pos,op,sc,width,height)
+                    if op>.12:
+                        ih,iw=r['img'].shape[:2];nw=max(1,int(round(iw*sc)));nh=max(1,int(round(ih*sc)))
+                        cx=float(pos[0])*(width/1920.0);cy=float(pos[1])*(height/1080.0)
+                        expected_members.append({'event_id':r['e'].get('event_id'),'render_mode':r['e'].get('render_mode'),
+                                                 'bbox_px':[cx-nw/2,cy-nh/2,cx+nw/2,cy+nh/2]})
+                if fi%evidence_stride==0:
+                    expected_evidence.append(frame_survival_signature(canvas,fi,t,expected_members))
                 for ge in graphic_events:_draw_graphic(canvas,ge,t)
                 for te,ti in text_runtime:
                     ts=_text_state(te,t)
@@ -494,7 +502,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
         )
         if verify.returncode!=0 or (verify.stderr or '').strip():
             raise SceneMediaError('Continuous story render decode validation failed: '+(verify.stderr or '')[-1800:])
-        pixel_gap_qa=encoded_visual_gap_qa(tmp,coverage_plan)
+        pixel_gap_qa=encoded_visual_gap_qa(tmp,coverage_plan,expected_evidence=expected_evidence)
         if not pixel_gap_qa.get('pass'):
             raise SceneMediaError('ENCODED_VISUAL_TIMELINE_COVERAGE_GAP: '+str(pixel_gap_qa.get('blank_runs')))
         tmp.replace(media)
@@ -503,7 +511,8 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
             'frames':total,'duration_seconds':duration,'fps':fps,'width':width,'height':height,
             'motion_event_count':len(events),'text_event_count':len(text_events),'graphic_event_count':len(graphic_events),
             'visual_card_count':len(cards),'transition_execution':'OBJECT_PRESETS_ONLY__NO_FRAME_BLEND',
-            'path':str(media),'visual_timeline_coverage_qa':coverage,'encoded_visual_gap_qa':pixel_gap_qa
+            'path':str(media),'visual_timeline_coverage_qa':coverage,'encoded_visual_gap_qa':pixel_gap_qa,
+            'expected_visual_survival_evidence':expected_evidence
         })
         if logger:logger.log('PASS','CONTINUOUS_STORY_TIMELINE_RENDERED',frames=total,motion_events=len(events),visual_cards=len(cards),transition='OBJECT_PRESETS_ONLY',resolution=f'{width}x{height}')
     else:
@@ -511,7 +520,8 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
 
     # Cache hits are delivery inputs too; decode and certify the exact file that
     # will be linked into this run rather than trusting historical metadata.
-    pixel_gap_qa=encoded_visual_gap_qa(media,coverage_plan)
+    expected_evidence=expected_evidence if not hit else list(cache_meta.get('expected_visual_survival_evidence') or [])
+    pixel_gap_qa=encoded_visual_gap_qa(media,coverage_plan,expected_evidence=expected_evidence)
     if not pixel_gap_qa.get('pass'):
         raise SceneMediaError('ENCODED_VISUAL_TIMELINE_COVERAGE_GAP: '+str(pixel_gap_qa.get('blank_runs')))
 
