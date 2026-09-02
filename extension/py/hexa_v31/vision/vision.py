@@ -13,6 +13,7 @@ from hexa_v31.hierarchy import decompose_semantic_group
 from hexa_v31.matting import refine_alpha
 from hexa_v31.occlusion import build_occlusion_graph
 from hexa_v31.extraction.actor_extraction import extract_foundation_actors
+from hexa_v31.extraction.reconstruction import build_lossless_foundation_partition,FOUNDATION_RECONSTRUCTION_VERSION
 from hexa_v31.qa.actor_qa import actor_qa
 
 VISION_CACHE_SCHEMA_VERSION='HEXA_V31_SCENE_VISION_CACHE_2.0'
@@ -21,6 +22,7 @@ VISION_CACHE_DEPENDENCIES={
     'extraction_matting':'EXTRACTION_MATTING_2.1_POST_SMOOTH_STAGE_CAP',
     'hierarchy_decomposition':'HIERARCHY_10.0_TOPOLOGICAL_DECOMPOSITION',
     'occlusion':'OCCLUSION_1.0_CONSERVATIVE_GRAPH',
+    'foundation_reconstruction':FOUNDATION_RECONSTRUCTION_VERSION,
 }
 
 class VisionError(RuntimeError): pass
@@ -596,12 +598,16 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
         )
         row=asdict(pu); row['hierarchy_level']=int(g.get('_hierarchy_level',0)); row['parent_semantic_unit_id']=g.get('_parent_semantic_unit_id'); row['composition_slot_id']=str(g.get('_composition_slot_id') or row.get('semantic_unit_id') or row.get('physical_id')); row['subobject_role']=g.get('_subobject_role'); row['hierarchy_confidence']=float(g.get('_hierarchy_confidence',0.0)); row['animation_safe']=bool(g.get('_animation_safe',True)); row['reveal_safe']=bool(g.get('_reveal_safe',True)); row['animation_mode']=str(g.get('_animation_mode') or ('TRANSLATE_SAFE' if row['animation_safe'] else 'GROUP_ONLY')); row['occlusion_class']=str(g.get('_occlusion_class') or ('CLEAN_SEPARABLE' if row['animation_safe'] else 'GROUP_ONLY')); row['matting']=matte; row['semantic_mapping_confidence']=round(float(g.get('_semantic_mapping_confidence',0.0)),4); row['layer_path']=str(final_lp); row['mask_path']=str(final_lp); row['layer_canvas_mode']='FULL_SCENE_ALPHA_CANVAS'; row['layer_source_size_px']=[W,H]; row['crop_origin_px']=[cx0,cy0]; row['crop_size_px']=[cx1-cx0,cy1-cy0]; row['root_id']=g.get('_decomposition_root_id'); row['parent_id']=g.get('_decomposition_root_id') if row['hierarchy_level']>0 else None; row['child_id']=f"{g.get('_decomposition_root_id')}::CHILD_{row['hierarchy_level']}_{idx}" if row['hierarchy_level']>0 else None; row['visible_area']=round(float(np.count_nonzero(layer_alpha>4))/(W*H),6); row['optical_center']=row['center_norm']; row['independence_confidence']=row['hierarchy_confidence']; row['reconstruction_error']=0.0; unit_rows.append(row)
     foundation_rejected=[]
+    foundation_reconstruction={'partition_complete':False,'residual_support_present':False,'root_fallback_available':True,'reason':'FOUNDATION_NOT_USED'}
     if foundation_result and foundation_result.get('status')=='PASS':
         actors,foundation_rejected,foundation_alpha,foundation_layers=extract_foundation_actors(foundation_result,rgb,bg,mask,out,final_out,len(unit_rows)+1)
-        if len(actors)>=2:
+        residual,residual_layer,foundation_reconstruction=build_lossless_foundation_partition(rgb,bg,mask,actors,foundation_alpha,out,final_out)
+        if actors:
             for legacy in unit_rows:
                 legacy['foundation_fallback_root']=True;legacy['fallback_only_when_foundation_unavailable']=True;legacy['render_mode']='ROOT_ATOMIC'
-            for actor in actors:actor['render_mode']='CHILD_PARTITION';actor['partition_complete']=True;actor['partition_root_id']='ROOT_COMPOSITE'
+            for actor in actors:actor['render_mode']='CHILD_PARTITION';actor['partition_complete']=bool(foundation_reconstruction['partition_complete']);actor['partition_root_id']='ROOT_COMPOSITE'
+            if residual:
+                residual['partition_complete']=bool(foundation_reconstruction['partition_complete']);actors.append(residual);foundation_layers.append(residual_layer)
         unit_rows.extend(actors);alpha_by_id.update(foundation_alpha);layer_paths.extend(foundation_layers);matting_rows.extend([x.get('matting') or {} for x in actors])
     # Hard-rule fifth-element special case is evaluated by *composition slots*, not physical
     # animation layers. Splitting one machine into body/coin/display must not falsely create a
@@ -683,7 +689,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     foundation_diagnostics=dict((foundation_result or {}).get('diagnostics') or {})
     foundation_diagnostics.update({'legacy_candidate_count':len(unit_rows)-len(foundation_actors),'merged_candidate_count':len(unit_rows),'accepted_actor_count':len(foundation_actors),'translation_safe_actor_count':sum(bool(x.get('translation_safe_after_occlusion')) for x in foundation_actors),'reveal_only_actor_count':sum(bool(x.get('reveal_safe')) and not bool(x.get('translation_safe_after_occlusion')) for x in foundation_actors),'atomic_actor_count':sum(x.get('safety_class')=='ATOMIC_PARENT_DEPENDENT' for x in foundation_actors),'rejected_actor_count':int(foundation_diagnostics.get('rejected_actor_count',0))+len(foundation_rejected)})
     result=SceneVisionResult(sid,W,H,source_mode,bg,round(foreground,6),len(comps),grouped_detail_count,gc,len(semantic),round(mae,4),round(psnr,3),reconstruction_pass,round(split_conf,4),mode,any(u['edge_touch'] for u in unit_rows),unit_rows,{
-        'mask':str(final_out/'foreground_mask.png'),'reconstruction':str(final_out/'reconstruction.png'),'background':str(final_out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph,'foundation_vision':{'status':(foundation_result or {}).get('status','FALLBACK'),'backend_used':(foundation_result or {}).get('backend_used','LEGACY_CV'),'diagnostics':foundation_diagnostics,'accepted_actor_count':len(foundation_actors),'rejected_actors':foundation_rejected,'actor_qa':foundation_qa,'error':(foundation_result or {}).get('error')}
+        'mask':str(final_out/'foreground_mask.png'),'reconstruction':str(final_out/'reconstruction.png'),'background':str(final_out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph,'foundation_vision':{'status':(foundation_result or {}).get('status','FALLBACK'),'backend_used':(foundation_result or {}).get('backend_used','LEGACY_CV'),'diagnostics':foundation_diagnostics,'accepted_actor_count':len(foundation_actors),'rejected_actors':foundation_rejected,'actor_qa':foundation_qa,'reconstruction_qa':foundation_reconstruction,'root_fallback_available':True,'legacy_fallback_used':not bool(foundation_reconstruction.get('partition_complete')),'error':(foundation_result or {}).get('error')}
     },{'status':cache_status,'reason':invalidation_reason,'cache_signature':cache_sig})
     write_json(out/'vision.json',asdict(result)); write_json(out/'cache_meta.json',{'schema':VISION_CACHE_SCHEMA_VERSION,'cache_signature':cache_sig,'input':sig_payload})
     staged_data=read_json(out/'vision.json')

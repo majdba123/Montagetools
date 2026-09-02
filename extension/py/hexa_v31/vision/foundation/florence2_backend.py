@@ -14,13 +14,16 @@ class Florence2Backend:
         self.processor=AutoProcessor.from_pretrained(self.model_path,local_files_only=True,trust_remote_code=True)
         self.model=AutoModelForCausalLM.from_pretrained(self.model_path,**kwargs).to(device).eval()
 
-    def _run(self,image,prompt):
+    def _run(self,image,prompt,task=None):
+        task=task or prompt
         inputs=self.processor(text=prompt,images=image,return_tensors='pt')
         inputs={k:v.to(self.device) for k,v in inputs.items()}
         with self.torch.inference_mode():
             generated=self.model.generate(**inputs,max_new_tokens=1024,num_beams=3,do_sample=False)
         text=self.processor.batch_decode(generated,skip_special_tokens=False)[0]
-        return self.processor.post_process_generation(text,task=prompt,image_size=image.size).get(prompt,{})
+        parsed=self.processor.post_process_generation(text,task=task,image_size=image.size)
+        row=parsed.get(task,{}) if isinstance(parsed,dict) else {}
+        return row if isinstance(row,dict) else {}
 
     def discover(self,image_path,scene_semantics=None):
         image=Image.open(image_path).convert('RGB');rows=[];started=time.perf_counter()
@@ -32,7 +35,7 @@ class Florence2Backend:
         if scene_semantics:
             caption=' '.join(str(x.get('text') or x.get('label') or '') for x in scene_semantics if isinstance(x,dict)).strip()
             if caption:
-                parsed=self._run(image,'<CAPTION_TO_PHRASE_GROUNDING>'+caption);boxes=parsed.get('bboxes') or [];labels=parsed.get('labels') or []
+                task='<CAPTION_TO_PHRASE_GROUNDING>';parsed=self._run(image,task+caption,task);boxes=parsed.get('bboxes') or [];labels=parsed.get('labels') or []
                 for i,box in enumerate(boxes):
                     x0,y0,x1,y1=map(float,box[:4]);label=str(labels[i] if i<len(labels) else caption)
                     rows.append({'semantic_label':label,'description':label,'confidence':.68,'bbox':[x0,y0,max(1,x1-x0),max(1,y1-y0)],'source':'FLORENCE_GROUNDING','signals':['<CAPTION_TO_PHRASE_GROUNDING>']})

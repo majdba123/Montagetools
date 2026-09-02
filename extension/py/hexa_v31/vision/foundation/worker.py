@@ -13,6 +13,7 @@ from hexa_v31.util import sha256_file,write_json,read_json,ensure_dir
 from hexa_v31.extraction.mask_validation import MASK_VALIDATION_VERSION,bbox_from_mask
 from hexa_v31.extraction.actor_validation import ACTOR_VALIDATION_VERSION
 from hexa_v31.extraction.actor_extraction import ACTOR_EXTRACTION_VERSION
+from hexa_v31.extraction.reconstruction import FOUNDATION_RECONSTRUCTION_VERSION
 from hexa_v31.extraction.matting import __file__ as matting_source
 
 WORKER_VERSION='HEXA_FOUNDATION_VISION_WORKER_1.0'
@@ -32,7 +33,7 @@ class Worker:
         return {'status':'READY','backend_used':'FLORENCE2_SAM2','device':self.device,'models':{k:v['model_id'] for k,v in self.models.items()}}
     def analyze(self,payload):
         image=pathlib.Path(payload['image_path']);scene=payload.get('scene') or {};cache_root=ensure_dir(pathlib.Path(payload['cache_root'])/'foundation');sid=str(scene.get('scene_id') or image.stem);out=ensure_dir(cache_root/sid)
-        deps={'worker':WORKER_VERSION,'model_registry':fingerprint(self.registry,self.device['profile']),'fusion':FUSION_VERSION,'mask_validation':MASK_VALIDATION_VERSION,'actor_validation':ACTOR_VALIDATION_VERSION,'actor_extraction':ACTOR_EXTRACTION_VERSION,'matting_source_sha256':sha256_file(matting_source),'occlusion':'OCCLUSION_1.0_CONSERVATIVE_GRAPH'}
+        deps={'worker':WORKER_VERSION,'model_registry':fingerprint(self.registry,self.device['profile']),'fusion':FUSION_VERSION,'mask_validation':MASK_VALIDATION_VERSION,'actor_validation':ACTOR_VALIDATION_VERSION,'actor_extraction':ACTOR_EXTRACTION_VERSION,'reconstruction':FOUNDATION_RECONSTRUCTION_VERSION,'matting_source_sha256':sha256_file(matting_source),'occlusion':'OCCLUSION_1.0_CONSERVATIVE_GRAPH'}
         identity={'image_sha256':sha256_file(image),'source_identity':payload.get('source_identity'),'scene_units':scene.get('units') or []}
         signature=hashlib.sha256(json.dumps({'input':identity,'dependencies':deps},sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest();meta=out/'cache_meta.json';result_path=out/'foundation_result.json'
         if meta.is_file() and result_path.is_file():

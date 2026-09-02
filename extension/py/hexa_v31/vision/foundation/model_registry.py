@@ -31,4 +31,5 @@ def resolve_models(registry_path,models_root,profile='QUALITY'):
 def fingerprint(registry_path,profile='QUALITY'):
     data=load_registry(registry_path)
     rows=[{k:m.get(k) for k in ('backend','model_id','revision','checkpoint_sha256','profile')} for m in data['models'] if m.get('profile')==('quality' if profile=='QUALITY' else 'low_memory')]
-    return hashlib.sha256(json.dumps(rows,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    payload={'models':rows,'sam2_source':data.get('sam2_source')}
+    return hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(',',':')).encode()).hexdigest()

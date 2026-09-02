@@ -16,6 +16,9 @@ class FoundationVisionClient:
         if not exe or not pathlib.Path(exe).is_file():self.failure='FOUNDATION_PYTHON_MISSING';return False
         cmd=[str(exe),'-m','hexa_v31.vision.foundation.worker','--registry',str(registry),'--models-root',str(models)]
         env=os.environ.copy();env['PYTHONPATH']=str(self.extension_root/'py');env['HF_HUB_OFFLINE']='1';env['TRANSFORMERS_OFFLINE']='1'
+        env['HF_MODULES_CACHE']=str(pathlib.Path(models).resolve().parent/'module-cache')
+        if self.cfg.get('foundation_profile'):env['HEXA_FOUNDATION_PROFILE']=str(self.cfg['foundation_profile'])
+        if self.cfg.get('foundation_device')=='cpu':env['HEXA_FOUNDATION_DEVICE']='cpu'
         try:
             self.process=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1,env=env)
             reply=self._request({'command':'initialize'},timeout=900)

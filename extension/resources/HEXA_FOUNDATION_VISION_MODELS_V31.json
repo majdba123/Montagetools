@@ -2,6 +2,14 @@
   "schema": "HEXA_FOUNDATION_VISION_MODEL_REGISTRY_1.0",
   "version": "1.0",
   "offline_build_required": true,
+  "sam2_source": {
+    "repository": "https://github.com/facebookresearch/sam2",
+    "commit": "c2ec8e14a185632b0a5d8b161928ceb50197eddc",
+    "archive_url": "https://codeload.github.com/facebookresearch/sam2/zip/c2ec8e14a185632b0a5d8b161928ceb50197eddc",
+    "archive_sha256": "340664367001b7a2fdaf94fe2b6da810c997778c497afc09779fabe8841ffee7",
+    "license": "Apache-2.0",
+    "cuda_extension_required": false
+  },
   "models": [
     {
       "backend": "florence2",
@@ -31,7 +39,7 @@
       "backend": "florence2",
       "profile": "low_memory",
       "model_id": "microsoft/Florence-2-base-ft",
-      "revision": "f6c1a25",
+      "revision": "f6c1a25888ffc1d945ee8a1a77ac833c7303d46e",
       "checkpoint_sha256": "58757d657ff44051314c8030b68e04cb1bb618ca9a4885418f111f6fb708185a",
       "expected_file_size": 463221266,
       "checkpoint_file": "model.safetensors",
@@ -45,7 +53,7 @@
       "model_id": "facebook/sam2.1-hiera-base-plus",
       "revision": "47b9e36ec942f6ff9900555727478a1c96f63225",
       "checkpoint_sha256": "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5",
-      "expected_file_size": 324000000,
+      "expected_file_size": 323606802,
       "checkpoint_file": "sam2.1_hiera_base_plus.pt",
       "local_path": "sam2.1-hiera-base-plus",
       "license": "Apache-2.0",
