@@ -302,7 +302,7 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         log.log('PASS','PREMIUM_VISUAL_CHOREOGRAPHY_MEASURED',motion_units=choreography_report.get('independent_motion_unit_count'),text_opportunities=choreography_report.get('available_viewer_text_opportunities'),text_used=choreography_report.get('used_viewer_text_opportunities'),fade_only=choreography_report.get('fade_only_transition_count'),progressive_reveals=choreography_report.get('progressive_reveal_count'),handoffs=choreography_report.get('handoff_count'),static_poster_risks=choreography_report.get('static_poster_risk_count'),low_optical_impact=choreography_report.get('low_optical_impact_count'))
         write_json(root/'HEXA_V31_SEMANTIC_GRAPHICS_PLAN.json',graphics_plan)
         write_json(root/'HEXA_V31_PRESENTATION_BUDGET_REPORT.json',budget_report)
-        pre_reference=preset_story_plan_qa(motion,vision)
+        pre_reference=preset_story_plan_qa(motion,vision,float(audio['duration_seconds']))
         write_json(root/'HEXA_V31_PRE_RENDER_STORY_PLAN_QA.json',pre_reference)
         if not pre_reference.get('pass'):
             log.log('ERROR','PRE_RENDER_USER_PRESET_PLAN_QA_FAILED',failures=pre_reference.get('failures'),warnings=pre_reference.get('warnings'))

@@ -3,6 +3,7 @@ from hexa_v31.preset_authority import authority as load_authority
 from hexa_v31.composition_qa import composition_plan_qa
 from hexa_v31.visual_density import build_visual_density_report
 from hexa_v31.composition_qa import _state
+from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa
 
 
 def _peak(events:list[dict],primary:bool)->int:
@@ -136,7 +137,7 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
     }
 
 
-def preset_story_plan_qa(motion_plan:dict,vision_results:list[dict]|None=None)->dict:
+def preset_story_plan_qa(motion_plan:dict,vision_results:list[dict]|None=None,duration_seconds:float|None=None)->dict:
     qa=preset_motion_qa(motion_plan,float(motion_plan.get('fps') or 30.0))
     failures=list(qa['failures']);warnings=list(qa['warnings'])
     if vision_results is not None:
@@ -150,6 +151,8 @@ def preset_story_plan_qa(motion_plan:dict,vision_results:list[dict]|None=None)->
             leak=float(matte.get('max_opaque_stage_leak_fraction') or 0.0)
             if risk>0.55:warnings.append(f'{sid}: high matte halo risk {risk:.3f}; preserve grouped-source object and avoid thinner slicing')
             if leak>0.004:failures.append(f'{sid}: opaque white-stage leak remains in extracted layer ({leak:.4f}>0.0040)')
+    coverage=visual_timeline_coverage_qa(motion_plan,duration_seconds=duration_seconds)
+    failures.extend(coverage.get('failures') or [])
     return {
         'pass':not failures,'failures':failures,'warnings':warnings,
         'visual_card_count':qa['visual_card_count'],'preset_event_count':qa['preset_event_count'],
@@ -159,4 +162,5 @@ def preset_story_plan_qa(motion_plan:dict,vision_results:list[dict]|None=None)->
         'relationship_policy':'EXPLICIT_METADATA_ONLY__LAYOUT_MOVES_NEVER_CLAIM_RELATIONSHIP',
         'transition_policy':'NO_FULL_FRAME_BLEND__OBJECT_PRESETS_ONLY',
         'authority':qa['authority'],
+        'visual_timeline_coverage_qa':coverage,
     }

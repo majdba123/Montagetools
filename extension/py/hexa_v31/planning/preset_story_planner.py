@@ -1176,6 +1176,15 @@ def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:in
         e['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':round(xs,6),'duration_seconds':dd,'authority':'USER_PRFPSET_DISAPPEARANCE__V31_CONSTRAINT_LAYOUT'}
         e['appearance_method']='SCALE_POP';e['disappearance_method']='PRESET_DISAPPEARANCE';e['position_animated']=False;e['entry_direction']=None;e['start_seconds']=round(st,6);e['settle_seconds']=round(st+ad,6);e['end_seconds']=round(pe,6)
     e['preset_actions']=[];e['motion_energy']='HIGH' if primary else 'MEDIUM';e['position_interpolation']='USER_PRESET_CURVE';e['position_min_frames']=12
+    # Physical existence is owned by the semantic phase. Motion presets are a
+    # separate, bounded interval and may never retire the source composition.
+    e['physical_start_seconds']=round(ps,6);e['physical_end_seconds']=round(pe,6)
+    e['motion_start_seconds']=e.get('start_seconds');e['motion_end_seconds']=e.get('end_seconds')
+    e['motion_intervals']=[dict(kind='ENTRY',**e['preset_entry'])] if e.get('preset_entry') else []
+    e['motion_intervals'] += [dict(kind='ACTION',**a) for a in (e.get('preset_actions') or [])]
+    if e.get('preset_exit'):e['motion_intervals'].append(dict(kind='EXIT',**e['preset_exit']))
+    e['visual_carrier_id']=f"{e.get('visual_card_id')}::{e.get('scene_id')}::{e.get('partition_root_id') or e.get('event_id')}"
+    e['visual_carrier_role']='FOUNDATION_STATIC_SUPPORT' if e.get('render_mode')=='RESIDUAL_SUPPORT' else ('FOUNDATION_PARTITION_MEMBER' if e.get('render_mode')=='CHILD_PARTITION' else 'SOURCE_VISUAL')
     entry=e.get('preset_entry') or {};entry_dur=float(entry.get('duration_seconds') or 0);entry_start=float(entry.get('start_seconds',e.get('start_seconds',0)));impact=entry_start+_entry_fraction(e)*entry_dur
     e['visual_impact_seconds']=round(impact,6);e['pre_roll_duration_seconds']=round(max(0.0,float(e.get('perceptual_hit_seconds',impact))-entry_start),6);e['semantic_readable_not_before_seconds']=round(impact,6);e['pre_roll_visibility_contract']='OFFSCREEN_TRAVEL_UNTIL_IMPACT' if str(entry.get('name') or '').startswith('ENTRY_') else 'APPROVED_SCALE_REVEAL_TO_IMPACT';e['fast_narration_fallback']=bool(not use_position_entry and dur<preset_duration('ENTRY_LEFT_TO_MIDDLE')+.72)
 
@@ -1264,28 +1273,8 @@ def _recover_trajectory_conflicts(card:dict,events:list[dict],phase_plan:dict,re
                 window=_phase_for_event(phase_plan,str(e.get('event_id')))
                 if window:_schedule_event(e,window,card,events.index(e),len(events),force_static=True);changed=True
     conflicts=card_motion_conflicts(events,float(card['start_seconds']),float(card['end_seconds']),fps)
-    if conflicts:
-        # Card-wide topology recovery: objects in different semantic phases do
-        # not own a region for the whole card. Retire the completed non-primary
-        # support before the incoming source-backed state becomes readable.
-        by_id={str(e.get('event_id')):e for e in events}
-        reused=0
-        for row in conflicts:
-            left,right=by_id.get(str(row['event_a'])),by_id.get(str(row['event_b']))
-            if not left or not right:continue
-            t=float(row['time_seconds']); candidates=[x for x in (left,right) if str(x.get('semantic_role') or '').upper()!='PRIMARY' and float(x.get('start_seconds',0))<t]
-            if not candidates:
-                # Carrier movement/retirement is allowed only after support
-                # reuse is exhausted; continuity is retained by the incoming
-                # state rather than a blank card.
-                candidates=[x for x in (left,right) if float(x.get('start_seconds',0))<t]
-            old=min(candidates,key=lambda x:float(x.get('start_seconds',0)))
-            new_end=max(float(old.get('start_seconds',0))+.12,t-.05)
-            if new_end<float(old.get('end_seconds',0)):
-                old['end_seconds']=round(new_end,6);old['topology_recovery']='TEMPORAL_SPATIAL_REUSE__SUPPORT_EXIT';reused+=1
-        if reused:
-            card['time_separated_spatial_reuse_count']=int(card.get('time_separated_spatial_reuse_count') or 0)+reused
-        conflicts=card_motion_conflicts(events,float(card['start_seconds']),float(card['end_seconds']),fps)
+    # Never resolve geometry by shortening a source carrier. The static/reveal
+    # recovery above is the final safe fallback; unresolved topology must fail.
     if conflicts:
         pairs=' | '.join(f"{x['event_a']} x {x['event_b']}@{x['time_seconds']:.3f}" for x in conflicts[:4])
         raise ValueError(f"{card['card_id']}: NO_COLLISION_FREE_SPATIOTEMPORAL_PLAN after preset-safe recovery: {pairs}")
@@ -1387,7 +1376,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         relationship_resolutions=_safe_relationship_motion(card,selected_events,rels)
         relationship_resolutions=_recover_trajectory_conflicts(card,selected_events,phase_plan,relationship_resolutions,fps)
         for zi,e in enumerate(sorted(selected_events,key=lambda x:(0 if x.get('attention_priority')!='PRIMARY' else 1,1 if 'CHARACTER' in str(x.get('semantic_type') or '') else 0,str(x.get('event_id')))),2):
-            e['z_order']=zi;e['visibility_interval_seconds']=[e.get('start_seconds'),e.get('end_seconds')]
+            e['z_order']=zi;e['visibility_interval_seconds']=[e.get('physical_start_seconds',e.get('start_seconds')),e.get('physical_end_seconds',e.get('end_seconds'))]
             e['collision_envelope_rect_norm']=e.get('planned_rect_norm')
         card['universal_scene_grammar']=grammar;card['story_phase_plan']=phase_plan;card['constraint_layout']=layout;card['relationship_resolutions']=relationship_resolutions;card['foundation_partition_motion_contract']=foundation_contract
         # Observed concurrent primary/support count comes from story phases, not all card objects.
@@ -1425,6 +1414,11 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     atomic_stats=_atomic_handoff_optimize(events,cards,fps)
     final_secondary_geometry=_finalize_secondary_character_geometry(events)
     final_physical_certification=_final_physical_certification(events,cards,fps)
+    for e in events:
+        if not e.get('suppressed_by_card_density'):
+            e['motion_start_seconds']=e.get('start_seconds')
+            e['motion_end_seconds']=e.get('end_seconds')
+            e['motion_intervals']=([dict(kind='ENTRY',**e['preset_entry'])] if e.get('preset_entry') else [])+[dict(kind='ACTION',**a) for a in (e.get('preset_actions') or [])]+([dict(kind='EXIT',**e['preset_exit'])] if e.get('preset_exit') else [])
     from hexa_v31.composition_qa import composition_plan_qa
     final_composition_qa=composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     # This is intentionally retained as an authoritative final-plan record.

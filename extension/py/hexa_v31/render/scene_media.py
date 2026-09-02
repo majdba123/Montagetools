@@ -344,11 +344,21 @@ def assemble_final_mp4(scene_media:dict,audio_path,output_path,work_dir,logger=N
 # transition operators.  Every visible change is an object preset event.
 # ---------------------------------------------------------------------------
 def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,graphics_plan,out_dir,cache_dir,width=1920,height=1080,fps=30.0,logger=None):
+    from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa, encoded_visual_gap_qa
     out=ensure_dir(out_dir);cache=ensure_dir(cache_dir)
-    events=[e for e in (render_edit_map.get('events') or []) if not e.get('suppressed_by_card_density') and float(e.get('end_seconds',0))>float(e.get('start_seconds',0))+1e-6]
-    duration=max([float(s.get('end_seconds',0)) for s in (motion_plan.get('scenes') or [])]+[float(e.get('end_seconds',0)) for e in events]+[0.0])
+    events=[e for e in (render_edit_map.get('events') or []) if not e.get('suppressed_by_card_density') and float(e.get('physical_end_seconds',e.get('end_seconds',0)))>float(e.get('physical_start_seconds',e.get('start_seconds',0)))+1e-6]
+    duration=max([float(s.get('end_seconds',0)) for s in (motion_plan.get('scenes') or [])]+[float(e.get('physical_end_seconds',e.get('end_seconds',0))) for e in events]+[0.0])
     total=max(1,int(math.ceil(duration*float(fps))))
     cards=list((motion_plan.get('visual_cards') or {}).get('cards') or [])
+    coverage_plan=dict(motion_plan);coverage_plan['events']=events
+    coverage=visual_timeline_coverage_qa(coverage_plan,fps,duration)
+    if not coverage.get('pass'):
+        gap=next(iter(coverage.get('visual_gaps') or []),{})
+        t=float(gap.get('start_seconds',0));fi=int(round(t*float(fps)))
+        previous=max((e for e in events if float(e.get('physical_end_seconds',e.get('end_seconds',0)))<=t),key=lambda e:float(e.get('physical_end_seconds',e.get('end_seconds',0))),default=None)
+        upcoming=min((e for e in events if float(e.get('physical_start_seconds',e.get('start_seconds',0)))>t),key=lambda e:float(e.get('physical_start_seconds',e.get('start_seconds',0))),default=None)
+        active_ids=[str(e.get('event_id')) for e in events if float(e.get('physical_start_seconds',e.get('start_seconds',0)))<=t<float(e.get('physical_end_seconds',e.get('end_seconds',0)))]
+        raise SceneMediaError(f"VISUAL_TIMELINE_COVERAGE_GAP timestamp={t:.6f} frame={fi} visual_card_id={gap.get('visual_card_id')} previous_carrier={None if previous is None else previous.get('visual_carrier_id')} next_carrier={None if upcoming is None else upcoming.get('visual_carrier_id')} active_actor_ids={active_ids}")
 
     # Exact authored/canonical title copy is rendered above source imagery. Graphics are
     # still restricted to explicit package directives.
@@ -396,8 +406,8 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
                 raise SceneMediaError(f"{e.get('event_id')}: missing render source {src}")
             typ=e.get('semantic_type') or e.get('kind') or ''
             z=4 if typ in ('MAIN_CHARACTER','SECONDARY_CHARACTER') or e.get('kind') in ('MAIN_NARRATOR','SECONDARY_CHARACTER') else (3 if str(e.get('attention_priority') or e.get('semantic_role')).upper()=='PRIMARY' else 2)
-            sf=max(0,int(math.floor(float(e.get('start_seconds',0))*fps)))
-            ef=min(total-1,max(sf,int(math.ceil(float(e.get('end_seconds',0))*fps))))
+            sf=max(0,int(math.floor(float(e.get('physical_start_seconds',e.get('start_seconds',0)))*fps)))
+            ef=min(total-1,max(sf,int(math.ceil(float(e.get('physical_end_seconds',e.get('end_seconds',0)))*fps))))
             rows.append({'e':e,'src':str(src),'sf':sf,'ef':ef,'z':z,'img':None})
         text_runtime=[(te,np.array(render_text_rgba(te,width,height).convert('RGBA'))) for te in text_events]
         starts=[[] for _ in range(total+1)]; ends=[[] for _ in range(total+1)]
@@ -450,6 +460,11 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
                         rows[i]['e']=er;rows[i]['img']=crop
                     active.add(i)
                 t=fi/float(fps)
+                card=next((c for c in cards if float(c.get('start_seconds',0))<=t<float(c.get('end_seconds',0))),None)
+                if card is not None and not active:
+                    previous=max((e for e in events if float(e.get('physical_end_seconds',e.get('end_seconds',0)))<=t),key=lambda e:float(e.get('physical_end_seconds',e.get('end_seconds',0))),default=None)
+                    upcoming=min((e for e in events if float(e.get('physical_start_seconds',e.get('start_seconds',0)))>t),key=lambda e:float(e.get('physical_start_seconds',e.get('start_seconds',0))),default=None)
+                    raise SceneMediaError(f"VISUAL_TIMELINE_COVERAGE_GAP timestamp={t:.6f} frame={fi} visual_card_id={card.get('card_id')} previous_carrier={None if previous is None else previous.get('visual_carrier_id')} next_carrier={None if upcoming is None else upcoming.get('visual_carrier_id')} active_actor_ids=[]")
                 canvas=np.empty((height,width,3),dtype=np.uint8);canvas[:]=255
                 for i in sorted(active,key=lambda k:(rows[k]['z'],str(rows[k]['e'].get('event_id')))):
                     r=rows[i];state=_event_state(r['e'],t)
@@ -479,17 +494,26 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
         )
         if verify.returncode!=0 or (verify.stderr or '').strip():
             raise SceneMediaError('Continuous story render decode validation failed: '+(verify.stderr or '')[-1800:])
+        pixel_gap_qa=encoded_visual_gap_qa(tmp,coverage_plan)
+        if not pixel_gap_qa.get('pass'):
+            raise SceneMediaError('ENCODED_VISUAL_TIMELINE_COVERAGE_GAP: '+str(pixel_gap_qa.get('blank_runs')))
         tmp.replace(media)
         write_json(meta,{
             'schema':'HEXA_SCENE_MEDIA_CACHE_V31','version':'31.0.25','signature':sig,
             'frames':total,'duration_seconds':duration,'fps':fps,'width':width,'height':height,
             'motion_event_count':len(events),'text_event_count':len(text_events),'graphic_event_count':len(graphic_events),
             'visual_card_count':len(cards),'transition_execution':'OBJECT_PRESETS_ONLY__NO_FRAME_BLEND',
-            'path':str(media)
+            'path':str(media),'visual_timeline_coverage_qa':coverage,'encoded_visual_gap_qa':pixel_gap_qa
         })
         if logger:logger.log('PASS','CONTINUOUS_STORY_TIMELINE_RENDERED',frames=total,motion_events=len(events),visual_cards=len(cards),transition='OBJECT_PRESETS_ONLY',resolution=f'{width}x{height}')
     else:
         if logger:logger.log('PASS','CONTINUOUS_STORY_TIMELINE_CACHE_HIT',frames=total,motion_events=len(events),visual_cards=len(cards),resolution=f'{width}x{height}')
+
+    # Cache hits are delivery inputs too; decode and certify the exact file that
+    # will be linked into this run rather than trusting historical metadata.
+    pixel_gap_qa=encoded_visual_gap_qa(media,coverage_plan)
+    if not pixel_gap_qa.get('pass'):
+        raise SceneMediaError('ENCODED_VISUAL_TIMELINE_COVERAGE_GAP: '+str(pixel_gap_qa.get('blank_runs')))
 
     run_media=pathlib.Path(out)/'V31_0_25_GLOBAL_STORY__ANIMATED.mp4'
     if run_media.exists():run_media.unlink()
@@ -508,6 +532,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
         'schema':'HEXA_ANIMATED_SCENE_MEDIA_MANIFEST_V31','version':'31.0.25',
         'execution_authority':'USER_PRESET_CONTINUOUS_OBJECT_STORY_TIMELINE',
         'scene_count':1,'visual_card_count':len(cards),'clips':[clip],
+        'visual_timeline_coverage_qa':coverage,'encoded_visual_gap_qa':pixel_gap_qa,
         'motion_event_count':len(events),'text_event_count':len(text_events),'graphic_event_count':len(graphic_events),
         'transition_modes':['OBJECT_PRESETS_ONLY__NO_FRAME_BLEND'],'width':width,'height':height,'fps':fps,
         'full_frame_crossfade_count':0,'mask_wipe_count':0,'white_dip_count':0,

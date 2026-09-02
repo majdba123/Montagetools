@@ -172,6 +172,17 @@ def _preset_event_state(e:dict,t:float):
     return (pos[0],pos[1]),sc,op
 
 def _event_state(e:dict,t:float):
+    physical_start=float(e.get('physical_start_seconds',e.get('start_seconds',0)))
+    physical_end=float(e.get('physical_end_seconds',e.get('end_seconds',physical_start)))
+    if t<physical_start-1e-6 or t>physical_end+1e-6:return None
+    if e.get('render_mode')=='RESIDUAL_SUPPORT':
+        rest=e.get('object_rest_position_px') or e.get('end_position_px') or e.get('rest_position_px') or [960.0,540.0]
+        return (float(rest[0]),float(rest[1])),1.0,1.0
+    motion_start=float(e.get('motion_start_seconds',e.get('start_seconds',physical_start)))
+    motion_end=float(e.get('motion_end_seconds',e.get('end_seconds',physical_end)))
+    if t>motion_end+1e-6:
+        exit_start=float((e.get('preset_exit') or {}).get('start_seconds',motion_end))
+        t=max(motion_start,min(motion_end-1e-6,exit_start-1e-6))
     if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions'):
         return _preset_event_state(e,t)
     st=float(e.get('start_seconds',0)); settle=float(e.get('settle_seconds',st)); end=float(e.get('end_seconds',st))

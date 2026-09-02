@@ -1,0 +1,69 @@
+from __future__ import annotations
+
+import pathlib
+import tempfile
+
+import cv2
+import numpy as np
+from PIL import Image
+
+from hexa_v31.visual_timeline_coverage import encoded_visual_gap_qa, visual_timeline_coverage_qa
+from hexa_v31.render.preview import _event_state
+from hexa_v31.render.scene_media import SceneMediaError, render_scene_media
+
+
+with tempfile.TemporaryDirectory(prefix='hexa_visual_lifetime_') as raw:
+    root=pathlib.Path(raw); layer=root/'source.png'
+    rgba=np.zeros((90,160,4),np.uint8);rgba[25:65,55:105,:3]=[20,80,220];rgba[25:65,55:105,3]=255
+    Image.fromarray(rgba,'RGBA').save(layer)
+    card={'card_id':'CARD_1','start_seconds':0.0,'end_seconds':4.0}
+    settled={
+        'event_id':'ACTOR_A','visual_card_id':'CARD_1','scene_id':'S1','source_layer_path':str(layer),
+        'start_seconds':0.0,'end_seconds':1.0,'motion_start_seconds':0.0,'motion_end_seconds':1.0,
+        'physical_start_seconds':0.0,'physical_end_seconds':4.0,'end_position_px':[80,45],
+        'settle_seconds':.5,'position_animated':False,
+    }
+    # Motion completion is not disappearance: the settled state survives.
+    assert _event_state(settled,.75) is not None
+    assert _event_state(settled,3.25) is not None
+    good=visual_timeline_coverage_qa({'fps':30,'events':[settled],'visual_cards':{'cards':[card]}},duration_seconds=4.0)
+    assert good['pass'] and good['card_coverage'][0]['coverage_ratio']==1.0,good
+
+    residual={**settled,'event_id':'RESIDUAL','render_mode':'RESIDUAL_SUPPORT',
+              'foundation_residual_support':True,'independent_motion_allowed':False,
+              'translation_safe_after_occlusion':False,'position_animated':False,
+              'animation_mode':'STATIC_SUPPORT'}
+    a=_event_state(residual,.1);b=_event_state(residual,3.9)
+    assert a==b and a[1:]==(1.0,1.0),(a,b)
+
+    gap_event={**settled,'physical_end_seconds':1.0,'end_seconds':1.0,'motion_end_seconds':1.0}
+    bad=visual_timeline_coverage_qa({'fps':30,'events':[gap_event],'visual_cards':{'cards':[card]}},duration_seconds=4.0)
+    assert not bad['pass'] and bad['longest_uncovered_narration_seconds']>=2.9,bad
+    trailing=visual_timeline_coverage_qa({'fps':30,'events':[settled],'visual_cards':{'cards':[card]}},duration_seconds=6.0)
+    assert not trailing['pass'] and trailing['trailing_uncovered_seconds']==2.0,trailing
+    retired={**settled,'topology_recovery':'TEMPORAL_SPATIAL_REUSE__SUPPORT_EXIT'}
+    recovery=visual_timeline_coverage_qa({'fps':30,'events':[retired],'visual_cards':{'cards':[card]}})
+    assert not recovery['pass'] and recovery['prematurely_truncated_event_ids']==['ACTOR_A'],recovery
+    try:
+        render_scene_media({'events':[gap_event]}, {'fps':30,'events':[gap_event],
+            'scenes':[{'scene_id':'S1','start_seconds':0.0,'end_seconds':4.0}],
+            'visual_cards':{'cards':[card]}}, [], {'events':[]}, {'events':[]},
+            root/'rendered',root/'cache',width=160,height=90,fps=30)
+        raise AssertionError('renderer accepted a narration-active carrier gap')
+    except SceneMediaError as exc:
+        message=str(exc)
+        assert all(token in message for token in ('VISUAL_TIMELINE_COVERAGE_GAP','timestamp=','frame=','visual_card_id=','previous_carrier=','next_carrier=','active_actor_ids=')),message
+
+    # Actual encode/decode: a source-backed event is expected throughout, but
+    # two seconds of white frames must be rejected before delivery.
+    mp4=root/'blank_gap.mp4';writer=cv2.VideoWriter(str(mp4),cv2.VideoWriter_fourcc(*'mp4v'),30,(160,90))
+    assert writer.isOpened()
+    for fi in range(120):
+        frame=np.full((90,160,3),255,np.uint8)
+        if fi<30 or fi>=90: frame[25:65,55:105]=[220,80,20]
+        writer.write(frame)
+    writer.release()
+    encoded=encoded_visual_gap_qa(mp4,{'fps':30,'events':[settled]})
+    assert not encoded['pass'] and encoded['blank_runs'][0]['duration_seconds']>=1.7,encoded
+
+print('V31_VISUAL_TIMELINE_COVERAGE_PASS')
