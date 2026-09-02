@@ -375,6 +375,7 @@ def main():
         pathlib.Path('resources')/'DEPENDENCY_MANIFEST_V20.json',
         pathlib.Path('resources')/'HEXA_FOUNDATION_VISION_MODELS_V31.json',
         pathlib.Path('resources')/'THIRD_PARTY_LICENSES_V31.json',
+        pathlib.Path('resources')/'HEXA_RELEASE_IDENTITY_V31.json',
         pathlib.Path('resources')/'HEXA_LEGACY_REGRESSION_MATRIX_V20.json',
         pathlib.Path('resources')/'HEXA_REFERENCE_QA_PROFILE_V20.json',
         pathlib.Path('resources')/'HEXA_EDITING_RULES_V20.json',
@@ -401,6 +402,12 @@ def main():
     missing=[str(rel) for rel in critical_relpaths if not _file_exists(EXT_SRC/rel)]
     if missing:
         raise RuntimeError('V31 package preflight failed before destructive install. Missing/unreadable source files: '+json.dumps(missing))
+    release_identity=read_json(ROOT/'release_identity.json')
+    extension_identity=read_json(EXT_SRC/'resources'/'HEXA_RELEASE_IDENTITY_V31.json')
+    source_commit=str(release_identity.get('source_commit') or '')
+    if len(source_commit)!=40 or extension_identity.get('source_commit')!=source_commit:
+        raise RuntimeError('Release/extension source identity mismatch before installation.')
+    log('SOURCE_COMMIT='+source_commit)
     frontend_relpaths=(pathlib.Path('index.html'),pathlib.Path('js')/'main.js',pathlib.Path('jsx')/'host.jsx')
     frontend_text='\n'.join((EXT_SRC/rel).read_text(encoding='utf-8') for rel in frontend_relpaths)
     if '31.0.9' in frontend_text:
@@ -570,6 +577,7 @@ def main():
       'whisper_model_candidates':[str(x) for x in model_candidates]+([str(model_path)] if model_path else []),'whisper_device':whisper_device,'whisper_compute_type':whisper_compute,
       'cpu_threads':max(1,min(4,os.cpu_count() or 2)),'downloads_during_build':False,'old_extensions_removed':removed,'dependency_status':package_status,'hardware':hardware,'heavy_worker_parallelism':1,
       'premiere_export_preset_path':None,
+      'source_commit':source_commit,
       'build_cache_root':str(build_cache_root),'shared_vendor_reused_from_v20':bool((prior_v20/'vendor').is_dir()),'shared_models_reused_from_v20':bool((prior_v20/'models').is_dir()),'shared_models_reused_from_v23':bool((prior_v23/'models').is_dir()),'shared_models_reused_from_v24':bool((prior_v24/'models').is_dir()),'shared_models_reused_from_v25':bool((prior_v25/'models').is_dir()),'shared_models_reused_from_v26':bool((prior_v26/'models').is_dir()),
       'runtime_policy':'EXECUTABLE_BOOTSTRAP_REQUIRED; REUSE_ONLY_EXACTLY_PROBED_PACKAGE_ROOTS; INSTALL_ONLY_MISSING; NEVER_DOWNLOAD_DURING_BUILD'
     }
@@ -578,6 +586,7 @@ def main():
     runtime_lock={
       'schema':'HEXA_V31_RUNTIME_LOCK','version':VERSION,'created_at':now(),'bundle_id':BUNDLE,
       'python_exe':str(py),'extension_root':str(target),'runtime_config':str(runtime/'runtime_config.json'),'python_import_contract_sha256':import_contract_sha,
+      'source_commit':source_commit,
       'policy':'PANEL_MUST_MATCH_INSTALLER_CERTIFIED_RUNTIME_AND_EXTENSION'
     }
     write_json(runtime/'runtime_lock.json',runtime_lock)
@@ -620,7 +629,7 @@ def main():
     selftest=runtime/'RUNTIME_SELFTEST_V31.json'
     c=run([str(py),str(ROOT/'tools'/'selftest_v31.py'),'--extension-root',str(target),'--out',str(selftest)],env=env,timeout=180)
     if c.returncode!=0 or 'HEXA_V31_RUNTIME_SELFTEST_PASS' not in c.stdout:raise RuntimeError('V31 runtime self-test failed:\n'+c.stdout[-5000:])
-    report={'status':'PASS','version':VERSION,'timestamp':now(),'target_extension':str(target),'runtime_config':str(runtime/'runtime_config.json'),'runtime_lock':str(runtime/'runtime_lock.json'),'python_exe':str(py),'runtime_selftest':str(selftest),'install_log':str(INSTALL_LOG_FILE),'hardware':hardware,'removed_old_extensions':removed,'whisper_word_alignment_ready':whisper_ready,'whisper_backend':{'device':whisper_device,'compute_type':whisper_compute,'model_path':str(model_path) if model_path else None},'ffmpeg':str(ff),'ffprobe':str(fp) if fp else None,'media_probe_backend':media_probe_backend,'premiere_export_policy':'ENGINE_FINAL_MP4_PREBUILT__PREMIERE_PROJECT_ONLY','dependencies':package_status,'python_import_roots':python_import_roots,'python_import_contract_sha256':import_contract_sha,'selected_legacy_dependency_roots':selected_legacy_dependency_roots,'bootstrap_python_execution_probe':'PASS'}
+    report={'status':'PASS','version':VERSION,'source_commit':source_commit,'timestamp':now(),'target_extension':str(target),'runtime_config':str(runtime/'runtime_config.json'),'runtime_lock':str(runtime/'runtime_lock.json'),'python_exe':str(py),'runtime_selftest':str(selftest),'install_log':str(INSTALL_LOG_FILE),'hardware':hardware,'removed_old_extensions':removed,'whisper_word_alignment_ready':whisper_ready,'whisper_backend':{'device':whisper_device,'compute_type':whisper_compute,'model_path':str(model_path) if model_path else None},'ffmpeg':str(ff),'ffprobe':str(fp) if fp else None,'media_probe_backend':media_probe_backend,'premiere_export_policy':'ENGINE_FINAL_MP4_PREBUILT__PREMIERE_PROJECT_ONLY','dependencies':package_status,'python_import_roots':python_import_roots,'python_import_contract_sha256':import_contract_sha,'selected_legacy_dependency_roots':selected_legacy_dependency_roots,'bootstrap_python_execution_probe':'PASS'}
     write_json(runtime/'INSTALL_REPORT_V31.json',report)
     log('HEXA V31 INSTALLATION PASS')
     if not whisper_ready:log('NOTICE: word-level Whisper backend DEGRADED. Current scene-start-only contracts can still use acoustic fallback; internal-trigger packages will require Setup/Repair.')

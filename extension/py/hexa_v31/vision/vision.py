@@ -77,6 +77,28 @@ def _cache_artifacts_complete(data:dict)->bool:
     )
 
 
+def cached_final_foundation_scene(scene:dict,image_path:str|os.PathLike,out_dir:str|os.PathLike)->bool:
+    """Return true only for a complete final Foundation cache with current core Vision inputs."""
+    final_out=pathlib.Path(out_dir)/str(scene['scene_id']);meta_path=final_out/'cache_meta.json';vision_path=final_out/'vision.json'
+    if not meta_path.is_file() or not vision_path.is_file():return False
+    try:
+        meta=read_json(meta_path);data=read_json(vision_path);payload=meta.get('input') or {}
+        if meta.get('schema')!=VISION_CACHE_SCHEMA_VERSION or not _cache_artifacts_complete(data):return False
+        expected_input={'image_sha256':sha256_file(image_path),'semantic_units':scene.get('units') or []}
+        dependencies=payload.get('dependencies') or {}
+        core={k:v for k,v in dependencies.items() if k!='foundation_vision'}
+        foundation_signature=dependencies.get('foundation_vision')
+        foundation_artifact=(data.get('artifacts') or {}).get('foundation_vision') or {}
+        return bool(
+            payload.get('input')==expected_input
+            and core==VISION_CACHE_DEPENDENCIES
+            and foundation_signature
+            and foundation_signature!='LEGACY_CV_FALLBACK'
+            and foundation_artifact.get('status')=='PASS'
+        )
+    except Exception:return False
+
+
 def _replace_scene_cache_directory(stage:pathlib.Path, target:pathlib.Path)->None:
     backup=target.parent/f'.{target.name}.backup-{uuid.uuid4().hex}'
     had_target=target.exists()

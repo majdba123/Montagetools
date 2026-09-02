@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -31,6 +32,13 @@ def make_fixture(base: Path, *, latest: bool = True, installer: bool = True) -> 
                 'exit /b 0\n',
                 encoding='utf-8',
             )
+    subprocess.run(['git','init','-q'],cwd=repo,check=True)
+    (repo/'source-marker.txt').write_text('source\n',encoding='utf-8')
+    subprocess.run(['git','add','source-marker.txt'],cwd=repo,check=True)
+    subprocess.run(['git','-c','user.name=HEXA Test','-c','user.email=test@hexa.invalid','commit','-q','-m','fixture'],cwd=repo,check=True)
+    if latest:
+        commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
+        (repo/'dist'/'latest'/'release_identity.json').write_text(json.dumps({'schema':'HEXA_V31_RELEASE_IDENTITY','source_commit':commit}),encoding='utf-8')
     return repo
 
 
@@ -110,5 +118,9 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
     assert cp.returncode == 37, (cp.returncode, cp.stdout)
     assert marker.is_file(), 'validated installer was not invoked for failure propagation test'
     assert 'HEXA INSTALL COMPLETE' not in cp.stdout, cp.stdout
+
+    (repo/'dist'/'latest'/'release_identity.json').write_text(json.dumps({'source_commit':'0'*40}),encoding='utf-8')
+    cp, marker = run_launcher(repo, other_cwd)
+    assert cp.returncode == 27 and 'dist\\latest is stale' in cp.stdout,cp.stdout
 
 print('V31_ROOT_LAUNCHER_PASS')

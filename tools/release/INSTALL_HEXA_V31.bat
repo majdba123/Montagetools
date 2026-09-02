@@ -99,8 +99,8 @@ echo.
 echo Build the same test Scene Package and export the MP4 for human review.
 echo.
 echo Press any key to close...
-pause >nul
-exit /b 0
+if not defined HEXA_V31_NONINTERACTIVE pause >nul
+exit 0
 
 :TRY_PY
 if defined PYEXE exit /b 0
@@ -142,5 +142,5 @@ if exist "%INSTALLMARKER%" (
 echo.
 echo The success message was not printed because installation did not complete.
 echo # Press any key to close...
-pause >nul
-exit /b %RC%
+if not defined HEXA_V31_NONINTERACTIVE pause >nul
+exit %RC%

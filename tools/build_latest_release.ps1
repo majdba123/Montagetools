@@ -12,6 +12,12 @@ $stage = Join-Path $dist ('.latest-stage-' + [guid]::NewGuid().ToString('N'))
 $backup = Join-Path $dist ('.latest-backup-' + [guid]::NewGuid().ToString('N'))
 $template = Join-Path $root 'tools\release\INSTALL_HEXA_V31.bat'
 $runtimeConfig = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31\runtime_config.json'
+$sourceCommit = (& git -C $root rev-parse HEAD 2>&1 | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[0-9a-f]{40}$') { throw "Cannot resolve source Git commit: $sourceCommit" }
+& git -C $root diff --quiet --
+if ($LASTEXITCODE -ne 0) { throw 'Release build requires a clean tracked source tree.' }
+& git -C $root diff --cached --quiet --
+if ($LASTEXITCODE -ne 0) { throw 'Release build requires a clean Git index.' }
 
 function Invoke-Checked([string]$Executable, [string[]]$Arguments, [string]$WorkingDirectory, [hashtable]$Environment) {
     $previous = @{}
@@ -46,6 +52,10 @@ try {
     Copy-Item -LiteralPath (Join-Path $root 'tools\provision_foundation_vision.py') -Destination (Join-Path $stage 'tools\provision_foundation_vision.py')
     Copy-Item -LiteralPath $template -Destination (Join-Path $stage 'INSTALL_HEXA_V31.bat')
     Copy-Item -LiteralPath (Join-Path $root 'README_FIRST.txt') -Destination (Join-Path $stage 'README_FIRST.txt')
+    $releaseIdentity = [ordered]@{ schema='HEXA_V31_RELEASE_IDENTITY'; source_commit=$sourceCommit; source_branch=(& git -C $root branch --show-current | Out-String).Trim(); built_at=(Get-Date).ToUniversalTime().ToString('o') }
+    $releaseIdentityJson = $releaseIdentity | ConvertTo-Json
+    Set-Content -LiteralPath (Join-Path $stage 'release_identity.json') -Value $releaseIdentityJson -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $stage 'extension\resources\HEXA_RELEASE_IDENTITY_V31.json') -Value $releaseIdentityJson -Encoding UTF8
     Get-ChildItem -LiteralPath $stage -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force
     Get-ChildItem -LiteralPath $stage -Recurse -File -Filter '*.pyc' | Remove-Item -Force
 
@@ -71,7 +81,7 @@ try {
     if ($report.status -ne 'PASS') { throw 'Staged runtime selftest did not pass' }
     Remove-Item -LiteralPath $selftestReport -Force
 
-    foreach ($required in @('extension\CSXS\manifest.xml','extension\jsx\host.jsx','extension\resources\HEXA_USER_PRESET_AUTHORITY_V31.json','extension\resources\HEXA_FOUNDATION_VISION_MODELS_V31.json','extension\resources\THIRD_PARTY_LICENSES_V31.json','tools\install_v31.py','tools\provision_foundation_vision.py','INSTALL_HEXA_V31.bat')) {
+    foreach ($required in @('release_identity.json','extension\CSXS\manifest.xml','extension\jsx\host.jsx','extension\resources\HEXA_RELEASE_IDENTITY_V31.json','extension\resources\HEXA_USER_PRESET_AUTHORITY_V31.json','extension\resources\HEXA_FOUNDATION_VISION_MODELS_V31.json','extension\resources\THIRD_PARTY_LICENSES_V31.json','tools\install_v31.py','tools\provision_foundation_vision.py','INSTALL_HEXA_V31.bat')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) { throw "Validated payload missing: $required" }
     }
 
@@ -87,6 +97,7 @@ try {
     if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Recurse -Force }
     & (Join-Path $root 'tools\cleanup_generated_release_artifacts.ps1') -RepositoryRoot $root
     if ($LASTEXITCODE -ne 0) { throw 'Post-build generated-artifact cleanup failed' }
+    Write-Output "SOURCE_COMMIT=$sourceCommit"
     Write-Output 'HEXA_DIST_LATEST_BUILD_PASS'
 }
 finally {

@@ -28,6 +28,7 @@ from hexa_v31.visual_density import build_visual_density_report, temporal_popula
 from hexa_v31.design_director import apply_audio_semantic_timing, build_title_plan, design_qa, finalize_anchor_coverage, stabilize_timeline_density
 from hexa_v31.visual_choreography import build_visual_choreography_report
 from hexa_v31.vision.foundation import FoundationVisionClient
+from hexa_v31.vision import cached_final_foundation_scene
 
 ALIGNMENT_ENGINE_CACHE_VERSION='HEXA_V20_ALIGNMENT_CACHE_1.2'
 
@@ -47,6 +48,23 @@ def _foundation_materially_useful(vision_row):
     units=vision_row.get('units') or [];expected=int(vision_row.get('expected_semantic_units') or 0)
     independent=sum(bool(u.get('translation_safe_after_occlusion',u.get('animation_safe'))) for u in units)
     return bool(len(units)<=1 or independent<min(2,max(1,expected)) or (int(vision_row.get('grouped_detail_count') or 0)>=2 and independent<2))
+
+
+def _analyze_scene_with_foundation_routing(python,ext,scene,img,spec,vroot,foundation_client,foundation_ready,cache_root,package_identity,worker=None):
+    """Preserve a valid final Foundation cache by bypassing the destructive legacy probe."""
+    worker=worker or _run_scene_vision_worker;vr=None;fr=None;used_probe_cache=False
+    final_foundation_cached=bool(foundation_ready and cached_final_foundation_scene(scene,img,vroot))
+    if not final_foundation_cached:
+        analysis_root=vroot
+        if foundation_ready:
+            analysis_root=pathlib.Path(vroot).parent/(pathlib.Path(vroot).name+'_probe');used_probe_cache=True
+        vr=worker(python,ext,spec,img,analysis_root)
+    if foundation_ready and (final_foundation_cached or _foundation_materially_useful(vr)):
+        fr=foundation_client.analyze(scene,img,cache_root,package_identity)
+        foundation_path=pathlib.Path(spec).with_suffix('.foundation.json');write_json(foundation_path,fr.to_dict())
+        if fr.status=='PASS':vr=worker(python,ext,spec,img,vroot,foundation_path)
+    if vr is None or (used_probe_cache and fr is None):vr=worker(python,ext,spec,img,vroot)
+    return vr,fr,final_foundation_cached
 
 
 class BuildFailure(RuntimeError):
@@ -73,6 +91,14 @@ def _default_runtime_cfg(extension_root:pathlib.Path):
             try:return read_json(p)
             except Exception: pass
     return {'allow_whisper':False,'cpu_threads':4,'downloads_during_build':False}
+
+
+def _source_commit(extension_root:pathlib.Path,runtime_cfg:dict)->str:
+    identity=extension_root/'resources'/'HEXA_RELEASE_IDENTITY_V31.json'
+    if identity.is_file():
+        try:return str(read_json(identity).get('source_commit') or 'UNKNOWN')
+        except Exception:pass
+    return str(runtime_cfg.get('source_commit') or 'DEVELOPMENT_TREE')
 
 
 def _alignment_signature(package_sha:str,audio_sha:str,runtime_cfg:dict)->str:
@@ -129,7 +155,9 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         log.phase('PREFLIGHT')
         if runtime_cfg.get('downloads_during_build') not in (False,None):
             raise BuildFailure('Runtime policy violation: downloads_during_build must be false.')
-        log.log('INFO','ENGINE',engine=ENGINE_ID,version=VERSION,downloads_during_build=False,build_id=build_id,project_cache=str(cache_root))
+        source_commit=_source_commit(ext,runtime_cfg)
+        log.log('INFO','SOURCE_IDENTITY',SOURCE_COMMIT=source_commit)
+        log.log('INFO','ENGINE',engine=ENGINE_ID,version=VERSION,source_commit=source_commit,downloads_during_build=False,build_id=build_id,project_cache=str(cache_root))
         audio=probe_audio(voice_over); log.log('PASS','VOICE_OVER_PROBED',duration_seconds=audio['duration_seconds'],sha256=audio['sha256'])
 
         log.phase('PACKAGE_INGEST')
@@ -180,13 +208,14 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         try:
             for i,s in enumerate(pkg.scenes,1):
                 log.scene(s['scene_id']);img=pkg.extract_root/s['image'];spec=spec_root/(s['scene_id']+'.json');write_json(spec,s)
-                try:vr=_run_scene_vision_worker(sys.executable,ext,spec,img,vroot)
+                try:
+                    vr,fr,foundation_cache_routed=_analyze_scene_with_foundation_routing(
+                        sys.executable,ext,s,img,spec,vroot,foundation_client,foundation_ready,cache_root,
+                        {'package_sha256':package_sha,'project_id':pkg.plan.get('project_id'),'package_version':pkg.plan.get('package_version')})
                 except BuildFailure as exc:raise BuildFailure(f"{exc} at {s['scene_id']}")
-                if foundation_ready and _foundation_materially_useful(vr):
-                    fr=foundation_client.analyze(s,img,cache_root,{'package_sha256':package_sha,'project_id':pkg.plan.get('project_id'),'package_version':pkg.plan.get('package_version')})
-                    foundation_path=spec_root/(s['scene_id']+'.foundation.json');write_json(foundation_path,fr.to_dict())
+                if fr is not None:
                     log.log('PASS' if fr.status=='PASS' else 'WARNING','FOUNDATION_VISION_RESULT',scene_id=s['scene_id'],cache_status=fr.cache_state.get('status'),cache_invalidation_reason=fr.cache_state.get('reason'),backend=fr.backend_used,error=fr.error)
-                    if fr.status=='PASS':vr=_run_scene_vision_worker(sys.executable,ext,spec,img,vroot,foundation_path)
+                    if foundation_cache_routed:log.log('PASS','FOUNDATION_FINAL_SCENE_CACHE_ROUTED',scene_id=s['scene_id'],legacy_probe_skipped=True)
                 vision.append(vr);cache_state=(vr.get('cache_state') or {}).get('status') or 'GENERATED'
                 if cache_state=='HIT':log.log('PASS','SCENE_VISION_CACHE_HIT',mode=vr.get('mode'),cache_signature=(vr.get('cache_state') or {}).get('cache_signature','')[:16],isolated_worker=True,progress=f'{i}/{len(pkg.scenes)}')
                 else:
