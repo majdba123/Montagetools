@@ -1095,6 +1095,68 @@ def _foundation_partition_motion_contract(events:list[dict])->dict:
     signatures={(str((e.get('preset_entry') or {}).get('name')),tuple(str(a.get('name')) for a in (e.get('preset_actions') or []))) for e in independent}
     return {'eligible_foundation_actor_count':eligible,'independently_animated_actor_count':len(independent),'independent_actor_motion_ratio':round(len(independent)/max(1,eligible),4),'spatially_displaced_actor_count':len(independent),'distinct_motion_signature_count':len(signatures),'static_support_actor_count':sum(e.get('attention_priority')=='SUPPORTING' and not e.get('position_animated') for e in rows),'reveal_only_actor_count':sum(e.get('foundation_motion_decision')=='REVEAL_ONLY' for e in rows)}
 
+def _motion_interval_effective_fraction(kind:str, preset_name:str)->float:
+    """Return the source-visible fraction of a certified preset interval.
+
+    Preset duration remains the exact user authority.  Lifetime certification
+    cares about the interval that can still affect visible source pixels.  For
+    disappearance presets, an authored zero-opacity tail is therefore not a
+    physical motion escape.
+    """
+    if str(kind).upper()!='EXIT' or not preset_name:
+        return 1.0
+    definition=(preset_authority().get('preset_motion') or {}).get(str(preset_name)) or {}
+    if str(definition.get('family') or '').upper()!='DISAPPEARANCE':
+        return 1.0
+    keys=definition.get('opacity_keyframes') or []
+    for index,row in enumerate(keys):
+        try:
+            fraction=float(row[0]);opacity=float(row[1])
+        except (TypeError,ValueError,IndexError):
+            continue
+        if opacity>1e-6:
+            continue
+        trailing=keys[index:]
+        try:
+            if trailing and all(float(item[1])<=1e-6 for item in trailing):
+                return max(0.0,min(1.0,fraction))
+        except (TypeError,ValueError,IndexError):
+            pass
+    return 1.0
+
+
+def _compile_final_motion_intervals(e:dict)->tuple[list[dict],float,float]:
+    """Compile nominal preset records plus their effective visible envelopes."""
+    rows=[]
+    raw=[]
+    if e.get('preset_entry'):raw.append(('ENTRY',e['preset_entry']))
+    raw.extend(('ACTION',a) for a in (e.get('preset_actions') or []))
+    if e.get('preset_exit'):raw.append(('EXIT',e['preset_exit']))
+    starts=[float(e.get('start_seconds',0))]
+    ends=[float(e.get('end_seconds',e.get('start_seconds',0)))]
+    for kind,source in raw:
+        row=dict(kind=kind,**source)
+        st=float(row.get('start_seconds',e.get('start_seconds',0)))
+        nominal=max(0.0,float(row.get('duration_seconds') or 0.0))
+        fraction=_motion_interval_effective_fraction(kind,str(row.get('name') or ''))
+        effective_end=st+nominal*fraction
+        row['effective_start_seconds']=round(st,6)
+        row['effective_end_seconds']=round(effective_end,6)
+        row['effective_duration_seconds']=round(max(0.0,effective_end-st),6)
+        row['effective_visible_fraction']=round(fraction,6)
+        rows.append(row);starts.append(st);ends.append(effective_end)
+    return rows,min(starts),max(ends)
+
+
+def _retime_exit_to_effective_end(e:dict, effective_end:float, minimum_start:float)->None:
+    exit_row=e.get('preset_exit')
+    if not exit_row:return
+    duration=max(0.0,float(exit_row.get('duration_seconds') or 0.0))
+    fraction=_motion_interval_effective_fraction('EXIT',str(exit_row.get('name') or ''))
+    visible_duration=duration*fraction
+    exit_row['start_seconds']=round(max(float(minimum_start),float(effective_end)-visible_duration),6)
+
+
 def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
     """Commit physical carrier lifetimes from the final immutable motion state.
 
@@ -1128,19 +1190,7 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
         raise ValueError('PARTIAL_CERTIFIED_PARTITION_SUPPRESSION: '+detail)
 
     for e in active:
-        intervals=[]
-        if e.get('preset_entry'):
-            intervals.append(dict(kind='ENTRY',**e['preset_entry']))
-        intervals.extend(dict(kind='ACTION',**a) for a in (e.get('preset_actions') or []))
-        if e.get('preset_exit'):
-            intervals.append(dict(kind='EXIT',**e['preset_exit']))
-        starts=[float(e.get('start_seconds',0))]
-        ends=[float(e.get('end_seconds',e.get('start_seconds',0)))]
-        for row in intervals:
-            st=float(row.get('start_seconds',e.get('start_seconds',0)))
-            dur=max(0.0,float(row.get('duration_seconds') or 0.0))
-            starts.append(st);ends.append(st+dur)
-        motion_start=min(starts);motion_end=max(ends)
+        intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
         prior_start=float(e.get('physical_start_seconds',motion_start))
         prior_end=float(e.get('physical_end_seconds',motion_end))
         e['motion_start_seconds']=round(motion_start,6)
@@ -1175,14 +1225,14 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
             # but visibly exit and then reappear as a held state.
             if e.get('render_mode')!='RESIDUAL_SUPPORT' and e.get('preset_exit'):
                 exit_row=e['preset_exit']
-                exit_duration=max(0.0,float(exit_row.get('duration_seconds') or 0.0))
                 old_motion_end=float(e.get('motion_end_seconds',e.get('end_seconds',carrier_end)))
                 if carrier_end>old_motion_end+1e-6:
-                    exit_row['start_seconds']=round(max(float(e.get('motion_start_seconds',carrier_start)),carrier_end-exit_duration),6)
+                    _retime_exit_to_effective_end(e,carrier_end,float(e.get('motion_start_seconds',carrier_start)))
                     e['end_seconds']=round(carrier_end,6)
-                    intervals=([dict(kind='ENTRY',**e['preset_entry'])] if e.get('preset_entry') else [])+[dict(kind='ACTION',**a) for a in (e.get('preset_actions') or [])]+[dict(kind='EXIT',**exit_row)]
+                    intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
                     e['motion_intervals']=intervals
-                    e['motion_end_seconds']=round(max(float(row.get('start_seconds',0))+max(0.0,float(row.get('duration_seconds') or 0.0)) for row in intervals),6)
+                    e['motion_start_seconds']=round(motion_start,6)
+                    e['motion_end_seconds']=round(motion_end,6)
                     e['partition_exit_retimed_to_carrier_end']=True
             e['partition_carrier_start_seconds']=round(carrier_start,6)
             e['partition_carrier_end_seconds']=round(carrier_end,6)
@@ -1197,12 +1247,14 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
                 # and compile a bounded reveal/hold/exit instead of deleting it
                 # or allowing motion to escape the carrier.
                 ad=preset_duration('APPEAR_HIGH_SCALE');dd=preset_duration('DISAPPEAR_DOWN_SCALE')
-                latest_entry=max(carrier_start,carrier_end-dd-ad-0.10)
+                disappear_fraction=_motion_interval_effective_fraction('EXIT','DISAPPEAR_DOWN_SCALE')
+                visible_dd=dd*disappear_fraction
+                latest_entry=max(carrier_start,carrier_end-visible_dd-ad-0.10)
                 old_entry=float((e.get('preset_entry') or {}).get('start_seconds',e.get('start_seconds',carrier_start)))
                 st=max(carrier_start,min(old_entry,latest_entry))
-                xs=max(st+ad+0.05,carrier_end-dd)
-                if xs+dd>carrier_end+1e-6:
-                    xs=max(st+ad,carrier_end-dd)
+                xs=max(st+ad+0.05,carrier_end-visible_dd)
+                if xs+visible_dd>carrier_end+1e-6:
+                    xs=max(st+ad,carrier_end-visible_dd)
                 e['preset_entry']={'name':'APPEAR_HIGH_SCALE','start_seconds':round(st,6),'duration_seconds':ad,
                                    'authority':'FINAL_PARTITION_CARRIER_REVEAL_FALLBACK'}
                 e['preset_actions']=[]
@@ -1213,8 +1265,8 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
                 e['position_animated']=False;e['entry_direction']=None
                 e['foundation_motion_decision']='REVEAL_ONLY'
                 e['final_partition_motion_fallback']='MOTION_ENVELOPE_OUTSIDE_CARRIER'
-                intervals=[dict(kind='ENTRY',**e['preset_entry']),dict(kind='EXIT',**e['preset_exit'])]
-                e['motion_intervals']=intervals;e['motion_start_seconds']=round(st,6);e['motion_end_seconds']=round(carrier_end,6)
+                intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+                e['motion_intervals']=intervals;e['motion_start_seconds']=round(motion_start,6);e['motion_end_seconds']=round(motion_end,6)
                 motion_escapes=False
             if motion_escapes and e.get('render_mode')!='RESIDUAL_SUPPORT':
                 raise ValueError(f"{e.get('event_id')}: motion lifetime cannot fit certified partition carrier")
