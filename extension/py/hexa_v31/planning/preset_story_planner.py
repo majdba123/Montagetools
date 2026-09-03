@@ -1173,10 +1173,20 @@ def _reconcile_final_partition_handoffs(events:list[dict], cards:dict, fps:float
     step=1.0/max(1.0,float(fps))
     card_by={str(row.get('card_id')):row for row in (cards.get('cards') or [])}
     active=[e for e in events if not e.get('suppressed_by_card_density')]
+    # Reconcile the smallest source-survival cohort that is actually atomic.
+    # Certified Foundation partitions move/retire together.  Ordinary source
+    # events remain independent carriers; grouping every event from one scene
+    # can make a valid handoff impossible when a later semantic unit from that
+    # scene intentionally starts after the current transition.
     groups={}
+    def cohort_key(e):
+        card_id=str(e.get('visual_card_id'))
+        scene_id=str(e.get('scene_id'))
+        if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            return (card_id,scene_id,'PARTITION',str(e.get('partition_root_id')))
+        return (card_id,scene_id,'EVENT',str(e.get('event_id')))
     for e in active:
-        key=(str(e.get('visual_card_id')),str(e.get('scene_id')))
-        groups.setdefault(key,[]).append(e)
+        groups.setdefault(cohort_key(e),[]).append(e)
 
     stats={'candidate_conflict_count':0,'handoffs_committed':0,'handoffs_rejected':0,
            'trimmed_partition_group_count':0,'trimmed_source_group_count':0,
@@ -1188,7 +1198,7 @@ def _reconcile_final_partition_handoffs(events:list[dict], cards:dict, fps:float
                                  e.get('physical_start_seconds',e.get('start_seconds',0.0)))))
 
     def group_key(e):
-        return (str(e.get('visual_card_id')),str(e.get('scene_id')))
+        return cohort_key(e)
 
     def _compile_event_after_trim(e,new_end):
         current_end=max(float(e.get('end_seconds',0.0)),
