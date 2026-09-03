@@ -79,6 +79,12 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
         if e.get('suppressed_by_card_density'):continue
         eid=str(e.get('event_id'))
         primary=str(e.get('attention_priority') or '').upper()=='PRIMARY'
+        if e.get('render_mode')=='RESIDUAL_SUPPORT':
+            # Static residual reconstruction is deliberately not an animated
+            # preset event. Hierarchical QA above already proves it cannot move.
+            if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions') or e.get('position_animated'):
+                failures.append(f'{eid}: residual support retained motion metadata after final lifetime commit')
+            continue
         for key in ('preset_entry','preset_exit'):
             p=e.get(key)
             if not p:failures.append(f'{eid}: missing {key}');continue
