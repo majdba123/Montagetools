@@ -1216,11 +1216,19 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
                 intervals=[dict(kind='ENTRY',**e['preset_entry']),dict(kind='EXIT',**e['preset_exit'])]
                 e['motion_intervals']=intervals;e['motion_start_seconds']=round(st,6);e['motion_end_seconds']=round(carrier_end,6)
                 motion_escapes=False
-            if motion_escapes:
+            if motion_escapes and e.get('render_mode')!='RESIDUAL_SUPPORT':
                 raise ValueError(f"{e.get('event_id')}: motion lifetime cannot fit certified partition carrier")
             if e.get('render_mode')=='RESIDUAL_SUPPORT':
+                # Residual reconstruction is physical source preservation, not
+                # an actor. The renderer keeps it static for the whole carrier,
+                # so the final plan must not retain fake appearance/exit motion.
+                e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
+                e['start_seconds']=round(carrier_start,6);e['settle_seconds']=round(carrier_start,6);e['end_seconds']=round(carrier_end,6)
+                e['motion_start_seconds']=round(carrier_start,6);e['motion_end_seconds']=round(carrier_start,6);e['motion_intervals']=[]
+                e['appearance_method']='STATIC_SUPPORT';e['disappearance_method']='STATIC_SUPPORT'
                 e['independent_motion_allowed']=False
                 e['position_animated']=False
+                e['final_lifetime_authority']='FOUNDATION_STATIC_RESIDUAL_CARRIER'
         stats['partition_group_count']+=1
         stats['partition_member_count']+=len(members)
     return stats
