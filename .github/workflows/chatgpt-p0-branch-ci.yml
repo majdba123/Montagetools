@@ -1,0 +1,52 @@
+name: ChatGPT P0 Branch CI
+
+on:
+  push:
+    branches:
+      - chatgpt/p0-visual-lifetime-partition-fix
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-v31-suite:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --upgrade pip==24.3.1
+          python -m pip install "numpy>=1.24,<3" "Pillow>=10,<13" "opencv-python-headless>=4.8,<5" "faster-whisper>=1.0,<2" "arabic-reshaper>=3,<4" "python-bidi>=0.6,<1" "uharfbuzz==0.56.0"
+
+      - name: FFmpeg
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg -y --no-progress
+          }
+          ffmpeg -version | Select-Object -First 1
+          if (Get-Command ffprobe -ErrorAction SilentlyContinue) {
+            ffprobe -version | Select-Object -First 1
+          }
+
+      - name: Full deterministic V31 suite
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: python tests/run_v31_test_suite.py
