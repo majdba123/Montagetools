@@ -60,14 +60,33 @@ windows={(e['physical_start_seconds'],e['physical_end_seconds']) for e in events
 assert len(windows)==1,events
 assert len({e['motion_start_seconds'] for e in (a,b)})==2,(a,b)
 carrier_end=a['partition_carrier_end_seconds']
-assert abs((float(a['preset_exit']['start_seconds'])+float(a['preset_exit']['duration_seconds']))-carrier_end)<1e-6,a
-assert abs((float(b['preset_exit']['start_seconds'])+float(b['preset_exit']['duration_seconds']))-carrier_end)<1e-6,b
+a_exit=next(row for row in a['motion_intervals'] if row['kind']=='EXIT')
+b_exit=next(row for row in b['motion_intervals'] if row['kind']=='EXIT')
+assert abs(float(a_exit['effective_end_seconds'])-carrier_end)<1e-6,a
+assert abs(float(b_exit['effective_end_seconds'])-carrier_end)<1e-6,b
+assert float(a['preset_exit']['duration_seconds'])==.25 and float(b['preset_exit']['duration_seconds'])==.25,(a,b)
 assert a.get('partition_exit_retimed_to_carrier_end'),a
 assert residual['position_animated'] is False and residual['independent_motion_allowed'] is False,residual
 assert residual['preset_entry'] is None and residual['preset_exit'] is None and residual['motion_intervals']==[],residual
 assert residual['motion_start_seconds']==residual['physical_start_seconds'],residual
 qa=visual_timeline_coverage_qa({'fps':30,'events':events,'visual_cards':{'cards':[{'card_id':'VCARD_TEST','start_seconds':min(x[0] for x in windows),'end_seconds':max(x[1] for x in windows)}]}})
 assert qa['pass'],qa
+
+# A disappearance preset may have an authored fully-transparent nominal tail.
+# The exact preset duration remains unchanged, while physical lifetime uses the
+# source-visible envelope from the preset opacity authority.
+invisible_tail=base_event('INVISIBLE_TAIL',render_mode='CHILD_PARTITION',start=0.0,end=2.0)
+invisible_tail['preset_entry']={'name':'ENTRY_LEFT_TO_MIDDLE','start_seconds':0.0,'duration_seconds':1.0}
+invisible_tail['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':1.64,'duration_seconds':0.6}
+invisible_tail['position_animated']=True
+tail_support=base_event('TAIL_SUPPORT',render_mode='RESIDUAL_SUPPORT',start=0.0,end=2.0)
+tail_support['animation_mode']='STATIC_SUPPORT'
+_finalize_visual_lifetimes([invisible_tail,tail_support],{'cards':[{'card_id':'VCARD_TEST','start_seconds':0.0,'end_seconds':2.0}]})
+tail_exit=next(row for row in invisible_tail['motion_intervals'] if row['kind']=='EXIT')
+assert float(invisible_tail['preset_exit']['duration_seconds'])==0.6,invisible_tail
+assert abs(float(tail_exit['effective_visible_fraction'])-.6)<1e-6,tail_exit
+assert abs(float(tail_exit['effective_end_seconds'])-2.0)<1e-6,tail_exit
+assert invisible_tail['position_animated'] and not invisible_tail.get('final_partition_motion_fallback'),invisible_tail
 
 # If final optimized motion cannot fit the legal partition/card carrier,
 # preserve the actor with bounded reveal-only motion rather than failing or
