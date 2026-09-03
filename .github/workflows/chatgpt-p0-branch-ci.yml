@@ -24,6 +24,19 @@ jobs:
 
       - name: Checkout branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact branch head
+        shell: pwsh
+        env:
+          EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $actual = (& git rev-parse HEAD | Out-String).Trim()
+          if ($env:EXPECTED_PR_HEAD -and $actual -ne $env:EXPECTED_PR_HEAD) {
+            throw "CI checkout mismatch: actual=$actual expected_pr_head=$env:EXPECTED_PR_HEAD"
+          }
+          Write-Host "CI_SOURCE_COMMIT=$actual"
 
       - name: Python 3.11
         uses: actions/setup-python@v5
