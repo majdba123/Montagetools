@@ -10,7 +10,10 @@ def _lerp(a,b,q):return float(a)+(float(b)-float(a))*float(q)
 
 def _state(e:dict,t:float):
     st=float(e.get('start_seconds',0));en=float(e.get('end_seconds',st))
-    # Visual lifetimes are half-open [start,end): the boundary frame belongs\n    # to the incoming state only. This matches timeline/card ownership and prevents\n    # a false one-frame collision when one source ends exactly as the next begins.\n    if t<st-1e-6 or t>=en-1e-6:return None
+    # Visual lifetimes are half-open [start,end): the boundary frame belongs
+    # to the incoming state only. This matches timeline/card ownership and prevents
+    # a false one-frame collision when one source ends exactly as the next begins.
+    if t<st-1e-6 or t>=en-1e-6:return None
     rest=e.get('card_rest_position_norm') or [0.5,0.5];pos=[float(rest[0]),float(rest[1])];sc=1.0;op=1.0
     pe=e.get('preset_entry')
     if pe:
