@@ -77,7 +77,8 @@ with tempfile.TemporaryDirectory(prefix='hexa_problem1_closure_') as raw:
     assert cold['cache_state']['status']=='GENERATED' and warm['cache_state']['status']=='HIT',(cold['cache_state'],warm['cache_state'])
     assert cold_hashes==warm_hashes
     assert canonical(cold['units'])==canonical(warm['units'])
-    assert canonical(cold['hierarchy_decisions'])==canonical(warm['hierarchy_decisions'])
+    assert canonical(cold['artifacts']['hierarchy_decisions'])==canonical(warm['artifacts']['hierarchy_decisions'])
+    assert canonical(cold['artifacts']['occlusion_graph'])==canonical(warm['artifacts']['occlusion_graph'])
     cold_fv=cold['artifacts']['foundation_vision'];warm_fv=warm['artifacts']['foundation_vision']
     for key in ('actor_qa','reconstruction_qa','partition_eligibility_pass','partition_fallback_reasons'):
         assert canonical(cold_fv.get(key))==canonical(warm_fv.get(key)),(key,cold_fv.get(key),warm_fv.get(key))
