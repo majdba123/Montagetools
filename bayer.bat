@@ -88,16 +88,22 @@ for /f "delims=" %%P in ('dir /b /a-d "%VALIDATION_DIR%\*.zip" 2^>nul') do (
   set /a VALIDATION_COUNT+=1
   set "VALIDATION_PACKAGE=%VALIDATION_DIR%\%%P"
 )
-if "%VALIDATION_COUNT%"=="0" (
-  echo ERROR: No ZIP validation package was found under "%VALIDATION_DIR%".
-  echo Set HEXA_V31_VALIDATION_PACKAGE to the authoritative Final Package V1.0 ZIP.
-  exit /b 30
-)
-if not "%VALIDATION_COUNT%"=="1" (
-  echo ERROR: Found %VALIDATION_COUNT% ZIP validation packages under "%VALIDATION_DIR%".
-  echo Refusing to guess which package is authoritative.
-  echo Set HEXA_V31_VALIDATION_PACKAGE to the authoritative Final Package V1.0 ZIP.
+if "%VALIDATION_COUNT%"=="1" goto HAVE_VALIDATION_PACKAGE
+
+echo INFO: No single authoritative ZIP could be selected automatically.
+echo INFO: Opening a file picker for the Final Package V1.0 validation ZIP...
+for /f "usebackq delims=" %%P in (`"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -STA -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Title='Select authoritative HEXA Final Package V1.0 ZIP'; $d.Filter='ZIP files (*.zip)|*.zip'; $d.CheckFileExists=$true; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){$d.FileName}"`) do if not defined VALIDATION_PACKAGE set "VALIDATION_PACKAGE=%%P"
+if not defined VALIDATION_PACKAGE (
+  if "%VALIDATION_COUNT%"=="0" (
+    echo ERROR: No ZIP validation package was selected.
+    exit /b 30
+  )
+  echo ERROR: Found %VALIDATION_COUNT% ZIP validation packages and no authoritative package was selected.
   exit /b 31
+)
+if not exist "%VALIDATION_PACKAGE%" (
+  echo ERROR: Selected validation package does not exist: "%VALIDATION_PACKAGE%"
+  exit /b 32
 )
 
 :HAVE_VALIDATION_PACKAGE
