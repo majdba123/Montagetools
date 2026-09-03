@@ -174,6 +174,57 @@ assert {'OUT_A','OUT_B'}.issubset(set(handoff_stats['trimmed_event_ids'])),hando
 assert not out_a.get('suppressed_by_card_density') and not out_b.get('suppressed_by_card_density'),handoff_events
 
 
+
+
+# Tight-beat cross-scene regression: an outgoing source can become readable
+# shortly before the next source begins. The authored APPEAR tail may still be
+# running when disappearance must start. The final solver must preserve the
+# semantic hit and source carrier while allowing legal entry/exit overlap,
+# rather than requiring the entire entry preset to settle first.
+tight_cards={'cards':[{'card_id':'VCARD_TIGHT','start_seconds':0.0,'end_seconds':3.0}]}
+def tight_event(event_id, scene, source_start, start, end, hit, x):
+    e=base_event(event_id,render_mode='ROOT_ATOMIC',start=start,end=end,
+                 scene=scene,card='VCARD_TIGHT',root=event_id+'_ROOT')
+    e.update({
+        'source_scene_start_seconds':source_start,
+        'source_scene_end_seconds':end,
+        'source_bbox_norm':[0.30,0.30,0.34,0.34],
+        'card_rest_position_norm':[x,.52],
+        'planned_rect_norm':[x-.17,.35,.34,.34],
+        'collision_envelope_rect_norm':[x-.17,.35,.34,.34],
+        'layout_scale_multiplier':1.0,
+        'reference_camera_scale':1.0,
+        'attention_priority':'PRIMARY',
+        'perceptual_hit_seconds':hit,
+        'perceptual_hit_source':'VOICE_TRIGGER',
+        'preset_entry':{'name':'APPEAR_HIGH_SCALE','start_seconds':start,'duration_seconds':0.8},
+        'preset_exit':{'name':'DISAPPEAR_DOWN_SCALE','start_seconds':end-.36,'duration_seconds':0.6},
+        'appearance_method':'SCALE_POP',
+        'disappearance_method':'PRESET_DISAPPEARANCE',
+    })
+    return e
+
+tight_a=tight_event('TIGHT_A','SCENE_A',0.0,.40,1.60,.96,.47)
+tight_b=tight_event('TIGHT_B','SCENE_A',0.0,.44,1.62,1.00,.53)
+tight_in=tight_event('TIGHT_IN','SCENE_B',.95,.95,2.60,1.51,.50)
+tight_events=[tight_a,tight_b,tight_in]
+tight_before=card_motion_conflicts(tight_events,0.0,3.0,30.0)
+assert any('TIGHT_IN' in {r['event_a'],r['event_b']} for r in tight_before),tight_before
+tight_stats=_finalize_visual_lifetimes(tight_events,tight_cards,30.0)['partition_handoff_repair']
+tight_after=card_motion_conflicts(tight_events,0.0,3.0,30.0)
+assert not any('TIGHT_IN' in {r['event_a'],r['event_b']} and
+               ({r['event_a'],r['event_b']} & {'TIGHT_A','TIGHT_B'})
+               for r in tight_after),(tight_stats,tight_after,tight_events)
+for e in (tight_a,tight_b):
+    assert not e.get('suppressed_by_card_density'),e
+    assert float(e['physical_end_seconds'])<1.60+1e-6,e
+    assert float(e['preset_exit']['duration_seconds'])==0.6,e
+    # The semantic hit itself must remain visibly readable even if the
+    # APPEAR/DISAPPEAR authored tails overlap in this short beat.
+    from hexa_v31.composition_qa import _state as _qa_state
+    st=_qa_state(e,float(e['perceptual_hit_seconds']))
+    assert st is not None and float(st[2])>.22,(e,st)
+
 print('V31_FINAL_VISUAL_LIFETIME_CONTRACT_PASS')
 
 
