@@ -1007,6 +1007,11 @@ def _consolidate_card_identity(evs:list[dict]):
         if key not in masters:
             masters[key]=e;e['persistent_master_event_id']=e['event_id'];e['persistent_source_scene_ids']=[e.get('scene_id')];continue
         m=masters[key]
+        # Certified Foundation reconstruction members are source-survival atomic.
+        # Semantic identity persistence may merge logical states, but it may not
+        # suppress one physical member and redefine a partial partition as complete.
+        if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} or m.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            continue
         if key[1].startswith('PHYS::'):continue
         e['suppressed_by_card_density']=True;e['suppression_reason']='CARD_IDENTITY_PERSISTENCE';e['persistent_master_event_id']=m['event_id']
         m.setdefault('persistent_source_scene_ids',[]).append(e.get('scene_id'));m['perceptual_hit_seconds']=min(float(m.get('perceptual_hit_seconds',0)),float(e.get('perceptual_hit_seconds',0)))
@@ -1434,6 +1439,12 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
             dropped=set(phase_plan.get('suppressed_event_ids') or [])
             for e in selected_events:
                 if e['event_id'] in dropped:
+                    if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+                        # Never solve density by deleting certified source pixels.
+                        # Keep the full partition; the subsequent layout/static
+                        # fallback must either fit it or fail safely.
+                        e['partition_suppression_blocked']='CERTIFIED_SOURCE_SURVIVAL_ATOMICITY'
+                        continue
                     e['suppressed_by_card_density']=True
                     e['suppression_reason']='V31_0_25_ADAPTIVE_COLLISION_RECOVERY'
             selected_events=[e for e in selected_events if not e.get('suppressed_by_card_density')]
