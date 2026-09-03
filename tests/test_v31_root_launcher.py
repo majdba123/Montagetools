@@ -50,16 +50,10 @@ def make_fixture(base: Path, *, latest: bool = True, installer: bool = True,
             encoding='utf-8',
         )
 
-    validation = repo / 'Final Packages' / 'HEXA_FINAL_PACKAGE_V1.0.zip'
-    if validation_package:
-        validation.parent.mkdir(parents=True, exist_ok=True)
-        validation.write_bytes(b'fixture-package')
-
     if build_helper:
         (repo / 'tools' / 'build_latest_release.ps1').write_text(
-            """param([Parameter(Mandatory=$true)][string]$PackagePath)
+            """param([Parameter(Mandatory=$false)][string]$PackagePath)
 $ErrorActionPreference='Stop'
-if (-not (Test-Path -LiteralPath $PackagePath -PathType Leaf)) { throw 'validation package missing' }
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $commit=(& git -C $root rev-parse HEAD | Out-String).Trim()
 $latest=Join-Path $root 'dist\\latest'
@@ -84,16 +78,11 @@ Write-Output 'HEXA_DIST_LATEST_BUILD_PASS'
     return repo
 
 
-def run_launcher(repo: Path, cwd: Path, *, code: int = 0, validation_env: bool = True):
+def run_launcher(repo: Path, cwd: Path, *, code: int = 0):
     marker = repo / 'latest installer marker.txt'
     env = os.environ.copy()
     env['HEXA_TEST_INSTALL_MARKER'] = str(marker)
     env['HEXA_TEST_INSTALL_EXIT'] = str(code)
-    validation = repo / 'Final Packages' / 'HEXA_FINAL_PACKAGE_V1.0.zip'
-    if validation_env and validation.is_file():
-        env['HEXA_V31_VALIDATION_PACKAGE'] = str(validation)
-    else:
-        env.pop('HEXA_V31_VALIDATION_PACKAGE', None)
     command = f'cmd.exe /d /s /c call "{repo / "bayer.bat"}"'
     cp = subprocess.run(
         command,
@@ -117,19 +106,11 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
     assert 'Rebuilding a validated release payload' in cp.stdout, cp.stdout
     assert 'HEXA INSTALL COMPLETE' in cp.stdout, cp.stdout
 
-    missing_validation = make_fixture(base / 'missing validation', latest=False, validation_package=False)
-    env = os.environ.copy()
-    env['HEXA_V31_DISABLE_FILE_PICKER'] = '1'
-    marker = missing_validation / 'latest installer marker.txt'
-    env['HEXA_TEST_INSTALL_MARKER'] = str(marker)
-    env['HEXA_TEST_INSTALL_EXIT'] = '0'
-    command = f'cmd.exe /d /s /c call "{missing_validation / "bayer.bat"}"'
-    cp = subprocess.run(
-        command, cwd=base, env=env, text=True,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60,
-    )
-    assert cp.returncode == 30, cp.stdout
-    assert 'interactive selection is disabled' in cp.stdout.lower(), cp.stdout
+    no_project_package = make_fixture(base / 'no project package', latest=False, validation_package=False)
+    cp, marker = run_launcher(no_project_package, base)
+    assert cp.returncode == 0, cp.stdout
+    assert marker.is_file(), cp.stdout
+    assert 'Project package selection remains inside Premiere' in cp.stdout, cp.stdout
 
     missing_installer = make_fixture(base / 'missing installer', installer=False)
     cp, marker = run_launcher(missing_installer, base)
