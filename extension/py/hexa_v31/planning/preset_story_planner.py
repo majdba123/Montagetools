@@ -1225,8 +1225,11 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
             # but visibly exit and then reappear as a held state.
             if e.get('render_mode')!='RESIDUAL_SUPPORT' and e.get('preset_exit'):
                 exit_row=e['preset_exit']
-                old_motion_end=float(e.get('motion_end_seconds',e.get('end_seconds',carrier_end)))
-                if carrier_end>old_motion_end+1e-6:
+                exit_start=float(exit_row.get('start_seconds',e.get('end_seconds',carrier_end)))
+                exit_duration=max(0.0,float(exit_row.get('duration_seconds') or 0.0))
+                exit_fraction=_motion_interval_effective_fraction('EXIT',str(exit_row.get('name') or ''))
+                exit_effective_end=exit_start+exit_duration*exit_fraction
+                if carrier_end>exit_effective_end+1e-6:
                     _retime_exit_to_effective_end(e,carrier_end,float(e.get('motion_start_seconds',carrier_start)))
                     e['end_seconds']=round(carrier_end,6)
                     intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
