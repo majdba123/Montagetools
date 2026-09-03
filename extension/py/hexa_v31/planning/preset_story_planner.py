@@ -1090,6 +1090,95 @@ def _foundation_partition_motion_contract(events:list[dict])->dict:
     signatures={(str((e.get('preset_entry') or {}).get('name')),tuple(str(a.get('name')) for a in (e.get('preset_actions') or []))) for e in independent}
     return {'eligible_foundation_actor_count':eligible,'independently_animated_actor_count':len(independent),'independent_actor_motion_ratio':round(len(independent)/max(1,eligible),4),'spatially_displaced_actor_count':len(independent),'distinct_motion_signature_count':len(signatures),'static_support_actor_count':sum(e.get('attention_priority')=='SUPPORTING' and not e.get('position_animated') for e in rows),'reveal_only_actor_count':sum(e.get('foundation_motion_decision')=='REVEAL_ONLY' for e in rows)}
 
+def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
+    """Commit physical carrier lifetimes from the final immutable motion state.
+
+    Scheduling establishes provisional timing only. Downstream optimizers may
+    legally retime entry/action/exit presets, so physical lifetime is committed
+    once, after every timing-mutating pass. Certified partition members share
+    one carrier envelope while retaining independent motion intervals.
+    """
+    card_by={str(c.get('card_id')):c for c in (cards.get('cards') or [])}
+    active=[e for e in events if not e.get('suppressed_by_card_density')]
+    stats={'event_count':len(active),'partition_group_count':0,'partition_member_count':0,
+           'suppressed_partition_member_count':0,'recommitted_event_count':0}
+
+    # A certified partition is source-survival atomic. Never allow density or
+    # identity suppression to silently turn it into a partial reconstruction.
+    partition_all={}
+    for e in events:
+        if e.get('render_mode') not in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            continue
+        key=(str(e.get('visual_card_id')),str(e.get('scene_id')),str(e.get('partition_root_id')))
+        partition_all.setdefault(key,[]).append(e)
+    partial=[]
+    for key,members in partition_all.items():
+        suppressed=[e for e in members if e.get('suppressed_by_card_density')]
+        live=[e for e in members if not e.get('suppressed_by_card_density')]
+        if suppressed and live:
+            stats['suppressed_partition_member_count']+=len(suppressed)
+            partial.append((key,[str(e.get('event_id')) for e in suppressed]))
+    if partial:
+        detail=' | '.join(f"{k[0]}:{k[1]}:{k[2]} suppressed={ids}" for k,ids in partial[:8])
+        raise ValueError('PARTIAL_CERTIFIED_PARTITION_SUPPRESSION: '+detail)
+
+    for e in active:
+        intervals=[]
+        if e.get('preset_entry'):
+            intervals.append(dict(kind='ENTRY',**e['preset_entry']))
+        intervals.extend(dict(kind='ACTION',**a) for a in (e.get('preset_actions') or []))
+        if e.get('preset_exit'):
+            intervals.append(dict(kind='EXIT',**e['preset_exit']))
+        starts=[float(e.get('start_seconds',0))]
+        ends=[float(e.get('end_seconds',e.get('start_seconds',0)))]
+        for row in intervals:
+            st=float(row.get('start_seconds',e.get('start_seconds',0)))
+            dur=max(0.0,float(row.get('duration_seconds') or 0.0))
+            starts.append(st);ends.append(st+dur)
+        motion_start=min(starts);motion_end=max(ends)
+        prior_start=float(e.get('physical_start_seconds',motion_start))
+        prior_end=float(e.get('physical_end_seconds',motion_end))
+        e['motion_start_seconds']=round(motion_start,6)
+        e['motion_end_seconds']=round(motion_end,6)
+        e['motion_intervals']=intervals
+        e['physical_start_seconds']=round(min(prior_start,motion_start),6)
+        e['physical_end_seconds']=round(max(prior_end,motion_end),6)
+        e['visibility_interval_seconds']=[e['physical_start_seconds'],e['physical_end_seconds']]
+        e['final_lifetime_authority']='FINAL_COMMITTED_MOTION_AND_CARRIER_STATE'
+        stats['recommitted_event_count']+=1
+
+    groups={}
+    for e in active:
+        if e.get('render_mode') not in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            continue
+        key=(str(e.get('visual_card_id')),str(e.get('scene_id')),str(e.get('partition_root_id')))
+        groups.setdefault(key,[]).append(e)
+    for key,members in groups.items():
+        carrier_start=min(float(e['physical_start_seconds']) for e in members)
+        carrier_end=max(float(e['physical_end_seconds']) for e in members)
+        card=card_by.get(key[0])
+        if card is not None:
+            carrier_start=max(float(card.get('start_seconds',carrier_start)),carrier_start)
+            carrier_end=min(float(card.get('end_seconds',carrier_end)),carrier_end)
+        if carrier_end<=carrier_start+1e-6:
+            raise ValueError(f"{key[0]}:{key[1]}:{key[2]} invalid Foundation partition carrier lifetime")
+        for e in members:
+            # Existence is group-owned; reveal/action timing remains actor-owned.
+            e['partition_carrier_start_seconds']=round(carrier_start,6)
+            e['partition_carrier_end_seconds']=round(carrier_end,6)
+            e['physical_start_seconds']=round(carrier_start,6)
+            e['physical_end_seconds']=round(carrier_end,6)
+            e['visibility_interval_seconds']=[e['physical_start_seconds'],e['physical_end_seconds']]
+            if float(e.get('motion_start_seconds',carrier_start))<carrier_start-1e-6 or float(e.get('motion_end_seconds',carrier_end))>carrier_end+1e-6:
+                raise ValueError(f"{e.get('event_id')}: motion lifetime cannot fit certified partition carrier")
+            if e.get('render_mode')=='RESIDUAL_SUPPORT':
+                e['independent_motion_allowed']=False
+                e['position_animated']=False
+        stats['partition_group_count']+=1
+        stats['partition_member_count']+=len(members)
+    return stats
+
+
 def _hierarchical_render_metadata(unit:dict)->dict:
     return {
         'render_mode':unit.get('render_mode','ROOT_ATOMIC'),
@@ -1414,11 +1503,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     atomic_stats=_atomic_handoff_optimize(events,cards,fps)
     final_secondary_geometry=_finalize_secondary_character_geometry(events)
     final_physical_certification=_final_physical_certification(events,cards,fps)
-    for e in events:
-        if not e.get('suppressed_by_card_density'):
-            e['motion_start_seconds']=e.get('start_seconds')
-            e['motion_end_seconds']=e.get('end_seconds')
-            e['motion_intervals']=([dict(kind='ENTRY',**e['preset_entry'])] if e.get('preset_entry') else [])+[dict(kind='ACTION',**a) for a in (e.get('preset_actions') or [])]+([dict(kind='EXIT',**e['preset_exit'])] if e.get('preset_exit') else [])
+    final_lifetime_commit=_finalize_visual_lifetimes(events,cards)
     from hexa_v31.composition_qa import composition_plan_qa
     final_composition_qa=composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     # This is intentionally retained as an authoritative final-plan record.
