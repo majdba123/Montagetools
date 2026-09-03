@@ -46,9 +46,11 @@ assert escaped['physical_end_seconds']>=escaped['motion_end_seconds'],escaped
 # but every member of one certified partition owns one coherent carrier window.
 a=base_event('CHILD_A',render_mode='CHILD_PARTITION',start=.0,end=1.0)
 a['preset_entry']={'name':'ENTRY_LEFT_TO_MIDDLE','start_seconds':.1,'duration_seconds':.35}
+a['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':.75,'duration_seconds':.25}
 a['position_animated']=True
 b=base_event('CHILD_B',render_mode='CHILD_PARTITION',start=.35,end=1.45)
 b['preset_entry']={'name':'APPEAR_HIGH_SCALE','start_seconds':.5,'duration_seconds':.3}
+b['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':1.2,'duration_seconds':.25}
 residual=base_event('RESIDUAL_SUPPORT',render_mode='RESIDUAL_SUPPORT',start=.0,end=1.25)
 residual['animation_mode']='STATIC_SUPPORT'
 events=[a,b,residual]
@@ -57,6 +59,10 @@ assert stats['partition_group_count']==1,stats
 windows={(e['physical_start_seconds'],e['physical_end_seconds']) for e in events}
 assert len(windows)==1,events
 assert len({e['motion_start_seconds'] for e in (a,b)})==2,(a,b)
+carrier_end=a['partition_carrier_end_seconds']
+assert abs((float(a['preset_exit']['start_seconds'])+float(a['preset_exit']['duration_seconds']))-carrier_end)<1e-6,a
+assert abs((float(b['preset_exit']['start_seconds'])+float(b['preset_exit']['duration_seconds']))-carrier_end)<1e-6,b
+assert a.get('partition_exit_retimed_to_carrier_end'),a
 assert residual['position_animated'] is False and residual['independent_motion_allowed'] is False,residual
 qa=visual_timeline_coverage_qa({'fps':30,'events':events,'visual_cards':{'cards':[{'card_id':'VCARD_TEST','start_seconds':min(x[0] for x in windows),'end_seconds':max(x[1] for x in windows)}]}})
 assert qa['pass'],qa
