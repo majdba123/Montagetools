@@ -64,6 +64,8 @@ assert abs((float(a['preset_exit']['start_seconds'])+float(a['preset_exit']['dur
 assert abs((float(b['preset_exit']['start_seconds'])+float(b['preset_exit']['duration_seconds']))-carrier_end)<1e-6,b
 assert a.get('partition_exit_retimed_to_carrier_end'),a
 assert residual['position_animated'] is False and residual['independent_motion_allowed'] is False,residual
+assert residual['preset_entry'] is None and residual['preset_exit'] is None and residual['motion_intervals']==[],residual
+assert residual['motion_start_seconds']==residual['physical_start_seconds'],residual
 qa=visual_timeline_coverage_qa({'fps':30,'events':events,'visual_cards':{'cards':[{'card_id':'VCARD_TEST','start_seconds':min(x[0] for x in windows),'end_seconds':max(x[1] for x in windows)}]}})
 assert qa['pass'],qa
 
