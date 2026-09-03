@@ -174,7 +174,8 @@ def _preset_event_state(e:dict,t:float):
 def _event_state(e:dict,t:float):
     physical_start=float(e.get('physical_start_seconds',e.get('start_seconds',0)))
     physical_end=float(e.get('physical_end_seconds',e.get('end_seconds',physical_start)))
-    # Physical carriers use the same half-open [start,end) lifetime as QA.\n    if t<physical_start-1e-6 or t>=physical_end-1e-6:return None
+    # Physical carriers use the same half-open [start,end) lifetime as QA.
+    if t<physical_start-1e-6 or t>=physical_end-1e-6:return None
     if e.get('render_mode')=='RESIDUAL_SUPPORT':
         rest=e.get('object_rest_position_px') or e.get('end_position_px') or e.get('rest_position_px') or [960.0,540.0]
         return (float(rest[0]),float(rest[1])),1.0,1.0
