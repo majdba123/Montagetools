@@ -71,6 +71,41 @@ jobs:
           PYTHONUTF8: '1'
         run: python tests/run_v31_test_suite.py
 
+      - name: Bootstrap CI runtime contract
+        shell: pwsh
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+          $python = (Get-Command python).Source
+          $ffmpeg = (Get-Command ffmpeg).Source
+          $ffprobeCmd = Get-Command ffprobe -ErrorAction SilentlyContinue
+          $ffprobe = if ($ffprobeCmd) { $ffprobeCmd.Source } else { $null }
+          $cfg = [ordered]@{
+            schema = 'HEXA_V31_RUNTIME_CONFIG'
+            version = 'CI_SHIPPING_GATE'
+            python_exe = $python
+            python_import_roots = @()
+            python_import_contract_sha256 = 'CI_SHIPPING_GATE'
+            ffmpeg_path = $ffmpeg
+            ffprobe_path = $ffprobe
+            media_probe_backend = if ($ffprobe) { 'FFPROBE_JSON' } else { 'FFMPEG_STDERR_FALLBACK' }
+            downloads_during_build = $false
+            allow_whisper = $false
+            cpu_threads = 2
+            build_cache_root = (Join-Path $runtimeDir 'builds')
+            foundation_vision_enabled = $false
+            source_commit = ((& git rev-parse HEAD | Out-String).Trim())
+          }
+          $cfgPath = Join-Path $runtimeDir 'runtime_config.json'
+          $cfg | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $cfgPath -Encoding UTF8
+          if (-not (Test-Path -LiteralPath $cfgPath -PathType Leaf)) {
+            throw "CI runtime_config.json was not created"
+          }
+          Write-Host "CI_RUNTIME_CONFIG=$cfgPath"
+          Write-Host "CI_PYTHON=$python"
+          Write-Host "CI_FFMPEG=$ffmpeg"
+          Write-Host "CI_FFPROBE=$ffprobe"
+
       - name: Build actual shipping release
         shell: pwsh
         env:
