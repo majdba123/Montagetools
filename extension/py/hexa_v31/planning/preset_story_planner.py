@@ -1189,7 +1189,34 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
             e['physical_start_seconds']=round(carrier_start,6)
             e['physical_end_seconds']=round(carrier_end,6)
             e['visibility_interval_seconds']=[e['physical_start_seconds'],e['physical_end_seconds']]
-            if float(e.get('motion_start_seconds',carrier_start))<carrier_start-1e-6 or float(e.get('motion_end_seconds',carrier_end))>carrier_end+1e-6:
+            motion_escapes=(float(e.get('motion_start_seconds',carrier_start))<carrier_start-1e-6 or
+                            float(e.get('motion_end_seconds',carrier_end))>carrier_end+1e-6)
+            if motion_escapes and e.get('render_mode')!='RESIDUAL_SUPPORT':
+                # Final semantic/card ownership is harder authority than an
+                # optional animated path. Preserve the complete source member
+                # and compile a bounded reveal/hold/exit instead of deleting it
+                # or allowing motion to escape the carrier.
+                ad=preset_duration('APPEAR_HIGH_SCALE');dd=preset_duration('DISAPPEAR_DOWN_SCALE')
+                latest_entry=max(carrier_start,carrier_end-dd-ad-0.10)
+                old_entry=float((e.get('preset_entry') or {}).get('start_seconds',e.get('start_seconds',carrier_start)))
+                st=max(carrier_start,min(old_entry,latest_entry))
+                xs=max(st+ad+0.05,carrier_end-dd)
+                if xs+dd>carrier_end+1e-6:
+                    xs=max(st+ad,carrier_end-dd)
+                e['preset_entry']={'name':'APPEAR_HIGH_SCALE','start_seconds':round(st,6),'duration_seconds':ad,
+                                   'authority':'FINAL_PARTITION_CARRIER_REVEAL_FALLBACK'}
+                e['preset_actions']=[]
+                e['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':round(xs,6),'duration_seconds':dd,
+                                  'authority':'FINAL_PARTITION_CARRIER_REVEAL_FALLBACK'}
+                e['start_seconds']=round(st,6);e['settle_seconds']=round(st+ad,6);e['end_seconds']=round(carrier_end,6)
+                e['appearance_method']='SCALE_POP';e['disappearance_method']='PRESET_DISAPPEARANCE'
+                e['position_animated']=False;e['entry_direction']=None
+                e['foundation_motion_decision']='REVEAL_ONLY'
+                e['final_partition_motion_fallback']='MOTION_ENVELOPE_OUTSIDE_CARRIER'
+                intervals=[dict(kind='ENTRY',**e['preset_entry']),dict(kind='EXIT',**e['preset_exit'])]
+                e['motion_intervals']=intervals;e['motion_start_seconds']=round(st,6);e['motion_end_seconds']=round(carrier_end,6)
+                motion_escapes=False
+            if motion_escapes:
                 raise ValueError(f"{e.get('event_id')}: motion lifetime cannot fit certified partition carrier")
             if e.get('render_mode')=='RESIDUAL_SUPPORT':
                 e['independent_motion_allowed']=False
