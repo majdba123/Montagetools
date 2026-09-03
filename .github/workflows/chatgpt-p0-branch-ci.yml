@@ -1,13 +1,14 @@
 name: ChatGPT P0 Branch CI
 
 on:
-  push:
-    branches:
-      - chatgpt/p0-visual-lifetime-partition-fix
   pull_request:
     branches:
       - old-final-package
   workflow_dispatch:
+
+concurrency:
+  group: chatgpt-p0-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
