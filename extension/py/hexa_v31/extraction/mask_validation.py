@@ -59,5 +59,5 @@ def validate_mask(mask,bbox,foreground_mask,other_masks=()):
         overlap_max=max(overlap_max,inter/max(1,union))
     base['other_mask_iou_max']=round(overlap_max,6)
     if overlap_max>.84:return False,'EXCESSIVE_OVERLAP',base
-    edge=bool(np.any(m[0]) or np.any(m[-1]) or np.any(m[:,-1]));base['edge_touch']=edge
+    edge=bool(np.any(m[0]) or np.any(m[-1]) or np.any(m[:,0]) or np.any(m[:,-1]));base['edge_touch']=edge
     return True,None,base
