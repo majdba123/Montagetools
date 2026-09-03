@@ -61,7 +61,7 @@ if not exist "%LATEST_INSTALLER%" exit /b 0
 if not exist "%LATEST%\extension\py\hexa_v31\__init__.py" exit /b 0
 if not exist "%LATEST%\tools\install_v31.py" exit /b 0
 if not exist "%LATEST%\release_identity.json" exit /b 0
-for /f "delims=" %%S in ('"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -Command "(Get-Content -LiteralPath '%LATEST%\release_identity.json' -Raw | ConvertFrom-Json).source_commit"') do if not defined RELEASE_COMMIT set "RELEASE_COMMIT=%%S"
+for /f "delims=" %%S in ('%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -NoProfile -NonInteractive -Command "(Get-Content -LiteralPath '%LATEST%\release_identity.json' -Raw | ConvertFrom-Json).source_commit"') do if not defined RELEASE_COMMIT set "RELEASE_COMMIT=%%S"
 if /i "%SOURCE_COMMIT%"=="%RELEASE_COMMIT%" set "RELEASE_READY=1"
 exit /b 0
 
@@ -92,7 +92,7 @@ if "%VALIDATION_COUNT%"=="1" goto HAVE_VALIDATION_PACKAGE
 
 echo INFO: No single authoritative ZIP could be selected automatically.
 echo INFO: Opening a file picker for the Final Package V1.0 validation ZIP...
-for /f "usebackq delims=" %%P in (`"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -STA -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Title='Select authoritative HEXA Final Package V1.0 ZIP'; $d.Filter='ZIP files (*.zip)|*.zip'; $d.CheckFileExists=$true; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){$d.FileName}"`) do if not defined VALIDATION_PACKAGE set "VALIDATION_PACKAGE=%%P"
+for /f "delims=" %%P in ('%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -NoProfile -STA -Command "Add-Type -AssemblyName System.Windows.Forms; $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Title='Select authoritative HEXA Final Package V1.0 ZIP'; $d.Filter='ZIP files (*.zip)|*.zip'; $d.CheckFileExists=$true; if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){$d.FileName}"') do if not defined VALIDATION_PACKAGE set "VALIDATION_PACKAGE=%%P"
 if not defined VALIDATION_PACKAGE (
   if "%VALIDATION_COUNT%"=="0" (
     echo ERROR: No ZIP validation package was selected.
