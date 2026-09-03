@@ -112,7 +112,7 @@ def _preset_event_state(e:dict,t:float):
     absolute=str(e.get('preset_coordinate_mode') or '').upper()=='ABSOLUTE_OBJECT_CENTER'
     pos=[float(rest[0]),float(rest[1])];sc=1.0;op=1.0
     st=float(e.get('start_seconds',0));en=float(e.get('end_seconds',st))
-    if t<st-1e-6 or t>en+1e-6:return None
+    if t<st-1e-6 or t>=en-1e-6:return None
 
     pe=e.get('preset_entry')
     if pe:
@@ -174,7 +174,7 @@ def _preset_event_state(e:dict,t:float):
 def _event_state(e:dict,t:float):
     physical_start=float(e.get('physical_start_seconds',e.get('start_seconds',0)))
     physical_end=float(e.get('physical_end_seconds',e.get('end_seconds',physical_start)))
-    if t<physical_start-1e-6 or t>physical_end+1e-6:return None
+    # Physical carriers use the same half-open [start,end) lifetime as QA.\n    if t<physical_start-1e-6 or t>=physical_end-1e-6:return None
     if e.get('render_mode')=='RESIDUAL_SUPPORT':
         rest=e.get('object_rest_position_px') or e.get('end_position_px') or e.get('rest_position_px') or [960.0,540.0]
         return (float(rest[0]),float(rest[1])),1.0,1.0
@@ -186,7 +186,7 @@ def _event_state(e:dict,t:float):
     if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions'):
         return _preset_event_state(e,t)
     st=float(e.get('start_seconds',0)); settle=float(e.get('settle_seconds',st)); end=float(e.get('end_seconds',st))
-    if t<st-1e-6 or t>end+1e-6:return None
+    if t<st-1e-6 or t>=end-1e-6:return None
     progress=1.0 if settle<=st else _ease((t-st)/(settle-st))
     sp=e.get('start_position_px') or [960,540];ep=e.get('end_position_px') or [960,540]
     if e.get('position_animated'):
