@@ -15,6 +15,9 @@ ROOT=pathlib.Path(__file__).resolve().parents[1]
 def sha(path):
     return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
 
+def canonical(value):
+    return json.loads(json.dumps(value,sort_keys=True,ensure_ascii=False))
+
 def make_foundation(mask_root,scene_id,specs,partial_first=False,signature='foundation-problem1'):
     mask_dir=mask_root/('masks_'+scene_id);mask_dir.mkdir();candidates=[];masks=[]
     for index,(label,box,_color) in enumerate(specs,1):
@@ -73,21 +76,21 @@ with tempfile.TemporaryDirectory(prefix='hexa_problem1_closure_') as raw:
     warm_hashes={u['physical_id']:sha(u['layer_path']) for u in warm['units'] if u.get('layer_path')}
     assert cold['cache_state']['status']=='GENERATED' and warm['cache_state']['status']=='HIT',(cold['cache_state'],warm['cache_state'])
     assert cold_hashes==warm_hashes
-    assert cold['units']==warm['units']
-    assert cold['hierarchy_decisions']==warm['hierarchy_decisions']
+    assert canonical(cold['units'])==canonical(warm['units'])
+    assert canonical(cold['hierarchy_decisions'])==canonical(warm['hierarchy_decisions'])
     cold_fv=cold['artifacts']['foundation_vision'];warm_fv=warm['artifacts']['foundation_vision']
     for key in ('actor_qa','reconstruction_qa','partition_eligibility_pass','partition_fallback_reasons'):
-        assert cold_fv.get(key)==warm_fv.get(key),(key,cold_fv.get(key),warm_fv.get(key))
+        assert canonical(cold_fv.get(key))==canonical(warm_fv.get(key)),(key,cold_fv.get(key),warm_fv.get(key))
     cold_selected,cold_selection_diag=_select_render_units(cold)
     warm_selected,warm_selection_diag=_select_render_units(warm)
-    assert cold_selected==warm_selected
-    assert cold_selection_diag==warm_selection_diag
+    assert canonical(cold_selected)==canonical(warm_selected)
+    assert canonical(cold_selection_diag)==canonical(warm_selection_diag)
     parity_alignment={'method':'TEST','scene_count':1,'scene_timings':[{'scene_id':'CACHE_PARITY','start':0.0,'end':3.0}],
                       'word_timings':[{'word':'purple','start':.6,'end':.8}]}
     parity_plan={'project_id':'CACHE_PARITY_ARBITRARY','scenes':[dict(parity_scene,visual_progression=[],script_span={'global_char_start':0,'global_char_end':12,'text':'purple object'},relation_to_previous='START')]}
     cold_motion=build_motion_plan(parity_plan,parity_alignment,[cold],ROOT/'extension/resources/HEXA_EDITING_RULES_V20.json',ROOT/'extension/resources/HEXA_REFERENCE_QA_PROFILE_V20.json')
     warm_motion=build_motion_plan(parity_plan,parity_alignment,[warm],ROOT/'extension/resources/HEXA_EDITING_RULES_V20.json',ROOT/'extension/resources/HEXA_REFERENCE_QA_PROFILE_V20.json')
-    assert cold_motion['events']==warm_motion['events']
+    assert canonical(cold_motion['events'])==canonical(warm_motion['events'])
     assert [(e.get('event_id'),e.get('physical_start_seconds'),e.get('physical_end_seconds'),e.get('render_mode')) for e in cold_motion['events']]==[(e.get('event_id'),e.get('physical_start_seconds'),e.get('physical_end_seconds'),e.get('render_mode')) for e in warm_motion['events']]
 
     scenes=[clean_scene,bad_scene];visions=[clean,bad]
