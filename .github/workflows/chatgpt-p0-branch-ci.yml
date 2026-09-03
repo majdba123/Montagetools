@@ -52,6 +52,24 @@ jobs:
             ffprobe -version | Select-Object -First 1
           }
 
+      - name: Preset byte authority diagnostics
+        shell: pwsh
+        run: |
+          $preset = "extension/resources/presets.prfpset"
+          $authority = Get-Content "extension/resources/HEXA_USER_PRESET_AUTHORITY_V31.json" -Raw | ConvertFrom-Json
+          $actual = (Get-FileHash $preset -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = $authority.source_files.prfpset_sha256.ToLowerInvariant()
+          $size = (Get-Item $preset).Length
+          Write-Host "PRFPSET_ACTUAL_SHA256=$actual"
+          Write-Host "PRFPSET_EXPECTED_SHA256=$expected"
+          Write-Host "PRFPSET_BYTES=$size"
+          git check-attr -a -- $preset
+          if ($actual -ne $expected) {
+            Write-Host "PRFPSET_AUTHORITY_MISMATCH=YES"
+          } else {
+            Write-Host "PRFPSET_AUTHORITY_MISMATCH=NO"
+          }
+
       - name: Full deterministic V31 suite
         shell: pwsh
         env:
