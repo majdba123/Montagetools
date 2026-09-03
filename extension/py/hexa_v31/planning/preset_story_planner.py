@@ -1411,10 +1411,41 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # voice anchor. A source scene may straddle an editorial boundary; its
     # physical state must follow the anchor rather than an obsolete scene map.
     ordered_cards=cards['cards']
-    for e in events:
-        hit=float(e.get('perceptual_hit_seconds',e.get('source_scene_start_seconds',0)))
+    def _target_card_for_anchor(hit):
         target=next((c for c in ordered_cards if float(c['start_seconds'])-1e-6<=hit<float(c['end_seconds'])-1e-6),None)
-        if target is None and ordered_cards:target=min(ordered_cards,key=lambda c:min(abs(hit-float(c['start_seconds'])),abs(hit-float(c['end_seconds']))))
+        if target is None and ordered_cards:
+            target=min(ordered_cards,key=lambda c:min(abs(hit-float(c['start_seconds'])),abs(hit-float(c['end_seconds']))))
+        return target
+    # Certified Foundation partitions are one source visual. Card ownership is
+    # therefore group-owned even when individual children have staggered voice
+    # anchors. Splitting children of one reconstruction across cards creates a
+    # partial source state and invalid carrier lifetimes.
+    partition_groups={}
+    for e in events:
+        if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            key=(str(e.get('scene_id')),str(e.get('partition_root_id')))
+            partition_groups.setdefault(key,[]).append(e)
+    assigned_partition_ids=set()
+    for members in partition_groups.values():
+        focus=next((e for e in members if str(e.get('attention_priority') or '').upper()=='PRIMARY'),None)
+        if focus is None:
+            focus=min(members,key=lambda e:(float(e.get('perceptual_hit_seconds',e.get('source_scene_start_seconds',0))),str(e.get('event_id'))))
+        hit=float(focus.get('perceptual_hit_seconds',focus.get('source_scene_start_seconds',0)))
+        target=_target_card_for_anchor(hit)
+        if target:
+            for e in members:
+                assigned_partition_ids.add(str(e.get('event_id')))
+                if e.get('visual_card_id')!=target['card_id']:
+                    e['repartitioned_from_visual_card_id']=e.get('visual_card_id')
+                    e['visual_card_id']=target['card_id']
+                    e['card_repartition_strategy']='FOUNDATION_PARTITION_GROUP_ANCHOR'
+                if e.get('scene_id') not in target.get('source_scene_ids',[]):
+                    target.setdefault('source_scene_ids',[]).append(e.get('scene_id'))
+    for e in events:
+        if str(e.get('event_id')) in assigned_partition_ids:
+            continue
+        hit=float(e.get('perceptual_hit_seconds',e.get('source_scene_start_seconds',0)))
+        target=_target_card_for_anchor(hit)
         if target and e.get('visual_card_id')!=target['card_id']:
             e['repartitioned_from_visual_card_id']=e.get('visual_card_id');e['visual_card_id']=target['card_id'];e['card_repartition_strategy']='ANCHOR_INTERVAL_CARD_SPLIT'
             if e.get('scene_id') not in target.get('source_scene_ids',[]):target.setdefault('source_scene_ids',[]).append(e.get('scene_id'))
