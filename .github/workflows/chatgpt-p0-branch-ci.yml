@@ -59,29 +59,11 @@ jobs:
           $authority = Get-Content "extension/resources/HEXA_USER_PRESET_AUTHORITY_V31.json" -Raw | ConvertFrom-Json
           $actual = (Get-FileHash $preset -Algorithm SHA256).Hash.ToLowerInvariant()
           $expected = $authority.source_files.prfpset_sha256.ToLowerInvariant()
-          $size = (Get-Item $preset).Length
           Write-Host "PRFPSET_ACTUAL_SHA256=$actual"
           Write-Host "PRFPSET_EXPECTED_SHA256=$expected"
-          Write-Host "PRFPSET_BYTES=$size"
-          @'
-import hashlib, pathlib, json
-p=pathlib.Path("extension/resources/presets.prfpset")
-raw=p.read_bytes()
-lf=raw.replace(b"\r\n",b"\n")
-crlf=lf.replace(b"\n",b"\r\n")
-print("PRFPSET_RAW_SHA256="+hashlib.sha256(raw).hexdigest())
-print("PRFPSET_LF_SHA256="+hashlib.sha256(lf).hexdigest())
-print("PRFPSET_CRLF_SHA256="+hashlib.sha256(crlf).hexdigest())
-print("PRFPSET_RAW_BYTES="+str(len(raw)))
-print("PRFPSET_LF_BYTES="+str(len(lf)))
-print("PRFPSET_CRLF_BYTES="+str(len(crlf)))
-'@ | python -
+          Write-Host "PRFPSET_BYTES=$((Get-Item $preset).Length)"
           git check-attr -a -- $preset
-          if ($actual -ne $expected) {
-            Write-Host "PRFPSET_AUTHORITY_MISMATCH=YES"
-          } else {
-            Write-Host "PRFPSET_AUTHORITY_MISMATCH=NO"
-          }
+          if ($actual -ne $expected) { throw "PRFPSET authority bytes mismatch" }
 
       - name: Full deterministic V31 suite
         shell: pwsh
