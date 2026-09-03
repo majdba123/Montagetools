@@ -72,10 +72,23 @@ with tempfile.TemporaryDirectory(prefix='hexa_problem1_closure_') as raw:
     warm=dataclasses.asdict(analyze_scene(parity_scene,parity_source,root/'cache_parity',foundation_result=parity_foundation))
     warm_hashes={u['physical_id']:sha(u['layer_path']) for u in warm['units'] if u.get('layer_path')}
     assert cold['cache_state']['status']=='GENERATED' and warm['cache_state']['status']=='HIT',(cold['cache_state'],warm['cache_state'])
-    c2=dict(cold);w2=dict(warm);c2.pop('cache_state',None);w2.pop('cache_state',None)
-    assert c2==w2
     assert cold_hashes==warm_hashes
-    assert _select_render_units(cold)[0]==_select_render_units(warm)[0]
+    assert cold['units']==warm['units']
+    assert cold['hierarchy_decisions']==warm['hierarchy_decisions']
+    cold_fv=cold['artifacts']['foundation_vision'];warm_fv=warm['artifacts']['foundation_vision']
+    for key in ('actor_qa','reconstruction_qa','partition_eligibility_pass','partition_fallback_reasons'):
+        assert cold_fv.get(key)==warm_fv.get(key),(key,cold_fv.get(key),warm_fv.get(key))
+    cold_selected,cold_selection_diag=_select_render_units(cold)
+    warm_selected,warm_selection_diag=_select_render_units(warm)
+    assert cold_selected==warm_selected
+    assert cold_selection_diag==warm_selection_diag
+    parity_alignment={'method':'TEST','scene_count':1,'scene_timings':[{'scene_id':'CACHE_PARITY','start':0.0,'end':3.0}],
+                      'word_timings':[{'word':'purple','start':.6,'end':.8}]}
+    parity_plan={'project_id':'CACHE_PARITY_ARBITRARY','scenes':[dict(parity_scene,visual_progression=[],script_span={'global_char_start':0,'global_char_end':12,'text':'purple object'},relation_to_previous='START')]}
+    cold_motion=build_motion_plan(parity_plan,parity_alignment,[cold],ROOT/'extension/resources/HEXA_EDITING_RULES_V20.json',ROOT/'extension/resources/HEXA_REFERENCE_QA_PROFILE_V20.json')
+    warm_motion=build_motion_plan(parity_plan,parity_alignment,[warm],ROOT/'extension/resources/HEXA_EDITING_RULES_V20.json',ROOT/'extension/resources/HEXA_REFERENCE_QA_PROFILE_V20.json')
+    assert cold_motion['events']==warm_motion['events']
+    assert [(e.get('event_id'),e.get('physical_start_seconds'),e.get('physical_end_seconds'),e.get('render_mode')) for e in cold_motion['events']]==[(e.get('event_id'),e.get('physical_start_seconds'),e.get('physical_end_seconds'),e.get('render_mode')) for e in warm_motion['events']]
 
     scenes=[clean_scene,bad_scene];visions=[clean,bad]
     alignment={'method':'TEST','scene_count':2,'scene_timings':[{'scene_id':clean_scene['scene_id'],'start':0.0,'end':3.0},{'scene_id':bad_scene['scene_id'],'start':3.0,'end':6.0}],
