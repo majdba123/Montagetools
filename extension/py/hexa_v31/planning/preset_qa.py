@@ -158,13 +158,19 @@ def _vision_planner_partition_completeness_qa(motion_plan:dict, vision_results:l
         selected=[e for e in scene_events if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} and not e.get('suppressed_by_card_density')]
         selected_ids={str(e.get('physical_id')) for e in selected}
         suppressed_ids={str(e.get('physical_id')) for e in scene_events if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} and e.get('suppressed_by_card_density')}
+        root_fallbacks=[e for e in scene_events if e.get('render_mode')=='ROOT_ATOMIC' and not e.get('suppressed_by_card_density')]
         missing=sorted(expected_ids-selected_ids)
         extra=sorted(selected_ids-expected_ids)
-        valid=not missing and not suppressed_ids and not extra
+        complete_partition=not missing and not suppressed_ids and not extra and bool(selected)
+        root_atomic_fallback=bool(root_fallbacks) and not selected and not suppressed_ids
+        valid=complete_partition or root_atomic_fallback
         if not valid:
-            failures.append(f"{sid}: certified Foundation partition membership mismatch expected={sorted(expected_ids)} selected={sorted(selected_ids)} suppressed={sorted(suppressed_ids)}")
+            failures.append(f"{sid}: certified Foundation partition membership mismatch expected={sorted(expected_ids)} selected={sorted(selected_ids)} suppressed={sorted(suppressed_ids)} root_fallbacks={[str(e.get('physical_id')) for e in root_fallbacks]}")
         rows.append({'scene_id':sid,'expected_member_ids':sorted(expected_ids),'selected_member_ids':sorted(selected_ids),
-                     'suppressed_member_ids':sorted(suppressed_ids),'missing_member_ids':missing,'extra_member_ids':extra,'pass':valid})
+                     'suppressed_member_ids':sorted(suppressed_ids),'missing_member_ids':missing,'extra_member_ids':extra,
+                     'root_atomic_fallback_ids':[str(e.get('physical_id')) for e in root_fallbacks],
+                     'selection_mode':'COMPLETE_PARTITION' if complete_partition else ('ROOT_ATOMIC_FALLBACK' if root_atomic_fallback else 'INVALID_PARTIAL_PARTITION'),
+                     'pass':valid})
     return {'pass':not failures,'failures':failures,'groups':rows}
 
 
