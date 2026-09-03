@@ -1032,15 +1032,20 @@ def _select_render_units(vision_row:dict)->tuple[list[dict],dict]:
     units=list(vision_row.get('units') or [])
     foundation=[u for u in units if u.get('candidate_source') and u.get('mask_path')]
     residual=[u for u in units if u.get('foundation_residual_support') and u.get('mask_path')]
-    reconstruction=((vision_row.get('artifacts') or {}).get('foundation_vision') or {}).get('reconstruction_qa') or {}
-    if foundation and reconstruction.get('partition_complete') and all(u.get('partition_complete') for u in foundation+residual):
+    foundation_artifact=((vision_row.get('artifacts') or {}).get('foundation_vision') or {})
+    reconstruction=foundation_artifact.get('reconstruction_qa') or {}
+    actor_quality=foundation_artifact.get('actor_qa') or {}
+    partition_quality=foundation_artifact.get('partition_eligibility_pass')
+    if partition_quality is None:
+        partition_quality=actor_quality.get('pass',True)
+    if foundation and bool(partition_quality) and reconstruction.get('partition_complete') and all(u.get('partition_complete') for u in foundation+residual):
         selected=[]
         for index,actor in enumerate(sorted(foundation,key=lambda u:str(u.get('physical_id') or ''))):
             row=dict(actor);row['render_mode']='CHILD_PARTITION';row['partition_root_id']='ROOT_COMPOSITE';row['partition_complete']=True
             row['independent_motion_allowed']=bool(row.get('translation_safe_after_occlusion',row.get('animation_safe')));row['partition_primary_member']=bool(index==0 and is_primary_semantic(row));selected.append(row)
         for support in residual:
             row=dict(support);row['render_mode']='RESIDUAL_SUPPORT';row['independent_motion_allowed']=False;row['partition_primary_member']=False;selected.append(row)
-        return selected,{'partition_root_ids':['ROOT_COMPOSITE'],'atomic_root_ids':['ROOT_COMPOSITE_FALLBACK'],'hierarchical_motion_unit_count':len(foundation),'foundation_actor_partition':True,'residual_support_present':bool(residual),'reconstruction_qa':reconstruction}
+        return selected,{'partition_root_ids':['ROOT_COMPOSITE'],'atomic_root_ids':['ROOT_COMPOSITE_FALLBACK'],'hierarchical_motion_unit_count':len(foundation),'foundation_actor_partition':True,'residual_support_present':bool(residual),'reconstruction_qa':reconstruction,'actor_qa':actor_quality,'partition_quality_pass':True}
     roots=[u for u in units if int(u.get('hierarchy_level') or 0)==0]
     children=[u for u in units if int(u.get('hierarchy_level') or 0)>0]
     decisions={str(d.get('root_id')):d for d in ((vision_row.get('artifacts') or {}).get('hierarchy_decisions') or [])}
@@ -1065,7 +1070,9 @@ def _select_render_units(vision_row:dict)->tuple[list[dict],dict]:
             row['partition_primary_member']=bool(index==0 and is_primary_semantic(root))
             selected.append(row)
     return selected,{'partition_root_ids':partition_roots,'atomic_root_ids':fallback_roots,
-                     'hierarchical_motion_unit_count':sum(1 for u in selected if u.get('render_mode')=='CHILD_PARTITION')}
+                     'hierarchical_motion_unit_count':sum(1 for u in selected if u.get('render_mode')=='CHILD_PARTITION'),
+                     'foundation_actor_partition':False,'foundation_partition_fallback_reasons':foundation_artifact.get('partition_fallback_reasons') or ([] if partition_quality else ['FOUNDATION_ACTOR_QUALITY_NOT_CERTIFIED']),
+                     'actor_qa':actor_quality,'reconstruction_qa':reconstruction}
 
 def _phase_for_event(phase_plan:dict,eid:str):
     rows=[p for p in (phase_plan.get('phases') or []) if eid in (p.get('event_ids') or [])]
