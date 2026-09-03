@@ -70,3 +70,28 @@ jobs:
         env:
           PYTHONUTF8: '1'
         run: python tests/run_v31_test_suite.py
+
+      - name: Build actual shipping release
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          ./tools/build_latest_release.ps1
+          $identity = Get-Content "dist/latest/release_identity.json" -Raw | ConvertFrom-Json
+          $head = (& git rev-parse HEAD | Out-String).Trim()
+          if ($identity.source_commit -ne $head) {
+            throw "Release identity mismatch: $($identity.source_commit) != $head"
+          }
+          if ($identity.project_package_validation -ne 'DEFERRED_TO_PREMIERE_BUILD') {
+            throw "Release package-selection contract regressed"
+          }
+
+      - name: Install shipping release through root launcher
+        shell: cmd
+        run: |
+          call bayer.bat
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Premiere host integration contract
+        shell: pwsh
+        run: node tests/test_v31_premiere_animated_host_mock.js
