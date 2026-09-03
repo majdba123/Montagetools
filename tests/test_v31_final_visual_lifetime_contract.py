@@ -127,6 +127,53 @@ for e in partial:
 qa=visual_timeline_coverage_qa({'fps':30,'events':partial,'visual_cards':{'cards':[{'card_id':'VCARD_TEST','start_seconds':0.0,'end_seconds':1.5}]}})
 assert not qa['pass'] and any('individually suppressed members' in x for x in qa['failures']),qa
 
+
+
+# Cross-scene regression from the real Premiere BUILD failure class: two
+# ordinary source events from scene A may collide with an incoming event from
+# scene B after late lifetime commit. They are independent carriers and must be
+# retired independently; grouping the whole scene as one carrier can make the
+# handoff impossible and leave USER_PRESET_MOTION_QA_FAILED.
+handoff_cards={'cards':[{'card_id':'VCARD_HANDOFF','start_seconds':0.0,'end_seconds':4.0}]}
+def handoff_event(event_id, scene, source_start, start, end, x=.5, y=.5):
+    e=base_event(event_id,render_mode='ROOT_ATOMIC',start=start,end=end,
+                 scene=scene,card='VCARD_HANDOFF',root=event_id+'_ROOT')
+    e.update({
+        'source_scene_start_seconds':source_start,
+        'source_scene_end_seconds':end,
+        'source_bbox_norm':[0.30,0.30,0.32,0.32],
+        'card_rest_position_norm':[x,y],
+        'planned_rect_norm':[x-.16,y-.16,.32,.32],
+        'collision_envelope_rect_norm':[x-.16,y-.16,.32,.32],
+        'layout_scale_multiplier':1.0,
+        'reference_camera_scale':1.0,
+        'attention_priority':'PRIMARY',
+        'perceptual_hit_seconds':start+.18,
+        'preset_entry':{'name':'APPEAR_HIGH_SCALE','start_seconds':start,'duration_seconds':0.4},
+        'preset_exit':{'name':'DISAPPEAR_DOWN_SCALE','start_seconds':end-.36,'duration_seconds':0.6},
+        'appearance_method':'SCALE_POP',
+        'disappearance_method':'PRESET_DISAPPEARANCE',
+    })
+    return e
+
+out_a=handoff_event('OUT_A','SCENE_A',0.0,0.0,2.2,.45,.50)
+out_b=handoff_event('OUT_B','SCENE_A',0.0,0.15,2.25,.55,.50)
+incoming=handoff_event('IN_B','SCENE_B',1.0,1.0,3.5,.50,.50)
+handoff_events=[out_a,out_b,incoming]
+from hexa_v31.composition_qa import card_motion_conflicts
+before=card_motion_conflicts(handoff_events,0.0,4.0,30.0)
+assert any({'OUT_A','IN_B'}=={r['event_a'],r['event_b']} for r in before),before
+assert any({'OUT_B','IN_B'}=={r['event_a'],r['event_b']} for r in before),before
+handoff_stats=_finalize_visual_lifetimes(handoff_events,handoff_cards,30.0)['partition_handoff_repair']
+after=card_motion_conflicts(handoff_events,0.0,4.0,30.0)
+assert not any('IN_B' in {r['event_a'],r['event_b']} and
+               ({r['event_a'],r['event_b']} & {'OUT_A','OUT_B'})
+               for r in after),(handoff_stats,after,handoff_events)
+assert handoff_stats['trimmed_source_group_count']>=2,handoff_stats
+assert {'OUT_A','OUT_B'}.issubset(set(handoff_stats['trimmed_event_ids'])),handoff_stats
+assert not out_a.get('suppressed_by_card_density') and not out_b.get('suppressed_by_card_density'),handoff_events
+
+
 print('V31_FINAL_VISUAL_LIFETIME_CONTRACT_PASS')
 
 
