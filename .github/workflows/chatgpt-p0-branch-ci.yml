@@ -17,6 +17,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
+      - name: Preserve repository bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
       - name: Checkout branch
         uses: actions/checkout@v4
 
