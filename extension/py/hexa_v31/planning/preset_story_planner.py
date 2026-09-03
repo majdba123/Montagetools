@@ -1157,7 +1157,174 @@ def _retime_exit_to_effective_end(e:dict, effective_end:float, minimum_start:flo
     exit_row['start_seconds']=round(max(float(minimum_start),float(effective_end)-visible_duration),6)
 
 
-def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
+def _reconcile_final_partition_handoffs(events:list[dict], cards:dict, fps:float)->dict:
+    """Resolve collisions introduced only by atomic partition lifetime commit.
+
+    A certified Foundation partition is one source-backed visual state.  Late
+    lifetime reconciliation can legitimately extend all of its members to the
+    longest carrier, but that extension must not overlap the next source state.
+    When the first *cross-scene* collision proves that an incoming state is
+    already readable, retire the complete outgoing partition together at that
+    handoff.  Never suppress members, weaken overlap limits, or trim an
+    intra-scene composition.
+    """
+    from hexa_v31.composition_qa import card_motion_conflicts
+
+    step=1.0/max(1.0,float(fps))
+    card_by={str(row.get('card_id')):row for row in (cards.get('cards') or [])}
+    active=[e for e in events if not e.get('suppressed_by_card_density')]
+    by_id={str(e.get('event_id')):e for e in active}
+    groups={}
+    for e in active:
+        if e.get('render_mode') not in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            continue
+        key=(str(e.get('visual_card_id')),str(e.get('scene_id')),str(e.get('partition_root_id')))
+        groups.setdefault(key,[]).append(e)
+
+    stats={'candidate_conflict_count':0,'handoffs_committed':0,'handoffs_rejected':0,
+           'trimmed_partition_group_count':0,'trimmed_event_ids':[],'repairs':[]}
+
+    def source_order(e):
+        return float(e.get('source_scene_start_seconds',
+                           e.get('perceptual_hit_seconds',
+                                 e.get('physical_start_seconds',e.get('start_seconds',0.0)))))
+
+    def group_key(e):
+        if e.get('render_mode') not in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            return None
+        return (str(e.get('visual_card_id')),str(e.get('scene_id')),str(e.get('partition_root_id')))
+
+    def apply_end(members,new_end):
+        carrier_start=min(float(e.get('physical_start_seconds',e.get('start_seconds',0.0))) for e in members)
+        if new_end<=carrier_start+step*.5:
+            return False
+        snapshots=[copy.deepcopy(e) for e in members]
+        for e in members:
+            if e.get('render_mode')=='RESIDUAL_SUPPORT':
+                e['start_seconds']=round(carrier_start,6)
+                e['settle_seconds']=round(carrier_start,6)
+                e['end_seconds']=round(new_end,6)
+                e['physical_start_seconds']=round(carrier_start,6)
+                e['physical_end_seconds']=round(new_end,6)
+                e['partition_carrier_start_seconds']=round(carrier_start,6)
+                e['partition_carrier_end_seconds']=round(new_end,6)
+                e['visibility_interval_seconds']=[round(carrier_start,6),round(new_end,6)]
+                e['motion_start_seconds']=round(carrier_start,6)
+                e['motion_end_seconds']=round(carrier_start,6)
+                e['motion_intervals']=[]
+                e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
+                continue
+
+            intervals,_,_=_compile_final_motion_intervals(e)
+            essential_end=max(
+                [float(row.get('effective_end_seconds',row.get('start_seconds',carrier_start)))
+                 for row in intervals if str(row.get('kind')).upper()!='EXIT']
+                or [float(e.get('motion_start_seconds',e.get('start_seconds',carrier_start)))]
+            )
+            exit_row=e.get('preset_exit')
+            if not exit_row:
+                dd=preset_duration('DISAPPEAR_DOWN_SCALE')
+                visible=dd*_motion_interval_effective_fraction('EXIT','DISAPPEAR_DOWN_SCALE')
+                if new_end-visible<essential_end-1e-6:
+                    for live,snap in zip(members,snapshots):
+                        live.clear();live.update(snap)
+                    return False
+                e['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE',
+                                  'start_seconds':round(new_end-visible,6),
+                                  'duration_seconds':dd,
+                                  'authority':'FINAL_CROSS_SOURCE_PARTITION_HANDOFF'}
+                e['disappearance_method']='PRESET_DISAPPEARANCE'
+            else:
+                duration=max(0.0,float(exit_row.get('duration_seconds') or 0.0))
+                visible=duration*_motion_interval_effective_fraction('EXIT',str(exit_row.get('name') or ''))
+                if new_end-visible<essential_end-1e-6:
+                    for live,snap in zip(members,snapshots):
+                        live.clear();live.update(snap)
+                    return False
+                _retime_exit_to_effective_end(e,new_end,essential_end)
+            e['end_seconds']=round(new_end,6)
+            e['physical_start_seconds']=round(carrier_start,6)
+            e['physical_end_seconds']=round(new_end,6)
+            e['partition_carrier_start_seconds']=round(carrier_start,6)
+            e['partition_carrier_end_seconds']=round(new_end,6)
+            e['visibility_interval_seconds']=[round(carrier_start,6),round(new_end,6)]
+            intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+            if motion_end>new_end+1e-6:
+                for live,snap in zip(members,snapshots):
+                    live.clear();live.update(snap)
+                return False
+            e['motion_intervals']=intervals
+            e['motion_start_seconds']=round(motion_start,6)
+            e['motion_end_seconds']=round(motion_end,6)
+            e['partition_exit_retimed_to_carrier_end']=True
+            e['final_cross_source_handoff_authority']='ATOMIC_PARTITION_TO_READABLE_SUCCESSOR'
+        return True
+
+    # A single group trim can remove several pair conflicts, so re-evaluate
+    # the exact final trajectories after every accepted handoff.
+    max_passes=max(1,len(groups)*2)
+    for _ in range(max_passes):
+        committed=False
+        for cid,card in card_by.items():
+            local=[e for e in active if str(e.get('visual_card_id'))==cid]
+            conflicts=card_motion_conflicts(local,float(card.get('start_seconds',0.0)),
+                                            float(card.get('end_seconds',0.0)),fps)
+            if not conflicts:
+                continue
+            local_by_id={str(e.get('event_id')):e for e in local}
+            for row in sorted(conflicts,key=lambda x:(float(x.get('time_seconds',0.0)),
+                                                      str(x.get('event_a')),str(x.get('event_b')))):
+                a=local_by_id.get(str(row.get('event_a')));b=local_by_id.get(str(row.get('event_b')))
+                if not a or not b or str(a.get('scene_id'))==str(b.get('scene_id')):
+                    continue
+                stats['candidate_conflict_count']+=1
+                ka,kb=group_key(a),group_key(b)
+                outgoing_key=None
+                if ka in groups and source_order(a)<source_order(b)-1e-6:
+                    outgoing_key=ka
+                elif kb in groups and source_order(b)<source_order(a)-1e-6:
+                    outgoing_key=kb
+                if outgoing_key is None:
+                    continue
+                members=groups[outgoing_key]
+                current_end=max(float(e.get('physical_end_seconds',e.get('end_seconds',0.0))) for e in members)
+                handoff=max(min(float(row.get('time_seconds',current_end))-step,current_end),
+                            min(float(e.get('physical_start_seconds',e.get('start_seconds',0.0))) for e in members)+step)
+                if handoff>=current_end-step*.25:
+                    continue
+                snapshots=[copy.deepcopy(e) for e in members]
+                before=len(conflicts)
+                if not apply_end(members,handoff):
+                    stats['handoffs_rejected']+=1
+                    continue
+                after_rows=card_motion_conflicts(local,float(card.get('start_seconds',0.0)),
+                                                 float(card.get('end_seconds',0.0)),fps)
+                if len(after_rows)>=before:
+                    for live,snap in zip(members,snapshots):
+                        live.clear();live.update(snap)
+                    stats['handoffs_rejected']+=1
+                    continue
+                ids=[str(e.get('event_id')) for e in members]
+                stats['handoffs_committed']+=1
+                stats['trimmed_partition_group_count']+=1
+                stats['trimmed_event_ids'].extend(ids)
+                stats['repairs'].append({
+                    'visual_card_id':cid,'scene_id':outgoing_key[1],
+                    'partition_root_id':outgoing_key[2],
+                    'handoff_seconds':round(handoff,6),
+                    'trigger_conflict':dict(row),'event_ids':ids,
+                })
+                committed=True
+                break
+            if committed:
+                break
+        if not committed:
+            break
+    stats['trimmed_event_ids']=sorted(set(stats['trimmed_event_ids']))
+    return stats
+
+
+def _finalize_visual_lifetimes(events:list[dict], cards:dict, fps:float=30.0)->dict:
     """Commit physical carrier lifetimes from the final immutable motion state.
 
     Scheduling establishes provisional timing only. Downstream optimizers may
@@ -1286,6 +1453,8 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
                 e['final_lifetime_authority']='FOUNDATION_STATIC_RESIDUAL_CARRIER'
         stats['partition_group_count']+=1
         stats['partition_member_count']+=len(members)
+    handoff_stats=_reconcile_final_partition_handoffs(events,cards,fps)
+    stats['partition_handoff_repair']=handoff_stats
     return stats
 
 
@@ -1650,7 +1819,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     atomic_stats=_atomic_handoff_optimize(events,cards,fps)
     final_secondary_geometry=_finalize_secondary_character_geometry(events)
     final_physical_certification=_final_physical_certification(events,cards,fps)
-    final_lifetime_commit=_finalize_visual_lifetimes(events,cards)
+    final_lifetime_commit=_finalize_visual_lifetimes(events,cards,fps)
     from hexa_v31.composition_qa import composition_plan_qa
     final_composition_qa=composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     # This is intentionally retained as an authoritative final-plan record.
