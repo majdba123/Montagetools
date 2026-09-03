@@ -407,7 +407,8 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
             typ=e.get('semantic_type') or e.get('kind') or ''
             z=4 if typ in ('MAIN_CHARACTER','SECONDARY_CHARACTER') or e.get('kind') in ('MAIN_NARRATOR','SECONDARY_CHARACTER') else (3 if str(e.get('attention_priority') or e.get('semantic_role')).upper()=='PRIMARY' else 2)
             sf=max(0,int(math.floor(float(e.get('physical_start_seconds',e.get('start_seconds',0)))*fps)))
-            # Half-open [start,end) lifetime: ceil(end*fps)-1 is the final owned frame.\n            ef=min(total-1,max(sf,int(math.ceil(float(e.get('physical_end_seconds',e.get('end_seconds',0)))*fps))-1))
+            # Half-open [start,end) lifetime: ceil(end*fps)-1 is the final owned frame.
+            ef=min(total-1,max(sf,int(math.ceil(float(e.get('physical_end_seconds',e.get('end_seconds',0)))*fps))-1))
             rows.append({'e':e,'src':str(src),'sf':sf,'ef':ef,'z':z,'img':None})
         text_runtime=[(te,np.array(render_text_rgba(te,width,height).convert('RGBA'))) for te in text_events]
         starts=[[] for _ in range(total+1)]; ends=[[] for _ in range(total+1)]
