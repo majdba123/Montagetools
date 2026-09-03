@@ -26,11 +26,13 @@ fragment=np.zeros_like(fg)
 for x in range(10,110,18):fragment[20:28,x:x+8]=1
 assert validate_mask(fragment,(10,20,100,8),np.ones_like(fg)*255)[1]=='MASK_FRAGMENTED'
 edge=np.zeros_like(fg);edge[0:40,20:70]=1;assert validate_mask(edge,(20,0,50,40),edge*255)[2]['edge_touch']
+edge_policy=classify_actor(edge,edge*255,{'bbox':(20,0,50,40),'edge_touch':True,'mask_outside_candidate_fraction':0.0});assert not edge_policy['translation_safe'] and 'SOURCE_CANVAS_EDGE_CLIPPED' in edge_policy['independence_block_reasons']
 # Detached objects remain independently addressable; touching/held/occluded objects are conservative.
 detached=np.zeros_like(fg,dtype=bool);detached[20:60,20:60]=True;detached_fg=detached.copy();detached_fg[80:110,130:170]=True
 assert classify_actor(detached,detached_fg,{'bbox':(20,20,40,40),'edge_touch':False})['translation_safe']
 held=np.zeros_like(fg,dtype=bool);held[35:65,70:105]=True;character=np.zeros_like(fg,dtype=bool);character[20:100,100:145]=True;held_fg=held|character
 held_policy=classify_actor(held,held_fg,{'bbox':(70,35,35,30),'edge_touch':False});assert held_policy['safety_class']=='ATOMIC_PARENT_DEPENDENT' and held_policy['reveal_safe'] and not held_policy['translation_safe']
+assert held_policy['boundary_contact_ratio']>0 and held_policy['physical_independence_confidence']<1.0
 
 class CPUCuda:
  def is_available(self):return False
