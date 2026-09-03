@@ -4,7 +4,7 @@ import cv2,numpy as np
 ACTOR_VALIDATION_VERSION='FOUNDATION_ACTOR_VALIDATION_1.1_BOUNDARY_CONTACT'
 
 def classify_actor(mask,all_foreground,validation,foreign_candidate_overlap_fraction=0.0):
-    m=np.asarray(mask)>4;fg=np.asarray(all_foreground)>0
+    m=np.asarray(mask)>0;fg=np.asarray(all_foreground)>0
     x,y,w,h=validation['bbox'];crop=m[y:y+h,x:x+w];fill=float(np.count_nonzero(crop))/max(1,w*h)
     other=fg&(~m)
     kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
