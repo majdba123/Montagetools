@@ -39,8 +39,11 @@ escaped['preset_entry']={'name':'APPEAR_HIGH_SCALE','start_seconds':.2,'duration
 escaped['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':1.1,'duration_seconds':.4}
 stats=_finalize_visual_lifetimes([escaped],cards)
 assert stats['recommitted_event_count']==1,stats
-assert escaped['motion_end_seconds']>=1.5-1e-6,escaped
+escaped_exit=next(row for row in escaped['motion_intervals'] if row['kind']=='EXIT')
+assert abs(float(escaped_exit['effective_visible_fraction'])-.6)<1e-6,escaped_exit
+assert abs(float(escaped['motion_end_seconds'])-1.34)<1e-6,escaped
 assert escaped['physical_end_seconds']>=escaped['motion_end_seconds'],escaped
+assert float(escaped['preset_exit']['duration_seconds'])==.4,escaped
 
 # Regression classes matching SCENE_007/037: child motion may be staggered,
 # but every member of one certified partition owns one coherent carrier window.
