@@ -82,3 +82,32 @@ qa=visual_timeline_coverage_qa({'fps':30,'events':partial,'visual_cards':{'cards
 assert not qa['pass'] and any('individually suppressed members' in x for x in qa['failures']),qa
 
 print('V31_FINAL_VISUAL_LIFETIME_CONTRACT_PASS')
+
+
+# Vision -> planner completeness: a certified reconstruction may not be reduced
+# by planning before encoded QA establishes its expected evidence.
+from hexa_v31.planning.preset_qa import _vision_planner_partition_completeness_qa
+
+vision_result={
+    'scene_id':'SCENE_TEST',
+    'units':[
+        {'physical_id':'CHILD_A','candidate_source':'FLORENCE_2','mask_path':'A.png'},
+        {'physical_id':'CHILD_B','candidate_source':'FLORENCE_2','mask_path':'B.png'},
+        {'physical_id':'CHILD_C','candidate_source':'FLORENCE_2','mask_path':'C.png'},
+        {'physical_id':'RESIDUAL_SUPPORT','foundation_residual_support':True,'mask_path':'R.png'},
+    ],
+    'artifacts':{'foundation_vision':{'reconstruction_qa':{'partition_complete':True}}},
+}
+planner_complete={'events':[
+    dict(base_event('A',render_mode='CHILD_PARTITION',physical_id='CHILD_A'),partition_complete=True),
+    dict(base_event('B',render_mode='CHILD_PARTITION',physical_id='CHILD_B'),partition_complete=True),
+    dict(base_event('C',render_mode='CHILD_PARTITION',physical_id='CHILD_C'),partition_complete=True),
+    dict(base_event('R',render_mode='RESIDUAL_SUPPORT',physical_id='RESIDUAL_SUPPORT'),partition_complete=False),
+]}
+membership=_vision_planner_partition_completeness_qa(planner_complete,[vision_result])
+assert membership['pass'],membership
+
+planner_missing=copy.deepcopy(planner_complete)
+planner_missing['events']=[e for e in planner_missing['events'] if e['physical_id']!='CHILD_B']
+membership=_vision_planner_partition_completeness_qa(planner_missing,[vision_result])
+assert not membership['pass'] and membership['groups'][0]['missing_member_ids']==['CHILD_B'],membership
