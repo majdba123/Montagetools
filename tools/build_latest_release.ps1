@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$PackagePath
 )
 
@@ -42,7 +42,7 @@ function Invoke-Checked([string]$Executable, [string[]]$Arguments, [string]$Work
 
 try {
     if (-not (Test-Path -LiteralPath $template -PathType Leaf)) { throw "Installer template missing: $template" }
-    if (-not (Test-Path -LiteralPath $PackagePath -PathType Leaf)) { throw "V1.0 validation package missing: $PackagePath" }
+    if ($PackagePath -and -not (Test-Path -LiteralPath $PackagePath -PathType Leaf)) { throw "Optional validation package missing: $PackagePath" }
     if (-not (Test-Path -LiteralPath $runtimeConfig -PathType Leaf)) { throw "Runtime config missing: $runtimeConfig" }
 
     New-Item -ItemType Directory -Force -Path (Join-Path $stage 'tools') | Out-Null
@@ -52,7 +52,14 @@ try {
     Copy-Item -LiteralPath (Join-Path $root 'tools\provision_foundation_vision.py') -Destination (Join-Path $stage 'tools\provision_foundation_vision.py')
     Copy-Item -LiteralPath $template -Destination (Join-Path $stage 'INSTALL_HEXA_V31.bat')
     Copy-Item -LiteralPath (Join-Path $root 'README_FIRST.txt') -Destination (Join-Path $stage 'README_FIRST.txt')
-    $releaseIdentity = [ordered]@{ schema='HEXA_V31_RELEASE_IDENTITY'; source_commit=$sourceCommit; source_branch=(& git -C $root branch --show-current | Out-String).Trim(); built_at=(Get-Date).ToUniversalTime().ToString('o') }
+    $releaseIdentity = [ordered]@{
+        schema='HEXA_V31_RELEASE_IDENTITY'
+        source_commit=$sourceCommit
+        source_branch=(& git -C $root branch --show-current | Out-String).Trim()
+        built_at=(Get-Date).ToUniversalTime().ToString('o')
+        release_validation='RUNTIME_SELFTEST_AND_PAYLOAD_CONTRACT'
+        project_package_validation='DEFERRED_TO_PREMIERE_BUILD'
+    }
     $releaseIdentityJson = $releaseIdentity | ConvertTo-Json
     Set-Content -LiteralPath (Join-Path $stage 'release_identity.json') -Value $releaseIdentityJson -Encoding UTF8
     Set-Content -LiteralPath (Join-Path $stage 'extension\resources\HEXA_RELEASE_IDENTITY_V31.json') -Value $releaseIdentityJson -Encoding UTF8
@@ -74,7 +81,9 @@ try {
     $origin = Invoke-Checked $python @('-c', "import pathlib,hexa_v31; p=pathlib.Path(hexa_v31.__file__).resolve(); root=pathlib.Path.cwd().resolve(); assert root in p.parents,(root,p); print(p)") $stage $environment
     if (-not $origin.Trim().StartsWith($stage, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'Staged import escaped the release payload' }
     [void](Invoke-Checked $python @('-m','hexa_v31.cli','--help') $stage $environment)
-    [void](Invoke-Checked $python @('-m','hexa_v31.cli','validate-package','--package',([System.IO.Path]::GetFullPath($PackagePath))) $stage $environment)
+    if ($PackagePath) {
+        [void](Invoke-Checked $python @('-m','hexa_v31.cli','validate-package','--package',([System.IO.Path]::GetFullPath($PackagePath))) $stage $environment)
+    }
     $selftestReport = Join-Path $stage 'runtime_selftest.json'
     [void](Invoke-Checked $python @('tools\selftest_v31.py','--extension-root','extension','--out',$selftestReport) $stage $environment)
     $report = Get-Content -LiteralPath $selftestReport -Raw | ConvertFrom-Json
