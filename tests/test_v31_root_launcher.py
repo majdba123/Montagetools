@@ -118,9 +118,18 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
     assert 'HEXA INSTALL COMPLETE' in cp.stdout, cp.stdout
 
     missing_validation = make_fixture(base / 'missing validation', latest=False, validation_package=False)
-    cp, _ = run_launcher(missing_validation, base, validation_env=False)
-    assert cp.returncode in {29, 30, 31}, cp.stdout
-    assert 'validation package' in cp.stdout.lower(), cp.stdout
+    env = os.environ.copy()
+    env['HEXA_V31_DISABLE_FILE_PICKER'] = '1'
+    marker = missing_validation / 'latest installer marker.txt'
+    env['HEXA_TEST_INSTALL_MARKER'] = str(marker)
+    env['HEXA_TEST_INSTALL_EXIT'] = '0'
+    command = f'cmd.exe /d /s /c call "{missing_validation / "bayer.bat"}"'
+    cp = subprocess.run(
+        command, cwd=base, env=env, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60,
+    )
+    assert cp.returncode == 30, cp.stdout
+    assert 'interactive selection is disabled' in cp.stdout.lower(), cp.stdout
 
     missing_installer = make_fixture(base / 'missing installer', installer=False)
     cp, marker = run_launcher(missing_installer, base)
