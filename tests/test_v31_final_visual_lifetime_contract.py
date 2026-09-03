@@ -111,3 +111,7 @@ planner_missing=copy.deepcopy(planner_complete)
 planner_missing['events']=[e for e in planner_missing['events'] if e['physical_id']!='CHILD_B']
 membership=_vision_planner_partition_completeness_qa(planner_missing,[vision_result])
 assert not membership['pass'] and membership['groups'][0]['missing_member_ids']==['CHILD_B'],membership
+
+planner_root_fallback={'events':[dict(base_event('ROOT',render_mode='ROOT_ATOMIC',physical_id='ROOT_COMPOSITE_FALLBACK'),partition_complete=False)]}
+membership=_vision_planner_partition_completeness_qa(planner_root_fallback,[vision_result])
+assert membership['pass'] and membership['groups'][0]['selection_mode']=='ROOT_ATOMIC_FALLBACK',membership
