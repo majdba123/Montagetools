@@ -67,6 +67,22 @@ assert residual['position_animated'] is False and residual['independent_motion_a
 qa=visual_timeline_coverage_qa({'fps':30,'events':events,'visual_cards':{'cards':[{'card_id':'VCARD_TEST','start_seconds':min(x[0] for x in windows),'end_seconds':max(x[1] for x in windows)}]}})
 assert qa['pass'],qa
 
+# If final optimized motion cannot fit the legal partition/card carrier,
+# preserve the actor with bounded reveal-only motion rather than failing or
+# deleting source pixels.
+overflow=base_event('OVERFLOW',render_mode='CHILD_PARTITION',start=.2,end=1.8)
+overflow['preset_entry']={'name':'ENTRY_LEFT_TO_MIDDLE','start_seconds':.2,'duration_seconds':.35}
+overflow['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':1.85,'duration_seconds':.6}
+overflow['position_animated']=True
+overflow_support=base_event('OVERFLOW_SUPPORT',render_mode='RESIDUAL_SUPPORT',start=.0,end=2.0)
+overflow_support['animation_mode']='STATIC_SUPPORT'
+overflow_cards={'cards':[{'card_id':'VCARD_TEST','start_seconds':0.0,'end_seconds':2.0}]}
+_finalize_visual_lifetimes([overflow,overflow_support],overflow_cards)
+assert overflow['physical_end_seconds']==2.0,overflow
+assert overflow['motion_end_seconds']<=2.0+1e-6,overflow
+assert not overflow['position_animated'] and overflow['foundation_motion_decision']=='REVEAL_ONLY',overflow
+assert overflow.get('final_partition_motion_fallback')=='MOTION_ENVELOPE_OUTSIDE_CARRIER',overflow
+
 # Certified partitions are source-survival atomic. Individual suppression must
 # fail before render instead of redefining a partial composition as expected.
 partial=[copy.deepcopy(a),copy.deepcopy(b),copy.deepcopy(residual)]
