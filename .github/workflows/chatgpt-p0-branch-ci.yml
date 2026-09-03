@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - chatgpt/p0-visual-lifetime-partition-fix
+  pull_request:
+    branches:
+      - old-final-package
   workflow_dispatch:
 
 permissions:
