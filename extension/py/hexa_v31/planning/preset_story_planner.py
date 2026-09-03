@@ -1169,6 +1169,21 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict)->dict:
             raise ValueError(f"{key[0]}:{key[1]}:{key[2]} invalid Foundation partition carrier lifetime")
         for e in members:
             # Existence is group-owned; reveal/action timing remains actor-owned.
+            # If this member's disappearance was scheduled before the group
+            # carrier ends, move only that final exit to the carrier boundary.
+            # Otherwise the renderer would correctly preserve physical lifetime
+            # but visibly exit and then reappear as a held state.
+            if e.get('render_mode')!='RESIDUAL_SUPPORT' and e.get('preset_exit'):
+                exit_row=e['preset_exit']
+                exit_duration=max(0.0,float(exit_row.get('duration_seconds') or 0.0))
+                old_motion_end=float(e.get('motion_end_seconds',e.get('end_seconds',carrier_end)))
+                if carrier_end>old_motion_end+1e-6:
+                    exit_row['start_seconds']=round(max(float(e.get('motion_start_seconds',carrier_start)),carrier_end-exit_duration),6)
+                    e['end_seconds']=round(carrier_end,6)
+                    intervals=([dict(kind='ENTRY',**e['preset_entry'])] if e.get('preset_entry') else [])+[dict(kind='ACTION',**a) for a in (e.get('preset_actions') or [])]+[dict(kind='EXIT',**exit_row)]
+                    e['motion_intervals']=intervals
+                    e['motion_end_seconds']=round(max(float(row.get('start_seconds',0))+max(0.0,float(row.get('duration_seconds') or 0.0)) for row in intervals),6)
+                    e['partition_exit_retimed_to_carrier_end']=True
             e['partition_carrier_start_seconds']=round(carrier_start,6)
             e['partition_carrier_end_seconds']=round(carrier_end,6)
             e['physical_start_seconds']=round(carrier_start,6)
@@ -1576,6 +1591,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['final_semantic_timing_composition_qa']=final_composition_qa
     out['final_secondary_character_geometry_event_ids']=final_secondary_geometry
     out['final_physical_certification']=final_physical_certification
+    out['final_lifetime_commit']=final_lifetime_commit
     out['premium_optical_scale_optimizer']=optical_scale_stats
     out['premium_spatial_choreography_optimizer']=spatial_choreography_stats
     out['instance_metrics']={'visual_instances_total':len(visual_instances),'semantic_events_total':len(semantic_events),'persistent_instances_total':sum(1 for x in visual_instances if len((x.get('persistence_source_evidence') or {}).get('source_states') or [])>1),'duplicate_same_identity_overlap_count':0,'illegal_persistence_count':0,'logical_instance_reentry_without_source_reset':0,**lifetime_stats}
