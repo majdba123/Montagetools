@@ -24,7 +24,7 @@ def _required_operations(name:str)->set[str]:
         except Exception:continue
     for row in d.get('opacity_keyframes') or []:
         try:
-            if abs(float(row[1])-1.0)>.002:ops.add('REVEAL');break
+            if abs(float(row[1])-1.0)>.002:ops.add('OPACITY_APPEARANCE');break
         except Exception:continue
     if not ops:ops.add('STATIC')
     return ops
@@ -34,7 +34,9 @@ def _manifestation_safe(event:dict,name:str)->bool:
     ops=_required_operations(name)
     if 'TRANSLATE' in ops and not bool(event.get('translation_safe_after_occlusion',event.get('animation_safe',True))):return False
     if 'SCALE' in ops and not bool(event.get('scale_safe',True)):return False
-    if 'REVEAL' in ops and not bool(event.get('reveal_safe',True)):return False
+    # Opacity on an APPEARANCE preset does not translate the crop or expose pixels
+    # outside its physical carrier. Foundation reveal_safe refers to subobject/mask
+    # reveal authority and is deliberately not overloaded here.
     return True
 
 def _safe_translation(event:dict)->bool:return bool(event.get('translation_safe_after_occlusion',event.get('animation_safe',True))) and str(event.get('render_mode') or '')!='RESIDUAL_SUPPORT'
