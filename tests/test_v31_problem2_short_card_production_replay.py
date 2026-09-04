@@ -23,8 +23,6 @@ def event(eid,scene_id,card_id,semantic_id,role,card_start,card_end,*,intent='',
 cards=[{'card_id':f'CARD_{i+1:03d}','start_seconds':float(i)*4.0,'end_seconds':float(i)*4.0+4.0} for i in range(CARD_COUNT)]
 scenes=[{'scene_id':f'SCENE_{i+1:03d}','units':[]} for i in range(SCENE_COUNT)];scene_index={x['scene_id']:i for i,x in enumerate(scenes)};events=[];sentences=[]
 
-# The one already embodied production interaction had only one physical action and no
-# ACTION_WITHOUT_REACTION failure, so it is represented as a focus manifestation.
 focus_card=cards[0];fcs=float(focus_card['start_seconds']);fce=float(focus_card['end_seconds']);focus_id=f'{FOCUS_SCENE}_PHYS_01';focus_start=fcs+.12;focus_d=duration('APPEAR_HIGH_SCALE');focus_hit=focus_start+.70*focus_d
 focus=event(focus_id,FOCUS_SCENE,focus_card['card_id'],focus_id,'PRIMARY',fcs,fce,intent='REVEAL',entry_name='APPEAR_HIGH_SCALE',entry_start=focus_start,hit=focus_hit,translation_safe=True,render_mode='ROOT_ATOMIC');events.append(focus);scenes[scene_index[FOCUS_SCENE]]['units']=[{'unit_id':focus_id}];sentences.append({'sentence_id':f'SENTENCE_{FOCUS_SCENE}','scene_id':FOCUS_SCENE,'visual_card_id':focus_card['card_id'],'subject_event_id':focus_id,'action':'REVEAL','object_event_id':None,'result_event_id':None,'confidence':.95,'physical_support':True})
 
@@ -57,6 +55,7 @@ for sid in UNSAFE_REACT_SCENES:
     assert all(x.get('causal_direction')=='OBJECT_CAUSES_SUBJECT_REACTION' for x in rows),rows
     assert float(rows[1]['start_seconds'])>=float(rows[0]['end_seconds'])+1/FPS-1e-6,rows
     intent=next(x for x in engine['intents'] if x['interaction_id']==iid);assert intent['causal_source_event_id']==object_id and intent['causal_target_event_id']==subject_id,intent
+    edge=next(x for x in engine['graph']['edges'] if x.get('interaction_id')==iid and x.get('kind')=='ACTION_TO_REACTION');assert edge['from']==object_id and edge['to']==subject_id and edge.get('causal_direction')=='OBJECT_CAUSES_SUBJECT_REACTION',edge
     unsafe_actions+=len(rows);assert all('TRANSLATE' not in set(x.get('required_operations') or []) for x in rows),rows;assert all(x['preset']=='APPEAR_HIGH_SCALE' for x in rows),rows
 assert unsafe_actions==16,unsafe_actions
 print('V31_PROBLEM2_SHORT_CARD_PRODUCTION_REPLAY_PASS',json.dumps({'scenes':SCENE_COUNT,'cards':CARD_COUNT,'events':EVENT_COUNT,'actionable_interactions':ACTIONABLE_COUNT,'translation_unsafe_react_interactions':8,'focus_interactions':1,'capability_safe_in_place_actions':unsafe_actions,'react_reverse_direction':engine['react_reverse_direction_count'],'physical_actions':engine['physical_action_count'],'embodiment_ratio':engine['embodiment_ratio'],'adopted_existing_motion':engine['adopted_existing_motion_count']},sort_keys=True))
