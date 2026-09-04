@@ -158,6 +158,26 @@ jobs:
             $env:PYTHONPATH = $old
           }
 
+      - name: Installed short-card production replay
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          $cfg = Get-Content (Join-Path $runtimeDir 'runtime_config.json') -Raw | ConvertFrom-Json
+          $lock = Get-Content (Join-Path $runtimeDir 'runtime_lock.json') -Raw | ConvertFrom-Json
+          $head = (& git rev-parse HEAD | Out-String).Trim()
+          if ($cfg.source_commit -ne $head) { throw "Installed runtime source mismatch: $($cfg.source_commit) != $head" }
+          $roots = @((Join-Path $lock.extension_root 'py')) + @($cfg.python_import_roots)
+          $old = $env:PYTHONPATH
+          $env:PYTHONPATH = ($roots -join ';')
+          try {
+            & $cfg.python_exe tests/test_v31_problem2_short_card_production_replay.py
+            if ($LASTEXITCODE -ne 0) { throw "Installed short-card production replay failed" }
+          } finally {
+            $env:PYTHONPATH = $old
+          }
+
       - name: Premiere host integration contract
         shell: pwsh
         run: node tests/test_v31_premiere_animated_host_mock.js
