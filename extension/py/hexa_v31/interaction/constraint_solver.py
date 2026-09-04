@@ -26,7 +26,7 @@ def solve_interaction_schedule(intent:dict,candidate:dict,event_by_id:dict[str,d
     if not steps:return {'status':'NO_PHYSICAL_STEPS','solver':'ORTOOLS_CP_SAT','steps':[],'deterministic':True}
     try:from ortools.sat.python import cp_model
     except Exception as exc:return {'status':'SAFE_FALLBACK_DEPENDENCY_UNAVAILABLE','solver':'ORTOOLS_CP_SAT','reason':str(exc),'steps':[],'deterministic':True}
-    model=cp_model.CpModel();vars_=[];semantic_hit=float(intent.get('semantic_hit_seconds',0.0));desired=int(round(semantic_hit*fps))
+    model=cp_model.CpModel();vars_=[];semantic_hit=float(intent.get('semantic_hit_seconds',0.0));desired=int(round(semantic_hit*fps));semantic_action=str(intent.get('semantic_action') or '')
     for index,step in enumerate(steps):
         event=event_by_id.get(str(step['event_id']))
         if not event:return {'status':'SAFE_FALLBACK_EVENT_MISSING','solver':'ORTOOLS_CP_SAT','steps':[],'deterministic':True}
@@ -42,7 +42,9 @@ def solve_interaction_schedule(intent:dict,candidate:dict,event_by_id:dict[str,d
     deviations=[]
     for index,(v,dur,lo,hi,_) in enumerate(vars_):
         explicit=steps[index].get('preferred_start_seconds')
-        preferred=int(round(float(explicit)*fps)) if explicit is not None else desired
+        if explicit is not None:preferred=int(round(float(explicit)*fps))
+        elif semantic_action=='REACT' and str(steps[index].get('phase') or '')=='ACTION':preferred=desired-dur-1
+        else:preferred=desired
         preferred=max(preferred,int(math.ceil(float(steps[index].get('not_before_seconds') or 0.0)*fps-1e-9)));target=max(lo,min(hi,preferred));d=model.NewIntVar(0,max(abs(lo-target),abs(hi-target)),'d'+str(index));model.AddAbsEquality(d,v-target);deviations.append(d)
     model.Minimize(sum(d*1000 for d in deviations)+sum(v*(i+1) for i,(v,_,_,_,_) in enumerate(vars_)))
     solver=cp_model.CpSolver();solver.parameters.num_search_workers=1;solver.parameters.random_seed=0;solver.parameters.max_time_in_seconds=.20;status=solver.Solve(model)
