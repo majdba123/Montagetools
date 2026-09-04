@@ -26,9 +26,6 @@ def _step(phase,event,preset_name,role):
     return {'phase':phase,'event_id':event['event_id'],'preset':preset_name,'duration_seconds':duration(preset_name),'semantic_role':role}
 
 def _pair_steps(subject,target,subject_state,target_state,action):
-    # These templates use only calibrated user-preset endpoints and never teleport an
-    # actor from an incompatible start state.  The pair separates or hands focus over
-    # rather than converging two objects onto the same center at the same time.
     if subject_state=='MIDDLE' and target_state=='RIGHT':
         return [_step('ACTION',subject,'WITHIN_MIDDLE_TO_LEFT','SOURCE_YIELDS_SPACE'),_step('REACTION',target,'WITHIN_RIGHT_TO_MIDDLE','TARGET_RECEIVES_FOCUS')],'CENTER_RIGHT_HANDOFF'
     if subject_state=='MIDDLE' and target_state=='LEFT':
@@ -44,16 +41,19 @@ def _pair_steps(subject,target,subject_state,target_state,action):
     return [],None
 
 def _focus_steps(subject,state,action):
-    if state!='MIDDLE' or not _safe_translation(subject):return [],None
-    name='WITHIN_MIDDLE_TO_UP' if action in {'REVEAL','READ','INCREASE'} else 'WITHIN_MIDDLE_TO_DOWN'
-    return [_step('ACTION',subject,name,'SEMANTIC_FOCUS_MANIFESTATION')],'CENTER_FOCUS_PUNCTUATION'
+    if not _safe_translation(subject):return [],None
+    if state=='LEFT':return [_step('ACTION',subject,'WITHIN_LEFT_TO_MIDDLE','SEMANTIC_FOCUS_ACQUIRE')],'LEFT_TO_FOCUS'
+    if state=='RIGHT':return [_step('ACTION',subject,'WITHIN_RIGHT_TO_MIDDLE','SEMANTIC_FOCUS_ACQUIRE')],'RIGHT_TO_FOCUS'
+    if state=='MIDDLE':
+        name='WITHIN_MIDDLE_TO_UP' if action in {'REVEAL','READ','INCREASE'} else 'WITHIN_MIDDLE_TO_DOWN'
+        return [_step('ACTION',subject,name,'SEMANTIC_FOCUS_PUNCTUATION')],'CENTER_FOCUS_PUNCTUATION'
+    return [],None
 
 def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:float)->dict:
     subject=event_by_id.get(str(intent['subject_event_id']));target=event_by_id.get(str(intent.get('object_event_id') or ''))
     if not subject:return {'mode':'SAFE_STATIC_FALLBACK','reason':'MISSING_SUBJECT','steps':[]}
     if _has_existing_interaction_action(subject):return {'mode':'BASE_RELATIONSHIP_AUTHORITY','reason':'BASE_PLAN_ALREADY_AUTHORED_RELATIONSHIP_ACTION','steps':[]}
-    if not intent.get('actionable'):
-        return {'mode':'NON_ACTIONABLE','reason':intent.get('non_actionable_reason') or 'INTENT_NOT_ACTIONABLE','steps':[]}
+    if not intent.get('actionable'):return {'mode':'NON_ACTIONABLE','reason':intent.get('non_actionable_reason') or 'INTENT_NOT_ACTIONABLE','steps':[]}
     subject_state=_state(subject.get('card_rest_position_norm') or [.5,.5]);action=str(intent.get('semantic_action') or '')
     if intent.get('physical_pair_allowed') and target:
         if not _safe_translation(subject):return {'mode':'SAFE_STATIC_FALLBACK','reason':'SUBJECT_TRANSLATION_UNSAFE','steps':[]}
