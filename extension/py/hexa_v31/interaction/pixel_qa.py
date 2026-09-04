@@ -14,13 +14,17 @@ def _roi(event,preset_name,width,height):
 
 def verify_encoded_interactions(video_path:str,motion_plan:dict,fps:float|None=None)->dict:
     engine=motion_plan.get('interaction_engine') or {};actions=list(engine.get('physical_actions') or [])
+    actionable=int(engine.get('actionable_interaction_count') or 0)
+    embodied=int(engine.get('embodied_interaction_count') or 0)
     if not actions:
-        return {'schema':'HEXA_ENCODED_INTERACTION_PIXEL_QA_V2','version':'2.0','pass':True,'physical_action_count':0,'verified_action_count':0,'vacuous':True,'actions':[],'failures':[]}
+        failures=[]
+        if actionable>0:failures=[{'reason':'ZERO_ENCODED_INTERACTION_ACTIONS_WITH_ACTIONABLE_INTENTS','actionable_interaction_count':actionable,'embodied_interaction_count':embodied}]
+        return {'schema':'HEXA_ENCODED_INTERACTION_PIXEL_QA_V3','version':'3.0_NO_VACUOUS_GREEN','pass':not failures,'physical_action_count':0,'verified_action_count':0,'actionable_interaction_count':actionable,'embodied_interaction_count':embodied,'vacuous':actionable==0,'actions':[],'failures':failures}
     events={str(e.get('event_id')):e for e in motion_plan.get('events') or []}
     cap=cv2.VideoCapture(str(video_path));actual_fps=float(cap.get(cv2.CAP_PROP_FPS) or fps or motion_plan.get('fps') or 30);total=int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0);width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0);height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
     rows=[];fail=[]
     if total<=0 or width<=0 or height<=0:
-        cap.release();return {'schema':'HEXA_ENCODED_INTERACTION_PIXEL_QA_V2','version':'2.0','pass':False,'physical_action_count':len(actions),'verified_action_count':0,'vacuous':False,'actions':[],'failures':[{'reason':'VIDEO_DECODE_UNAVAILABLE'}]}
+        cap.release();return {'schema':'HEXA_ENCODED_INTERACTION_PIXEL_QA_V3','version':'3.0_NO_VACUOUS_GREEN','pass':False,'physical_action_count':len(actions),'verified_action_count':0,'actionable_interaction_count':actionable,'embodied_interaction_count':embodied,'vacuous':False,'actions':[],'failures':[{'reason':'VIDEO_DECODE_UNAVAILABLE'}]}
     for action in actions:
         event=events.get(str(action.get('event_id')));st=float(action.get('start_seconds',0));en=float(action.get('end_seconds',st))
         if not event or en<=st:
@@ -39,4 +43,5 @@ def verify_encoded_interactions(video_path:str,motion_plan:dict,fps:float|None=N
         if not ok:row['reason']='ENCODED_MOTION_BELOW_THRESHOLD_OR_ACTOR_NOT_VISIBLE';fail.append(row)
         rows.append(row)
     cap.release()
-    return {'schema':'HEXA_ENCODED_INTERACTION_PIXEL_QA_V2','version':'2.0','pass':not fail,'physical_action_count':len(actions),'verified_action_count':sum(bool(x.get('pass')) for x in rows),'vacuous':False,'actions':rows,'failures':fail}
+    verified=sum(bool(x.get('pass')) for x in rows)
+    return {'schema':'HEXA_ENCODED_INTERACTION_PIXEL_QA_V3','version':'3.0_NO_VACUOUS_GREEN','pass':not fail,'physical_action_count':len(actions),'verified_action_count':verified,'actionable_interaction_count':actionable,'embodied_interaction_count':embodied,'vacuous':False,'actions':rows,'failures':fail}
