@@ -11,6 +11,12 @@ def interaction_plan_qa(plan:dict)->dict:
         st=float(row.get('start_seconds',0));en=float(row.get('end_seconds',st));ps=float(e.get('physical_start_seconds',e.get('start_seconds',0)));pe=float(e.get('physical_end_seconds',e.get('end_seconds',ps)))
         if st<ps-1e-6 or en>pe+1e-6:fail.append({'reason':'ACTION_OUTSIDE_PHYSICAL_LIFETIME','action':row})
         if not (row.get('swept_geometry') or {}).get('pass',True):fail.append({'reason':'INTERACTION_PATH_COLLISION','action':row})
+        if row.get('retime_existing_entry'):
+            if str(row.get('source_kind') or '')!='PRESET_ENTRY':fail.append({'reason':'RETIME_NON_ENTRY_FORBIDDEN','action':row})
+            if 'TRANSLATE' in set(row.get('required_operations') or []):fail.append({'reason':'RETIME_TRANSLATION_FORBIDDEN','action':row})
+            entry=e.get('preset_entry') or {}
+            if str(entry.get('name') or '')!=str(row.get('preset') or '') or abs(float(entry.get('start_seconds',st))-st)>1e-5:fail.append({'reason':'RETIME_NOT_APPLIED_TO_RENDER_ENTRY','action':row,'entry':entry})
+            if float(row.get('original_start_seconds',st))<=st+1e-6:fail.append({'reason':'CAUSAL_PREROLL_DID_NOT_MOVE_EARLIER','action':row})
     intents={str(x.get('interaction_id')):x for x in (engine.get('intents') or [])};actionable=[x for x in intents.values() if x.get('actionable')]
     for iid,intent in intents.items():
         rows=sorted(by.get(iid,[]),key=lambda x:float(x.get('start_seconds',0)))
@@ -38,4 +44,4 @@ def interaction_plan_qa(plan:dict)->dict:
         es=float(e.get('physical_start_seconds',e.get('start_seconds',0)));ee=float(e.get('physical_end_seconds',e.get('end_seconds',es)));os=max(float(src.get('physical_start_seconds',src.get('start_seconds',0))),float(dst.get('physical_start_seconds',dst.get('start_seconds',0))));oe=min(float(src.get('physical_end_seconds',src.get('end_seconds',0))),float(dst.get('physical_end_seconds',dst.get('end_seconds',0))))
         if es<os-1e-6 or ee>oe+1e-6:orphan.append({'event_id':e.get('event_id'),'interval':[es,ee],'required_overlap':[os,oe]})
     for row in orphan:fail.append({'reason':'ORPHAN_RELATIONSHIP_VISUAL_INTERVAL',**row})
-    return {'schema':'HEXA_INTERACTION_PLAN_QA_V3','version':'3.1_CAUSAL_ACTOR_DIRECTION','pass':bool(graph.get('pass',True)) and not fail,'graph_pass':bool(graph.get('pass',True)),'logical_interaction_count':len(intents),'actionable_interaction_count':actionable_count,'physical_action_count':len(actions),'embodied_interaction_count':embodied,'embodiment_ratio':round(ratio,6),'verified_interaction_count':sum(1 for x in by.values() if x),'orphan_relationship_visuals':orphan,'warnings':warnings,'failures':fail}
+    return {'schema':'HEXA_INTERACTION_PLAN_QA_V3','version':'3.2_CAUSAL_PREROLL_INVARIANTS','pass':bool(graph.get('pass',True)) and not fail,'graph_pass':bool(graph.get('pass',True)),'logical_interaction_count':len(intents),'actionable_interaction_count':actionable_count,'physical_action_count':len(actions),'embodied_interaction_count':embodied,'embodiment_ratio':round(ratio,6),'verified_interaction_count':sum(1 for x in by.values() if x),'retimed_existing_motion_count':sum(bool(x.get('retime_existing_entry')) for x in actions),'orphan_relationship_visuals':orphan,'warnings':warnings,'failures':fail}
