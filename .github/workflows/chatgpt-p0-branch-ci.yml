@@ -158,6 +158,43 @@ jobs:
             $env:PYTHONPATH = $old
           }
 
+      - name: Installed Foundation worker initialization
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          $cfgPath = Join-Path $runtimeDir 'runtime_config.json'
+          $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
+          $lock = Get-Content (Join-Path $runtimeDir 'runtime_lock.json') -Raw | ConvertFrom-Json
+          if (-not $cfg.foundation_vision_enabled) { throw "Installed Foundation Vision is not enabled" }
+          $roots = @((Join-Path $lock.extension_root 'py')) + @($cfg.python_import_roots)
+          $old = $env:PYTHONPATH
+          $env:PYTHONPATH = ($roots -join ';')
+          $env:HEXA_CI_RUNTIME_CONFIG = $cfgPath
+          $env:HEXA_CI_EXTENSION_ROOT = $lock.extension_root
+          $probe = @'
+          import json,os
+          from hexa_v31.vision.foundation.backend import FoundationVisionClient
+          with open(os.environ['HEXA_CI_RUNTIME_CONFIG'],'r',encoding='utf-8-sig') as f: cfg=json.load(f)
+          client=FoundationVisionClient(cfg,os.environ['HEXA_CI_EXTENSION_ROOT'])
+          try:
+              ok=client.start()
+              print('FOUNDATION_STARTUP_ATTEMPTS='+json.dumps(client.startup_attempts,ensure_ascii=False))
+              if not ok: raise RuntimeError(client.failure or 'Foundation worker failed to initialize')
+              print('V31_INSTALLED_FOUNDATION_WORKER_READY_PASS')
+          finally:
+              client.close()
+          '@
+          try {
+            & $cfg.python_exe -c $probe
+            if ($LASTEXITCODE -ne 0) { throw "Installed Foundation worker initialization failed" }
+          } finally {
+            $env:PYTHONPATH = $old
+            Remove-Item Env:HEXA_CI_RUNTIME_CONFIG -ErrorAction SilentlyContinue
+            Remove-Item Env:HEXA_CI_EXTENSION_ROOT -ErrorAction SilentlyContinue
+          }
+
       - name: Installed interaction production certification
         shell: pwsh
         env:
