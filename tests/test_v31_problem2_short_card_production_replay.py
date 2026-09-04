@@ -6,10 +6,10 @@ from hexa_v31.preset_authority import duration
 FPS=30.0
 SCENE_COUNT=49
 CARD_COUNT=21
-INTERACTION_COUNT=9
+ACTIONABLE_COUNT=9
 EVENT_COUNT=79
-UNSAFE_SCENES={'SCENE_002','SCENE_010','SCENE_014','SCENE_019','SCENE_022','SCENE_027','SCENE_030','SCENE_040'}
-INTERACTION_SCENES=['SCENE_001','SCENE_002','SCENE_010','SCENE_014','SCENE_019','SCENE_022','SCENE_027','SCENE_030','SCENE_040']
+UNSAFE_REACT_SCENES=['SCENE_002','SCENE_010','SCENE_014','SCENE_019','SCENE_022','SCENE_027','SCENE_030','SCENE_040']
+FOCUS_SCENE='SCENE_001'
 
 def entry(name,start):return {'name':name,'start_seconds':round(start,6),'duration_seconds':duration(name)}
 
@@ -22,36 +22,34 @@ def event(eid,scene_id,card_id,semantic_id,role,card_start,card_end,*,intent='',
 
 cards=[{'card_id':f'CARD_{i+1:03d}','start_seconds':float(i)*4.0,'end_seconds':float(i)*4.0+4.0} for i in range(CARD_COUNT)]
 scenes=[{'scene_id':f'SCENE_{i+1:03d}','units':[]} for i in range(SCENE_COUNT)];scene_index={x['scene_id']:i for i,x in enumerate(scenes)};events=[];sentences=[]
-for i,sid in enumerate(INTERACTION_SCENES):
-    card=cards[i];cs=float(card['start_seconds']);ce=float(card['end_seconds']);cid=card['card_id'];unsafe=sid in UNSAFE_SCENES;subject_id=f'{sid}_PHYS_01';object_id=f'{sid}_PHYS_02'
-    # REACT is resolved from PHYS_01's own semantics. Therefore PHYS_02 is the
-    # stimulus/cause and must act first; PHYS_01 is the semantic subject/reactor.
-    if unsafe:
-        cause_name='APPEAR_HIGH_SCALE';cause_start=cs+.12;cause_d=duration(cause_name);cause_hit=cause_start+.70*cause_d
-        reaction_name='APPEAR_HIGH_SCALE';reaction_start=cause_start+cause_d+.08;reaction_d=duration(reaction_name);reaction_hit=reaction_start+.70*reaction_d;render_mode='CHILD_PARTITION'
-    else:
-        cause_name='ENTRY_RIGHT_TO_MIDDLE';cause_start=cs+.08;cause_d=duration(cause_name);cause_hit=cause_start+.90*cause_d
-        reaction_name='ENTRY_LEFT_TO_MIDDLE';reaction_start=cause_start+cause_d+.10;reaction_d=duration(reaction_name);reaction_hit=reaction_start+.90*reaction_d;render_mode='ROOT_ATOMIC'
-    subject=event(subject_id,sid,cid,subject_id,'PRIMARY',cs,ce,intent='REACT',entry_name=reaction_name,entry_start=reaction_start,hit=reaction_hit,translation_safe=not unsafe,render_mode=render_mode)
-    obj=event(object_id,sid,cid,object_id,'SUPPORTING',cs,ce,entry_name=cause_name,entry_start=cause_start,hit=cause_hit,translation_safe=not unsafe,render_mode=render_mode)
-    events.extend([subject,obj]);scenes[scene_index[sid]]['units']=[{'unit_id':subject_id},{'unit_id':object_id}]
-    sentences.append({'sentence_id':f'SENTENCE_{sid}','scene_id':sid,'visual_card_id':cid,'subject_event_id':subject_id,'action':'REACT','object_event_id':object_id,'result_event_id':None,'confidence':.95,'physical_support':True})
+
+# The one already embodied production interaction had only one physical action and no
+# ACTION_WITHOUT_REACTION failure, so it is represented as a focus manifestation.
+focus_card=cards[0];fcs=float(focus_card['start_seconds']);fce=float(focus_card['end_seconds']);focus_id=f'{FOCUS_SCENE}_PHYS_01';focus_start=fcs+.12;focus_d=duration('APPEAR_HIGH_SCALE');focus_hit=focus_start+.70*focus_d
+focus=event(focus_id,FOCUS_SCENE,focus_card['card_id'],focus_id,'PRIMARY',fcs,fce,intent='REVEAL',entry_name='APPEAR_HIGH_SCALE',entry_start=focus_start,hit=focus_hit,translation_safe=True,render_mode='ROOT_ATOMIC');events.append(focus);scenes[scene_index[FOCUS_SCENE]]['units']=[{'unit_id':focus_id}];sentences.append({'sentence_id':f'SENTENCE_{FOCUS_SCENE}','scene_id':FOCUS_SCENE,'visual_card_id':focus_card['card_id'],'subject_event_id':focus_id,'action':'REVEAL','object_event_id':None,'result_event_id':None,'confidence':.95,'physical_support':True})
+
+for i,sid in enumerate(UNSAFE_REACT_SCENES,start=1):
+    card=cards[i];cs=float(card['start_seconds']);ce=float(card['end_seconds']);cid=card['card_id'];subject_id=f'{sid}_PHYS_01';object_id=f'{sid}_PHYS_02';cause_name='APPEAR_HIGH_SCALE';cause_start=cs+.12;cause_d=duration(cause_name);cause_hit=cause_start+.70*cause_d;reaction_name='APPEAR_HIGH_SCALE';reaction_start=cause_start+cause_d+.08;reaction_d=duration(reaction_name);reaction_hit=reaction_start+.70*reaction_d
+    subject=event(subject_id,sid,cid,subject_id,'PRIMARY',cs,ce,intent='REACT',entry_name=reaction_name,entry_start=reaction_start,hit=reaction_hit,translation_safe=False,render_mode='CHILD_PARTITION')
+    obj=event(object_id,sid,cid,object_id,'SUPPORTING',cs,ce,entry_name=cause_name,entry_start=cause_start,hit=cause_hit,translation_safe=False,render_mode='CHILD_PARTITION')
+    events.extend([subject,obj]);scenes[scene_index[sid]]['units']=[{'unit_id':subject_id},{'unit_id':object_id}];sentences.append({'sentence_id':f'SENTENCE_{sid}','scene_id':sid,'visual_card_id':cid,'subject_event_id':subject_id,'action':'REACT','object_event_id':object_id,'result_event_id':None,'confidence':.95,'physical_support':True})
 
 filler_needed=EVENT_COUNT-len(events)
 for j in range(filler_needed):
-    card_index=INTERACTION_COUNT+(j%(CARD_COUNT-INTERACTION_COUNT));card=cards[card_index];si=(INTERACTION_COUNT+j)%SCENE_COUNT;sid=f'SCENE_{si+1:03d}';cid=card['card_id'];eid=f'FILLER_{j+1:03d}';events.append(event(eid,sid,cid,eid,'SUPPORTING',float(card['start_seconds']),float(card['end_seconds']),hit=float(card['start_seconds'])+.5));scenes[si]['units'].append({'unit_id':eid})
+    card_index=ACTIONABLE_COUNT+(j%(CARD_COUNT-ACTIONABLE_COUNT));card=cards[card_index];si=(ACTIONABLE_COUNT+j)%SCENE_COUNT;sid=f'SCENE_{si+1:03d}';cid=card['card_id'];eid=f'FILLER_{j+1:03d}';events.append(event(eid,sid,cid,eid,'SUPPORTING',float(card['start_seconds']),float(card['end_seconds']),hit=float(card['start_seconds'])+.5));scenes[si]['units'].append({'unit_id':eid})
 
-base={'fps':FPS,'events':events,'visual_cards':{'cards':cards},'semantic_visual_sentence_compiler':{'sentences':sentences},'budget_summary':{'story_action_count':0,'choreography_action_count':150},'hard_invariants':{},'motion_dna_version':'HEXA_MOTION_DNA_PRODUCTION_TRANSLATION_UNSAFE_REACT_REPLAY','scenes':[{'scene_id':x['scene_id'],'start_seconds':0.0,'end_seconds':84.0} for x in scenes]}
+base={'fps':FPS,'events':events,'visual_cards':{'cards':cards},'semantic_visual_sentence_compiler':{'sentences':sentences},'budget_summary':{'story_action_count':0,'choreography_action_count':150},'hard_invariants':{},'motion_dna_version':'HEXA_MOTION_DNA_PRODUCTION_8_REACT_1_FOCUS_REPLAY','scenes':[{'scene_id':x['scene_id'],'start_seconds':0.0,'end_seconds':84.0} for x in scenes]}
 out=apply_interaction_director(copy.deepcopy(base),{'scenes':scenes},{},FPS);engine=out['interaction_engine'];qa=out['interaction_plan_qa']
 assert qa['pass'],qa
 assert len(out['events'])==EVENT_COUNT and len(out['visual_cards']['cards'])==CARD_COUNT
-assert engine['logical_interaction_count']==INTERACTION_COUNT and engine['actionable_interaction_count']==INTERACTION_COUNT,engine
-assert engine['embodied_interaction_count']==INTERACTION_COUNT and engine['embodiment_ratio']==1.0,engine
-assert engine['physical_action_count']==INTERACTION_COUNT*2 and engine['adopted_existing_motion_count']==INTERACTION_COUNT*2,engine
+assert engine['logical_interaction_count']==ACTIONABLE_COUNT and engine['actionable_interaction_count']==ACTIONABLE_COUNT,engine
+assert engine['embodied_interaction_count']==ACTIONABLE_COUNT and engine['embodiment_ratio']==1.0,engine
+assert engine['physical_action_count']==17 and engine['adopted_existing_motion_count']==17,engine
 assert engine['fallback_report']['count']==0,engine['fallback_report']
-assert engine['react_reverse_direction_count']==INTERACTION_COUNT,engine
+assert engine['react_reverse_direction_count']==8,engine
+focus_rows=[x for x in engine['physical_actions'] if x['interaction_id']==f'INT::SENTENCE_{FOCUS_SCENE}'];assert len(focus_rows)==1 and focus_rows[0]['event_id']==focus_id and focus_rows[0]['phase']=='ACTION',focus_rows
 unsafe_actions=0
-for sid in INTERACTION_SCENES:
+for sid in UNSAFE_REACT_SCENES:
     iid='INT::SENTENCE_'+sid;rows=sorted((x for x in engine['physical_actions'] if x['interaction_id']==iid),key=lambda x:float(x['start_seconds']));subject_id=f'{sid}_PHYS_01';object_id=f'{sid}_PHYS_02'
     assert [x['phase'] for x in rows]==['ACTION','REACTION'],rows
     assert [x['event_id'] for x in rows]==[object_id,subject_id],rows
@@ -59,7 +57,6 @@ for sid in INTERACTION_SCENES:
     assert all(x.get('causal_direction')=='OBJECT_CAUSES_SUBJECT_REACTION' for x in rows),rows
     assert float(rows[1]['start_seconds'])>=float(rows[0]['end_seconds'])+1/FPS-1e-6,rows
     intent=next(x for x in engine['intents'] if x['interaction_id']==iid);assert intent['causal_source_event_id']==object_id and intent['causal_target_event_id']==subject_id,intent
-    if sid in UNSAFE_SCENES:
-        unsafe_actions+=len(rows);assert all('TRANSLATE' not in set(x.get('required_operations') or []) for x in rows),rows;assert all(x['preset']=='APPEAR_HIGH_SCALE' for x in rows),rows
+    unsafe_actions+=len(rows);assert all('TRANSLATE' not in set(x.get('required_operations') or []) for x in rows),rows;assert all(x['preset']=='APPEAR_HIGH_SCALE' for x in rows),rows
 assert unsafe_actions==16,unsafe_actions
-print('V31_PROBLEM2_SHORT_CARD_PRODUCTION_REPLAY_PASS',json.dumps({'scenes':SCENE_COUNT,'cards':CARD_COUNT,'events':EVENT_COUNT,'interactions':INTERACTION_COUNT,'translation_unsafe_interactions':len(UNSAFE_SCENES),'capability_safe_in_place_actions':unsafe_actions,'react_reverse_direction':engine['react_reverse_direction_count'],'physical_actions':engine['physical_action_count'],'embodiment_ratio':engine['embodiment_ratio'],'adopted_existing_motion':engine['adopted_existing_motion_count']},sort_keys=True))
+print('V31_PROBLEM2_SHORT_CARD_PRODUCTION_REPLAY_PASS',json.dumps({'scenes':SCENE_COUNT,'cards':CARD_COUNT,'events':EVENT_COUNT,'actionable_interactions':ACTIONABLE_COUNT,'translation_unsafe_react_interactions':8,'focus_interactions':1,'capability_safe_in_place_actions':unsafe_actions,'react_reverse_direction':engine['react_reverse_direction_count'],'physical_actions':engine['physical_action_count'],'embodiment_ratio':engine['embodiment_ratio'],'adopted_existing_motion':engine['adopted_existing_motion_count']},sort_keys=True))
