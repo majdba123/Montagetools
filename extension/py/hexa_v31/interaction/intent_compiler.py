@@ -47,13 +47,16 @@ def _pair_authority(sentence:dict,subject:dict,obj:dict|None,explicit_pairs:dict
     sid=str(sentence.get('scene_id') or subject.get('scene_id') or '')
     suid=str(subject.get('semantic_unit_id') or '')
     ouid=str(obj.get('semantic_unit_id') or '')
+    if suid and ouid and suid==ouid:
+        return 'SAME_SEMANTIC_UNIT',0.0
     package=explicit_pairs.get((sid,suid,ouid))
     if package:return package,1.0
     sentence_conf=float(sentence.get('confidence') or 0.0)
     sentence_explicit=bool(sentence.get('subject_event_id') and sentence.get('object_event_id') and sentence.get('physical_support'))
     same_card=str(subject.get('visual_card_id') or '')==str(obj.get('visual_card_id') or '')
     distinct_scope=str(subject.get('semantic_scope_id') or subject.get('event_id'))!=str(obj.get('semantic_scope_id') or obj.get('event_id'))
-    if sentence_explicit and same_card and distinct_scope and sentence_conf>=MIN_PAIR_CONFIDENCE:
+    distinct_semantic_unit=bool(suid and ouid and suid!=ouid)
+    if sentence_explicit and same_card and distinct_scope and distinct_semantic_unit and sentence_conf>=MIN_PAIR_CONFIDENCE:
         return 'SEMANTIC_SENTENCE_EXPLICIT_PAIR',sentence_conf
     return 'INSUFFICIENT_PAIR_AUTHORITY',sentence_conf
 
@@ -64,6 +67,26 @@ def _physically_addressable(event:dict|None)->bool:
     pe=float(event.get('physical_end_seconds',event.get('end_seconds',ps)))
     if pe<=ps+1e-6:return False
     return bool(event.get('source_path') or event.get('source_layer_path') or event.get('render_mode'))
+
+def _ambiguous_partition_focus(subject:dict,events:dict[str,dict])->bool:
+    mode=str(subject.get('render_mode') or '').upper()
+    if mode not in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+        return False
+    sid=str(subject.get('scene_id') or '')
+    cid=str(subject.get('visual_card_id') or '')
+    semantic_unit_id=str(subject.get('semantic_unit_id') or '')
+    partition_root_id=str(subject.get('partition_root_id') or subject.get('root_id') or '')
+    if not semantic_unit_id:
+        return True
+    cohort=[]
+    for event in events.values():
+        if str(event.get('render_mode') or '').upper() not in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:continue
+        if str(event.get('scene_id') or '')!=sid or str(event.get('visual_card_id') or '')!=cid:continue
+        if str(event.get('semantic_unit_id') or '')!=semantic_unit_id:continue
+        other_root=str(event.get('partition_root_id') or event.get('root_id') or '')
+        if partition_root_id and other_root and other_root!=partition_root_id:continue
+        cohort.append(event)
+    return len(cohort)>1
 
 def compile_interaction_intents(motion_plan:dict,source_plan:dict|None=None)->dict:
     events=_event_map(motion_plan);source_plan=source_plan or {};explicit_pairs=_explicit_pairs(source_plan)
@@ -86,11 +109,14 @@ def compile_interaction_intents(motion_plan:dict,source_plan:dict|None=None)->di
         mapping_ok=subject_mapping>=MIN_MAPPING_CONFIDENCE and (obj is None or object_mapping>=MIN_MAPPING_CONFIDENCE)
         causal=action in PHYSICAL_CAUSAL_ACTIONS
         focus=action in FOCUS_ACTIONS
+        partition_focus_ambiguous=bool(focus and _ambiguous_partition_focus(subject,events))
         physical_pair_allowed=bool(causal and obj and confidence>=MIN_SEMANTIC_CONFIDENCE and mapping_ok and semantic_explicit and pair_addressable and pair_confidence>=MIN_PAIR_CONFIDENCE)
-        actionable=bool((physical_pair_allowed) or (focus and confidence>=MIN_SEMANTIC_CONFIDENCE and subject_mapping>=MIN_MAPPING_CONFIDENCE and _physically_addressable(subject)))
+        focus_allowed=bool(focus and confidence>=MIN_SEMANTIC_CONFIDENCE and subject_mapping>=MIN_MAPPING_CONFIDENCE and _physically_addressable(subject) and not partition_focus_ambiguous)
+        actionable=bool(physical_pair_allowed or focus_allowed)
         reason=None
         if not actionable:
             if confidence<MIN_SEMANTIC_CONFIDENCE:reason='LOW_SEMANTIC_CONFIDENCE'
+            elif partition_focus_ambiguous:reason='PARTITION_SEMANTIC_AMBIGUITY'
             elif not mapping_ok:reason='LOW_MAPPING_CONFIDENCE'
             elif causal and not obj:reason='MISSING_OBJECT'
             elif causal and not semantic_explicit:reason='NO_EXPLICIT_SEMANTIC_ACTION'
@@ -115,9 +141,10 @@ def compile_interaction_intents(motion_plan:dict,source_plan:dict|None=None)->di
         )
         rows.append(intent.to_dict())
     return {
-        'schema':'HEXA_INTERACTION_INTENT_SET_V3','version':'3.0_MULTI_TIER_PAIR_AUTHORITY',
+        'schema':'HEXA_INTERACTION_INTENT_SET_V3','version':'3.1_PARTITION_SEMANTIC_AUTHORITY',
         'intents':rows,'skipped':skipped,'explicit_pair_count':len(explicit_pairs),
         'intent_count':len(rows),'actionable_intent_count':sum(bool(x['actionable']) for x in rows),
         'physical_pair_candidate_count':sum(bool(x['physical_pair_allowed']) for x in rows),
         'pair_authority_counts':{k:sum(x['pair_authority']==k for x in rows) for k in sorted(set(x['pair_authority'] for x in rows))},
+        'partition_semantic_ambiguity_count':sum(x.get('non_actionable_reason')=='PARTITION_SEMANTIC_AMBIGUITY' for x in rows),
     }
