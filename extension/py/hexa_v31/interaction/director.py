@@ -70,10 +70,34 @@ def _commit_actions(plan:dict,intent:dict,schedule:dict)->tuple[list[dict],list[
             return [],[{'interaction_id':intent['interaction_id'],'reason':'POST_COMMIT_CARD_MOTION_CONFLICT','conflicts':conflicts[:4]}]
     return committed,rejected
 
+def _adopt_authored_cause(plan:dict,intent:dict,candidate:dict)->tuple[dict|None,dict|None]:
+    adopted=candidate.get('adopted_action') or {}
+    if not adopted:return None,None
+    events={str(e.get('event_id')):e for e in plan.get('events') or []};event=events.get(str(adopted.get('event_id')))
+    if not event:return None,{'interaction_id':intent['interaction_id'],'reason':'AUTHORED_CAUSE_EVENT_MISSING'}
+    card_id=str(intent.get('visual_card_id') or event.get('visual_card_id') or '')
+    local=[e for e in events.values() if str(e.get('visual_card_id'))==card_id and not e.get('suppressed_by_card_density')]
+    geo=swept_path_report(event,str(adopted.get('preset')),float(adopted.get('start_seconds',0)),float(adopted.get('end_seconds',0)),local)
+    if not geo.get('pass'):
+        return None,{'interaction_id':intent['interaction_id'],'reason':'AUTHORED_CAUSE_PATH_COLLISION','geometry':geo}
+    target=events.get(str(intent.get('object_event_id') or ''));target_semantic_unit_id=(target or {}).get('semantic_unit_id')
+    for action in event.get('preset_actions') or []:
+        if str(action.get('name') or '')!=str(adopted.get('preset') or ''):continue
+        if abs(float(action.get('start_seconds',0))-float(adopted.get('start_seconds',0)))>1e-6:continue
+        action['interaction_id']=intent['interaction_id'];action['interaction_phase']='ACTION';action['semantic_action']=intent.get('semantic_action')
+        action['source_event_id']=intent.get('subject_event_id');action['target_event_id']=intent.get('object_event_id')
+        if target_semantic_unit_id:action['target_semantic_unit_id']=target_semantic_unit_id
+        action['authority_bridge']='BASE_RELATIONSHIP_TO_INTERACTION_V3'
+        break
+    row={**adopted,'interaction_id':intent['interaction_id'],'semantic_action':intent.get('semantic_action'),
+         'source_event_id':intent.get('subject_event_id'),'target_event_id':intent.get('object_event_id'),
+         'swept_geometry':geo,'adopted_from_base_plan':True}
+    return row,None
+
 def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fps:float=30.0,logger=None)->dict:
     plan=base_plan;compiled=compile_interaction_intents(plan,source_plan);intents=compiled['intents'];graph=build_interaction_graph(intents)
     event_by_id={str(e.get('event_id')):e for e in plan.get('events') or [] if not e.get('suppressed_by_card_density')}
-    physical=[];schedules=[];fallbacks=[];orphan_guards=[]
+    physical=[];schedules=[];fallbacks=[];orphan_guards=[];adopted_causes=0
     for intent in intents:
         orphan_guards.extend(_relationship_visual_guard(intent,event_by_id,fps))
         candidate=build_choreography_candidate(intent,event_by_id,fps)
@@ -82,7 +106,18 @@ def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fp
         schedules.append(schedule)
         if schedule.get('status')=='COMMITTED':
             committed,rejected=_commit_actions(plan,intent,schedule)
-            if committed:physical.extend(committed)
+            if committed:
+                adopted=None;adopt_rejection=None
+                if candidate.get('adopted_action'):
+                    adopted,adopt_rejection=_adopt_authored_cause(plan,intent,candidate)
+                if adopt_rejection:
+                    fallbacks.append(adopt_rejection)
+                elif candidate.get('adopted_action') and not adopted:
+                    fallbacks.append({'interaction_id':intent['interaction_id'],'reason':'AUTHORED_CAUSE_ADOPTION_FAILED'})
+                else:
+                    if adopted:
+                        physical.append(adopted);adopted_causes+=1
+                    physical.extend(committed)
             else:fallbacks.extend(rejected or [{'interaction_id':intent['interaction_id'],'reason':'NO_SAFE_COMMIT'}])
         elif intent.get('actionable'):
             fallbacks.append({'interaction_id':intent['interaction_id'],'reason':candidate.get('reason') or schedule.get('status') or 'NO_PHYSICAL_STEPS',
@@ -96,15 +131,15 @@ def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fp
             'schedules':schedules,'physical_actions':physical,'safe_fallbacks':fallbacks,'relationship_orphan_guards':orphan_guards,
             'logical_interaction_count':len(intents),'actionable_interaction_count':len(actionable),'physical_interaction_count':len(physical_ids),
             'embodied_interaction_count':len(embodied_ids),'embodiment_ratio':round(embodiment_ratio,6),'physical_action_count':len(physical),
-            'unembodied_actionable_interaction_ids':sorted(actionable_ids-embodied_ids),
+            'adopted_base_cause_count':adopted_causes,'unembodied_actionable_interaction_ids':sorted(actionable_ids-embodied_ids),
             'ortools_required':True,'shapely_required':True,'deterministic_solver_contract':{'num_search_workers':1,'random_seed':0,'bounded_seconds_per_interaction':.20}}
     plan['interaction_engine']=engine;qa=interaction_plan_qa(plan);plan['interaction_plan_qa']=qa
     plan['final_semantic_timing_composition_qa']=composition_plan_qa({'events':plan.get('events') or [],'visual_cards':plan.get('visual_cards') or {},'fps':fps})
-    plan['motion_dna_version']=str(plan.get('motion_dna_version') or 'HEXA_MOTION_DNA_V31')+'__INTERACTION_V3_REAL_EMBODIMENT'
+    plan['motion_dna_version']=str(plan.get('motion_dna_version') or 'HEXA_MOTION_DNA_V31')+'__INTERACTION_V3_REAL_EMBODIMENT_AUTHORITY_BRIDGE'
     plan.setdefault('hard_invariants',{})['interaction_execution_authority_required']=True;plan['hard_invariants']['interaction_encoded_pixel_verification_required']=True
-    plan.setdefault('budget_summary',{})['interaction_logical_count']=engine['logical_interaction_count'];plan['budget_summary']['interaction_actionable_count']=engine['actionable_interaction_count'];plan['budget_summary']['interaction_physical_action_count']=engine['physical_action_count'];plan['budget_summary']['interaction_embodiment_ratio']=engine['embodiment_ratio']
+    plan.setdefault('budget_summary',{})['interaction_logical_count']=engine['logical_interaction_count'];plan['budget_summary']['interaction_actionable_count']=engine['actionable_interaction_count'];plan['budget_summary']['interaction_physical_action_count']=engine['physical_action_count'];plan['budget_summary']['interaction_embodiment_ratio']=engine['embodiment_ratio'];plan['budget_summary']['interaction_adopted_base_cause_count']=adopted_causes
     if not qa.get('pass'):raise ValueError('INTERACTION_PLAN_QA_FAILED: '+str(qa.get('failures')[:8]))
-    if logger:logger.log('PASS','INTERACTION_DIRECTOR_COMPILED',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],fallbacks=len(fallbacks))
+    if logger:logger.log('PASS','INTERACTION_DIRECTOR_COMPILED',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_base_causes=adopted_causes,fallbacks=len(fallbacks))
     return plan
 
 def build_interaction_motion_plan(plan:dict,alignment:dict,vision_results:list[dict],rules_path,reference_path,*,fps:float=30.0,logger=None,calibration:dict|None=None):
