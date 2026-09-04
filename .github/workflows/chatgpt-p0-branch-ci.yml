@@ -52,7 +52,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check --timeout 120 --retries 5 --upgrade pip==24.3.1
-          python -m pip install --disable-pip-version-check --timeout 120 --retries 5 "numpy>=1.24,<3" "Pillow>=10,<13" "opencv-python-headless>=4.8,<5" "faster-whisper>=1.0,<2" "arabic-reshaper>=3,<4" "python-bidi>=0.6,<1" "uharfbuzz==0.56.0"
+          python -m pip install --disable-pip-version-check --timeout 120 --retries 5 "numpy>=1.24,<3" "Pillow>=10,<13" "opencv-python-headless>=4.8,<5" "ortools==9.15.6755" "shapely==2.1.2" "faster-whisper>=1.0,<2" "arabic-reshaper>=3,<4" "python-bidi>=0.6,<1" "uharfbuzz==0.56.0"
 
       - name: FFmpeg
         shell: pwsh
@@ -141,6 +141,22 @@ jobs:
         run: |
           call bayer.bat
           if errorlevel 1 exit /b %errorlevel%
+
+      - name: Interaction runtime contract
+        shell: pwsh
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          $cfg = Get-Content (Join-Path $runtimeDir 'runtime_config.json') -Raw | ConvertFrom-Json
+          $lock = Get-Content (Join-Path $runtimeDir 'runtime_lock.json') -Raw | ConvertFrom-Json
+          $roots = @((Join-Path $lock.extension_root 'py')) + @($cfg.python_import_roots)
+          $old = $env:PYTHONPATH
+          $env:PYTHONPATH = ($roots -join ';')
+          try {
+            & $cfg.python_exe -c "from ortools.sat.python import cp_model; from shapely.geometry import box; m=cp_model.CpModel(); x=m.NewIntVar(0,2,'x'); m.Add(x==2); s=cp_model.CpSolver(); s.parameters.num_search_workers=1; s.parameters.random_seed=0; assert s.Solve(m) in (cp_model.OPTIMAL,cp_model.FEASIBLE) and s.Value(x)==2; assert abs(box(0,0,1,1).area-1.0)<1e-9; print('V31_INTERACTION_RUNTIME_CONTRACT_PASS')"
+            if ($LASTEXITCODE -ne 0) { throw "Installed interaction runtime capability probe failed" }
+          } finally {
+            $env:PYTHONPATH = $old
+          }
 
       - name: Premiere host integration contract
         shell: pwsh
