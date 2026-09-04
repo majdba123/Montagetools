@@ -3,7 +3,7 @@ import copy,hashlib,pathlib
 import numpy as np
 from PIL import Image
 
-VERSION='HEXA_VISIBLE_INK_SOURCE_FRAMING_V1_1_LAYOUT_AWARE'
+VERSION='HEXA_VISIBLE_INK_SOURCE_FRAMING_V1_2_ATOMIC_ONLY'
 
 def _ink_bbox(arr:np.ndarray):
     rgb=arr[:,:,:3].astype(np.int16);alpha=arr[:,:,3]
@@ -35,7 +35,11 @@ def normalize_render_sources(render_edit_map:dict,cache_dir,logger=None)->tuple[
     out=copy.deepcopy(render_edit_map);root=pathlib.Path(cache_dir)/'interaction_source_framing';root.mkdir(parents=True,exist_ok=True)
     rows=[];changed=0
     for event in out.get('events') or []:
-        if event.get('suppressed_by_card_density') or str(event.get('render_mode') or '')=='RESIDUAL_SUPPORT':continue
+        mode=str(event.get('render_mode') or '').upper()
+        if event.get('suppressed_by_card_density') or mode in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            if mode in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+                rows.append({'event_id':event.get('event_id'),'decision':'PRESERVE_SOURCE','reason':'FOUNDATION_PARTITION_AUTHORITY'})
+            continue
         src=event.get('source_path') or event.get('source_layer_path')
         if not src:continue
         p=pathlib.Path(src)
@@ -56,7 +60,7 @@ def normalize_render_sources(render_edit_map:dict,cache_dir,logger=None)->tuple[
         event['source_path']=str(dst)
         if event.get('source_layer_path'):event['source_layer_path']=str(dst)
         event['base_fit_scale_percent']=round(fit,6)
-        event['visible_ink_source_framing']={'version':VERSION,'original_source_path':str(p),'crop_box_px':[x0,y0,x1,y1],'original_size_px':[arr.shape[1],arr.shape[0]],'cropped_size_px':[x1-x0,y1-y0],'old_base_fit_scale_percent':old_scale,'new_base_fit_scale_percent':round(fit,6),'layout_scale_multiplier':float(event.get('layout_scale_multiplier') or 1.0),'policy':'OUTER_WHITE_PADDING_ONLY__NO_BACKGROUND_REMOVAL'}
+        event['visible_ink_source_framing']={'version':VERSION,'original_source_path':str(p),'crop_box_px':[x0,y0,x1,y1],'original_size_px':[arr.shape[1],arr.shape[0]],'cropped_size_px':[x1-x0,y1-y0],'old_base_fit_scale_percent':old_scale,'new_base_fit_scale_percent':round(fit,6),'layout_scale_multiplier':float(event.get('layout_scale_multiplier') or 1.0),'policy':'OUTER_WHITE_PADDING_ONLY__NO_BACKGROUND_REMOVAL__NO_FOUNDATION_PARTITIONS'}
         rows.append({'event_id':event.get('event_id'),'decision':'CROP_AND_REFIT_VISIBLE_INK','crop_box_px':[x0,y0,x1,y1],'old_scale':old_scale,'new_scale':round(fit,6)});changed+=1
     report={'schema':'HEXA_VISIBLE_INK_SOURCE_FRAMING_V1','version':VERSION,'pass':True,'event_count':len(out.get('events') or []),'changed_event_count':changed,'rows':rows}
     if logger:logger.log('PASS','VISIBLE_INK_SOURCE_FRAMING',changed_events=changed,total_events=len(out.get('events') or []))
