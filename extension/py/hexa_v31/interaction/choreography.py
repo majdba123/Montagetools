@@ -34,9 +34,6 @@ def _manifestation_safe(event:dict,name:str)->bool:
     ops=_required_operations(name)
     if 'TRANSLATE' in ops and not bool(event.get('translation_safe_after_occlusion',event.get('animation_safe',True))):return False
     if 'SCALE' in ops and not bool(event.get('scale_safe',True)):return False
-    # Opacity on an APPEARANCE preset does not translate the crop or expose pixels
-    # outside its physical carrier. Foundation reveal_safe refers to subobject/mask
-    # reveal authority and is deliberately not overloaded here.
     return True
 
 def _safe_translation(event:dict)->bool:return bool(event.get('translation_safe_after_occlusion',event.get('animation_safe',True))) and str(event.get('render_mode') or '')!='RESIDUAL_SUPPORT'
@@ -124,12 +121,25 @@ def _focus_steps(subject,state,action):
         name='WITHIN_MIDDLE_TO_UP' if action in {'REVEAL','READ','INCREASE'} else 'WITHIN_MIDDLE_TO_DOWN';return [_step('ACTION',subject,name,'SEMANTIC_FOCUS_PUNCTUATION')],'CENTER_FOCUS_PUNCTUATION'
     return [],None
 
-def _fixed_pair_from_entries(cause,reaction,intent,fps):
+def _fixed_or_retimed_pair_from_entries(cause,reaction,intent,fps):
     semantic_subject=str(intent.get('subject_event_id') or '');cause_is_subject=str(cause.get('event_id'))==semantic_subject;reaction_is_subject=str(reaction.get('event_id'))==semantic_subject
     action=_aligned_entry_manifestation(cause,intent,'ACTION',fps,anchor_to_intent=cause_is_subject);reply=_aligned_entry_manifestation(reaction,intent,'REACTION',fps,anchor_to_intent=reaction_is_subject)
     if not action or not reply:return None
-    if float(reply['start_seconds'])<float(action['end_seconds'])+1.0/max(1.0,fps)-1e-6:return None
-    return action,reply
+    frame=1.0/max(1.0,fps)
+    if float(reply['start_seconds'])>=float(action['end_seconds'])+frame-1e-6:return action,reply
+    # Only REACT has explicit reverse causal authority: its semantic subject is the
+    # reactor, so an already-authored in-place object appearance may be moved into
+    # causal pre-roll. Never retime a position path or a generic subject action.
+    if str(intent.get('semantic_action') or '')!='REACT' or str(intent.get('causal_direction') or '')!='OBJECT_CAUSES_SUBJECT_REACTION':return None
+    if action.get('source_kind')!='PRESET_ENTRY' or reply.get('source_kind')!='PRESET_ENTRY':return None
+    if 'TRANSLATE' in set(action.get('required_operations') or []):return None
+    desired_end=float(reply['start_seconds'])-frame;new_start=desired_end-float(action['duration_seconds'])
+    physical_start=float(cause.get('physical_start_seconds',cause.get('start_seconds',new_start)));physical_end=float(cause.get('physical_end_seconds',cause.get('end_seconds',desired_end)))
+    if new_start<physical_start-1e-6 or desired_end>physical_end+1e-6:return None
+    px=cause.get('preset_exit') or {}
+    if px and desired_end>float(px.get('start_seconds',physical_end))+1e-6:return None
+    retimed=dict(action);retimed.update({'start_seconds':round(new_start,6),'end_seconds':round(desired_end,6),'perceptual_impact_seconds':round(new_start+.70*float(action['duration_seconds']),6),'retime_existing_entry':True,'original_start_seconds':float(action['start_seconds']),'original_end_seconds':float(action['end_seconds']),'retime_reason':'REACT_CAUSAL_PRE_ROLL','semantic_anchor_match':False,'key':'|'.join((str(cause.get('event_id')),str(action['preset']),f'{new_start:.6f}','ACTION_RETIMED'))})
+    return retimed,reply
 
 def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:float)->dict:
     subject=event_by_id.get(str(intent['subject_event_id']));target=event_by_id.get(str(intent.get('object_event_id') or ''))
@@ -138,8 +148,10 @@ def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:floa
     action=str(intent.get('semantic_action') or '')
     if intent.get('physical_pair_allowed') and target:
         cause=event_by_id.get(str(intent.get('causal_source_event_id') or subject.get('event_id'))) or subject;reaction=event_by_id.get(str(intent.get('causal_target_event_id') or target.get('event_id'))) or target;direction={'causal_source_event_id':cause.get('event_id'),'causal_target_event_id':reaction.get('event_id'),'causal_direction':intent.get('causal_direction')}
-        fixed=_fixed_pair_from_entries(cause,reaction,intent,fps)
-        if fixed:return {'mode':'FIXED_EXISTING_PAIR','reason':None,'template':'SEMANTICALLY_ALIGNED_CAPABILITY_SAFE_ENTRY_PAIR','adopted_actions':list(fixed),'steps':[],'cause_translation_safe':_safe_translation(cause),'reaction_translation_safe':_safe_translation(reaction),**direction}
+        fixed=_fixed_or_retimed_pair_from_entries(cause,reaction,intent,fps)
+        if fixed:
+            retimed=sum(bool(x.get('retime_existing_entry')) for x in fixed)
+            return {'mode':'RETIMED_EXISTING_PAIR' if retimed else 'FIXED_EXISTING_PAIR','reason':None,'template':'REACT_CAUSAL_PRE_ROLL_EXISTING_APPEARANCE' if retimed else 'SEMANTICALLY_ALIGNED_CAPABILITY_SAFE_ENTRY_PAIR','adopted_actions':list(fixed),'steps':[],'retimed_existing_motion_count':retimed,'cause_translation_safe':_safe_translation(cause),'reaction_translation_safe':_safe_translation(reaction),**direction}
         authored=_matching_existing_relationship_action(cause,intent,reaction);cause_anchor=str(cause.get('event_id'))==str(intent.get('subject_event_id'));adopted=authored or _aligned_entry_manifestation(cause,intent,'ACTION',fps,anchor_to_intent=cause_anchor)
         if adopted:
             cause_end=float(adopted['end_seconds']);source_end=_apply_preset_endpoint(_point_through(cause,float(adopted['start_seconds'])-1e-6),str(adopted['preset']));reaction_cutoff=max(cause_end,float(reaction.get('settle_seconds',reaction.get('start_seconds',0.0))));reaction_point=_point_through(reaction,reaction_cutoff);reaction_state=_state(reaction_point);reply=_reaction_step(reaction,reaction_state,source_end,cause_end+1.0/max(1.0,fps))
