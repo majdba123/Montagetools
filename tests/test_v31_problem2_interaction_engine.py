@@ -17,11 +17,25 @@ action,reaction=engine['physical_actions'];assert reaction['start_seconds']>=act
 assert all((x.get('swept_geometry') or {}).get('pass') for x in engine['physical_actions'])
 assert all(a.get('action_type')=='SEMANTIC_RELATIONSHIP' and a.get('relationship_confidence')==1.0 and a.get('target_semantic_unit_id')=='TARGET' for e in a['events'] for a in e.get('preset_actions') or [])
 canonical=lambda x:json.dumps(x,sort_keys=True,ensure_ascii=False);assert canonical(a['interaction_engine'])==canonical(b['interaction_engine'])
+# Production planner may already author the semantic cause. V3 must adopt that cause,
+# preserve it byte-for-behavior, then schedule a target reaction instead of degrading
+# the actionable intent to zero embodiment.
+bridged=copy.deepcopy(base);src=bridged['events'][0]
+src['preset_actions']=[{'name':'WITHIN_MIDDLE_TO_LEFT','start_seconds':1.0,'duration_seconds':.9,'action_type':'SEMANTIC_RELATIONSHIP','target_semantic_unit_id':'TARGET','relationship_evidence':'DECLARED_VISUAL_PROGRESSION','relationship_confidence':1.0,'authority':'USER_PRFPSET_WITHIN_FRAME__V31_EXPLICIT_RELATION'}]
+src['motion_end_seconds']=1.9
+bridge_out=apply_interaction_director(bridged,source_plan,{},30.0);bridge_engine=bridge_out['interaction_engine']
+assert bridge_out['interaction_plan_qa']['pass'],bridge_out['interaction_plan_qa']
+assert bridge_engine['adopted_base_cause_count']==1,bridge_engine
+assert bridge_engine['physical_action_count']==2 and bridge_engine['embodiment_ratio']==1.0,bridge_engine
+bridge_phases=[x['phase'] for x in bridge_engine['physical_actions']];assert bridge_phases==['ACTION','REACTION'],bridge_engine['physical_actions']
+bridge_action,bridge_reaction=bridge_engine['physical_actions'];assert bridge_action['adopted_from_base_plan'];assert bridge_action['preset']=='WITHIN_MIDDLE_TO_LEFT';assert abs(bridge_action['start_seconds']-1.0)<1e-6
+assert bridge_reaction['event_id']=='TARGET' and bridge_reaction['start_seconds']>=bridge_action['end_seconds']+1/30-1e-6,(bridge_action,bridge_reaction)
+assert bridge_engine['schedules'][0]['candidate_mode']=='BASE_ACTION_PLUS_REACTION',bridge_engine['schedules'][0]
 # Focus-only semantic actions must also manifest from legal side states.
 focus_event=event('FOCUS',.183,'PRIMARY','REVEAL')
 focus={'fps':30.0,'events':[focus_event],'visual_cards':{'cards':[{'card_id':'ARBITRARY_CARD','start_seconds':0.0,'end_seconds':4.4}]},'semantic_visual_sentence_compiler':{'sentences':[{'sentence_id':'SENTENCE_FOCUS','scene_id':'ARBITRARY_SCENE','visual_card_id':'ARBITRARY_CARD','subject_event_id':'FOCUS','action':'REVEAL','object_event_id':None,'result_event_id':None,'confidence':.94,'physical_support':True}]},'budget_summary':{},'hard_invariants':{},'motion_dna_version':'BASE','scenes':[{'scene_id':'ARBITRARY_SCENE','start_seconds':0.0,'end_seconds':4.4}]}
 focus_plan=apply_interaction_director(focus,{'scenes':[]},{},30.0);assert focus_plan['interaction_plan_qa']['pass'];assert focus_plan['interaction_engine']['physical_action_count']==1;assert focus_plan['interaction_engine']['embodiment_ratio']==1.0
-# Metadata rest can differ from the rendered settled state.  An authored positional
+# Metadata rest can differ from the rendered settled state. An authored positional
 # entry ending at MIDDLE must chain from that actual preset endpoint, not from the
 # stale/intermediate layout rest value.
 settled=event('SETTLED',.385,'PRIMARY','REVEAL');settled['preset_entry']={'name':'ENTRY_LEFT_TO_MIDDLE','start_seconds':0.0,'duration_seconds':1.44};settled['settle_seconds']=1.44;settled['perceptual_hit_seconds']=2.0
