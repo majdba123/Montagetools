@@ -91,9 +91,10 @@ def _adopt_existing_manifestation(plan:dict,intent:dict,row:dict)->tuple[dict|No
         entry=event.get('preset_entry') or {}
         entry['interaction_id']=intent['interaction_id'];entry['interaction_phase']=row.get('phase');entry['semantic_action']=intent.get('semantic_action')
         entry['interaction_authority_bridge']='SEMANTICALLY_ALIGNED_EXISTING_ENTRY'
+    adopted_from_base=source_kind=='PRESET_ACTION'
     return {**row,'interaction_id':intent['interaction_id'],'semantic_action':intent.get('semantic_action'),
             'source_event_id':intent.get('subject_event_id'),'target_event_id':intent.get('object_event_id'),
-            'swept_geometry':geo,'adopted_existing_motion':True},None
+            'swept_geometry':geo,'adopted_existing_motion':True,'adopted_from_base_plan':adopted_from_base},None
 
 def _fallback_summary(fallbacks:list[dict])->dict:
     counts=collections.Counter(str(x.get('reason') or 'UNKNOWN') for x in fallbacks)
@@ -102,7 +103,7 @@ def _fallback_summary(fallbacks:list[dict])->dict:
 def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fps:float=30.0,logger=None)->dict:
     plan=base_plan;compiled=compile_interaction_intents(plan,source_plan);intents=compiled['intents'];graph=build_interaction_graph(intents)
     event_by_id={str(e.get('event_id')):e for e in plan.get('events') or [] if not e.get('suppressed_by_card_density')}
-    physical=[];schedules=[];fallbacks=[];orphan_guards=[];adopted_count=0
+    physical=[];schedules=[];fallbacks=[];orphan_guards=[];adopted_count=0;adopted_base_causes=0
     for intent in intents:
         orphan_guards.extend(_relationship_visual_guard(intent,event_by_id,fps))
         candidate=build_choreography_candidate(intent,event_by_id,fps)
@@ -117,7 +118,8 @@ def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fp
                       'interaction_id':intent['interaction_id'],'candidate_mode':candidate.get('mode'),'candidate_reason':candidate.get('reason'),'candidate_template':candidate.get('template')}
             schedules.append(schedule)
             if failed:fallbacks.append(failed)
-            else:physical.extend(adopted);adopted_count+=len(adopted)
+            else:
+                physical.extend(adopted);adopted_count+=len(adopted);adopted_base_causes+=sum(bool(x.get('adopted_from_base_plan')) for x in adopted)
             continue
         schedule=solve_interaction_schedule(intent,candidate,event_by_id,fps)
         schedule['interaction_id']=intent['interaction_id'];schedule['candidate_mode']=candidate.get('mode');schedule['candidate_reason']=candidate.get('reason');schedule['candidate_template']=candidate.get('template')
@@ -131,7 +133,8 @@ def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fp
                 if adopt_rejection:fallbacks.append(adopt_rejection)
                 elif candidate.get('adopted_action') and not adopted:fallbacks.append({'interaction_id':intent['interaction_id'],'reason':'AUTHORED_CAUSE_ADOPTION_FAILED'})
                 else:
-                    if adopted:physical.append(adopted);adopted_count+=1
+                    if adopted:
+                        physical.append(adopted);adopted_count+=1;adopted_base_causes+=int(bool(adopted.get('adopted_from_base_plan')))
                     physical.extend(committed)
             else:fallbacks.extend(rejected or [{'interaction_id':intent['interaction_id'],'reason':'NO_SAFE_COMMIT'}])
         elif intent.get('actionable'):
@@ -145,17 +148,18 @@ def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fp
             'schedules':schedules,'physical_actions':physical,'safe_fallbacks':fallbacks,'fallback_report':fallback_report,'relationship_orphan_guards':orphan_guards,
             'logical_interaction_count':len(intents),'actionable_interaction_count':len(actionable),'physical_interaction_count':len(physical_ids),
             'embodied_interaction_count':len(embodied_ids),'embodiment_ratio':round(embodiment_ratio,6),'physical_action_count':len(physical),
-            'adopted_existing_motion_count':adopted_count,'unembodied_actionable_interaction_ids':sorted(actionable_ids-embodied_ids),
+            'adopted_existing_motion_count':adopted_count,'adopted_base_cause_count':adopted_base_causes,
+            'unembodied_actionable_interaction_ids':sorted(actionable_ids-embodied_ids),
             'ortools_required':True,'shapely_required':True,'deterministic_solver_contract':{'num_search_workers':1,'random_seed':0,'bounded_seconds_per_interaction':.20}}
     plan['interaction_engine']=engine;qa=interaction_plan_qa(plan);plan['interaction_plan_qa']=qa
     plan['final_semantic_timing_composition_qa']=composition_plan_qa({'events':plan.get('events') or [],'visual_cards':plan.get('visual_cards') or {},'fps':fps})
     plan['motion_dna_version']=str(plan.get('motion_dna_version') or 'HEXA_MOTION_DNA_V31')+'__INTERACTION_V3_SHORT_CARD_EMBODIMENT'
     plan.setdefault('hard_invariants',{})['interaction_execution_authority_required']=True;plan['hard_invariants']['interaction_encoded_pixel_verification_required']=True
-    plan.setdefault('budget_summary',{})['interaction_logical_count']=engine['logical_interaction_count'];plan['budget_summary']['interaction_actionable_count']=engine['actionable_interaction_count'];plan['budget_summary']['interaction_physical_action_count']=engine['physical_action_count'];plan['budget_summary']['interaction_embodiment_ratio']=engine['embodiment_ratio'];plan['budget_summary']['interaction_adopted_existing_motion_count']=adopted_count
+    plan.setdefault('budget_summary',{})['interaction_logical_count']=engine['logical_interaction_count'];plan['budget_summary']['interaction_actionable_count']=engine['actionable_interaction_count'];plan['budget_summary']['interaction_physical_action_count']=engine['physical_action_count'];plan['budget_summary']['interaction_embodiment_ratio']=engine['embodiment_ratio'];plan['budget_summary']['interaction_adopted_existing_motion_count']=adopted_count;plan['budget_summary']['interaction_adopted_base_cause_count']=adopted_base_causes
     if logger:
-        logger.log('INFO','INTERACTION_EXECUTION_DIAGNOSTICS',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_existing_motion=adopted_count,fallbacks=fallback_report['count'],fallback_reasons=fallback_report['reason_counts'])
+        logger.log('INFO','INTERACTION_EXECUTION_DIAGNOSTICS',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_existing_motion=adopted_count,adopted_base_causes=adopted_base_causes,fallbacks=fallback_report['count'],fallback_reasons=fallback_report['reason_counts'])
     if not qa.get('pass'):raise ValueError('INTERACTION_PLAN_QA_FAILED: '+str(qa.get('failures')[:8])+' FALLBACKS='+str(fallback_report))
-    if logger:logger.log('PASS','INTERACTION_DIRECTOR_COMPILED',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_existing_motion=adopted_count,fallbacks=len(fallbacks))
+    if logger:logger.log('PASS','INTERACTION_DIRECTOR_COMPILED',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_existing_motion=adopted_count,adopted_base_causes=adopted_base_causes,fallbacks=len(fallbacks))
     return plan
 
 def build_interaction_motion_plan(plan:dict,alignment:dict,vision_results:list[dict],rules_path,reference_path,*,fps:float=30.0,logger=None,calibration:dict|None=None):
