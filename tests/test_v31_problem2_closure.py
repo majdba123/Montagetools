@@ -3,6 +3,7 @@ import copy,pathlib,tempfile
 import numpy as np,cv2
 from PIL import Image,ImageDraw
 from hexa_v31.interaction.director import apply_interaction_director
+from hexa_v31.interaction.graphics_guard import guard_relationship_graphics
 from hexa_v31.scene_media import render_scene_media
 
 def base_event(eid,x,role,intent,path):
@@ -15,6 +16,11 @@ with tempfile.TemporaryDirectory(prefix='hexa_problem2_closure_') as raw:
     base={'fps':30.,'events':[base_event('SOURCE',.487,'PRIMARY','TRANSFER',source),base_event('TARGET',.833,'SUPPORTING','',target)],'visual_cards':{'cards':[{'card_id':'FUTURE_CARD_X','start_seconds':0.,'end_seconds':4.4}]},'semantic_visual_sentence_compiler':{'sentences':[{'sentence_id':'SENTENCE_FUTURE_X','scene_id':'FUTURE_PACKAGE_SCENE_X','visual_card_id':'FUTURE_CARD_X','subject_event_id':'SOURCE','action':'TRANSFER','object_event_id':'TARGET','result_event_id':None,'confidence':.95}]},'budget_summary':{},'hard_invariants':{'full_frame_crossfade_forbidden':True},'motion_dna_version':'BASE','scenes':[{'scene_id':'FUTURE_PACKAGE_SCENE_X','start_seconds':0.,'end_seconds':4.4}]}
     source_plan={'scenes':[{'scene_id':'FUTURE_PACKAGE_SCENE_X','units':[{'unit_id':'SOURCE'},{'unit_id':'TARGET'}],'visual_progression':[{'targets':['SOURCE','TARGET']}]}]}
     motion=apply_interaction_director(copy.deepcopy(base),source_plan,{},30.);assert motion['interaction_plan_qa']['pass'] and motion['interaction_engine']['physical_action_count']==2,motion['interaction_engine']
+    # Relationship graphics may exist only while both semantic endpoints are actually visible.
+    graphic_motion=copy.deepcopy(motion);source_event=next(e for e in graphic_motion['events'] if e['event_id']=='SOURCE');target_event=next(e for e in graphic_motion['events'] if e['event_id']=='TARGET');source_event['physical_end_seconds']=2.1;source_event['semantic_readable_not_before_seconds']=.4;target_event['physical_start_seconds']=.5;target_event['semantic_readable_not_before_seconds']=.8
+    gp={'events':[{'graphic_id':'ARROW_FUTURE','kind':'ARROW','scene_id':'FUTURE_PACKAGE_SCENE_X','source_semantic_unit_id':'SOURCE','target_semantic_unit_id':'TARGET','start_seconds':.1,'end_seconds':3.0}],'event_count':1}
+    guarded=guard_relationship_graphics(gp,graphic_motion,30.);assert guarded['event_count']==1,guarded;arrow=guarded['events'][0];assert abs(arrow['start_seconds']-.8)<1e-6 and abs(arrow['end_seconds']-2.1)<1e-6,guarded;assert arrow['interaction_orphan_guard']=='SOURCE_AND_TARGET_VISIBLE_OVERLAP'
+    no_overlap=copy.deepcopy(graphic_motion);next(e for e in no_overlap['events'] if e['event_id']=='TARGET')['physical_start_seconds']=2.5;assert guard_relationship_graphics(gp,no_overlap,30.)['event_count']==0
     edit={'events':[copy.deepcopy(e) for e in motion['events']]};manifest=render_scene_media(edit,motion,[],{'events':[]},{'events':[]},root/'out',root/'cache',width=640,height=360,fps=30.)
     qa=manifest.get('interaction_pixel_qa') or {};assert qa.get('pass') and qa.get('verified_action_count')==2,qa;assert manifest['visual_timeline_coverage_qa']['pass'] and manifest['encoded_visual_gap_qa']['pass']
     white=root/'white.mp4';writer=cv2.VideoWriter(str(white),cv2.VideoWriter_fourcc(*'mp4v'),30.,(640,360));frame=np.full((360,640,3),255,np.uint8)
