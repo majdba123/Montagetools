@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image,ImageDraw
 from hexa_v31.vision.foundation.candidate_fusion import fuse_candidates
 from hexa_v31.extraction.mask_validation import validate_mask
-from hexa_v31.vision.foundation.device_policy import select_device
+from hexa_v31.vision.foundation.device_policy import select_device,MIN_FOUNDATION_CUDA_VRAM_BYTES
 from hexa_v31.vision.foundation.model_registry import resolve_models,ModelIntegrityError
 from hexa_v31.extraction.actor_validation import classify_actor
 
@@ -27,7 +27,6 @@ for x in range(10,110,18):fragment[20:28,x:x+8]=1
 assert validate_mask(fragment,(10,20,100,8),np.ones_like(fg)*255)[1]=='MASK_FRAGMENTED'
 edge=np.zeros_like(fg);edge[0:40,20:70]=1;assert validate_mask(edge,(20,0,50,40),edge*255)[2]['edge_touch']
 edge_policy=classify_actor(edge,edge*255,{'bbox':(20,0,50,40),'edge_touch':True,'mask_outside_candidate_fraction':0.0});assert not edge_policy['translation_safe'] and 'SOURCE_CANVAS_EDGE_CLIPPED' in edge_policy['independence_block_reasons']
-# Detached objects remain independently addressable; touching/held/occluded objects are conservative.
 detached=np.zeros_like(fg,dtype=bool);detached[20:60,20:60]=True;detached_fg=detached.copy();detached_fg[80:110,130:170]=True
 assert classify_actor(detached,detached_fg,{'bbox':(20,20,40,40),'edge_touch':False})['translation_safe']
 held=np.zeros_like(fg,dtype=bool);held[35:65,70:105]=True;character=np.zeros_like(fg,dtype=bool);character[20:100,100:145]=True;held_fg=held|character
@@ -38,12 +37,21 @@ class CPUCuda:
  def is_available(self):return False
 class CPUTorch:cuda=CPUCuda()
 assert select_device(CPUTorch())['device']=='cpu'
-class Props:name='GPU';total_memory=16*1024**3
+class Props:
+ name='GPU';total_memory=16*1024**3
 class GPUCuda:
  def is_available(self):return True
  def get_device_properties(self,_):return Props()
 class GPUTorch:cuda=GPUCuda()
 assert select_device(GPUTorch())['device']=='cuda' and select_device(GPUTorch())['profile']=='QUALITY'
+class LowProps:
+ name='LEGACY_LOW_VRAM_GPU';total_memory=2*1024**3
+class LowCuda:
+ def is_available(self):return True
+ def get_device_properties(self,_):return LowProps()
+class LowTorch:cuda=LowCuda()
+low=select_device(LowTorch());assert low['device']=='cpu' and low['profile']=='LOW_MEMORY' and low['reason']=='CUDA_VRAM_BELOW_MINIMUM',low
+assert low['minimum_cuda_vram_bytes']==MIN_FOUNDATION_CUDA_VRAM_BYTES
 
 with tempfile.TemporaryDirectory() as td:
  root=pathlib.Path(td);model=root/'model';model.mkdir();checkpoint=model/'weights.bin';checkpoint.write_bytes(b'corrupt')
