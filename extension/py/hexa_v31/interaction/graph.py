@@ -3,22 +3,17 @@ from __future__ import annotations
 class InteractionGraphError(RuntimeError): pass
 
 def build_interaction_graph(intents:list[dict])->dict:
-    nodes={}
-    edges=[]
+    nodes={};edges=[]
     for row in intents:
-        iid=str(row['interaction_id'])
-        subject=str(row['subject_event_id'])
-        obj=str(row.get('object_event_id') or '')
-        result=str(row.get('result_event_id') or '')
+        iid=str(row['interaction_id']);subject=str(row['subject_event_id']);obj=str(row.get('object_event_id') or '');result=str(row.get('result_event_id') or '');cause=str(row.get('causal_source_event_id') or subject);reaction=str(row.get('causal_target_event_id') or obj)
         nodes.setdefault(subject,{'node_id':subject,'roles':[]})['roles'].append(iid+':SUBJECT')
-        if obj:
-            nodes.setdefault(obj,{'node_id':obj,'roles':[]})['roles'].append(iid+':OBJECT')
-            edges.append({'from':subject,'to':obj,'interaction_id':iid,'kind':'ACTION_TO_REACTION'})
+        if obj:nodes.setdefault(obj,{'node_id':obj,'roles':[]})['roles'].append(iid+':OBJECT')
+        if cause:nodes.setdefault(cause,{'node_id':cause,'roles':[]})['roles'].append(iid+':CAUSAL_SOURCE')
+        if reaction:nodes.setdefault(reaction,{'node_id':reaction,'roles':[]})['roles'].append(iid+':CAUSAL_TARGET')
+        if cause and reaction:edges.append({'from':cause,'to':reaction,'interaction_id':iid,'kind':'ACTION_TO_REACTION','causal_direction':row.get('causal_direction')})
         if result and result not in {subject,obj}:
-            nodes.setdefault(result,{'node_id':result,'roles':[]})['roles'].append(iid+':RESULT')
-            edges.append({'from':obj or subject,'to':result,'interaction_id':iid,'kind':'REACTION_TO_CONSEQUENCE'})
-    adjacency={k:[] for k in nodes}
-    indegree={k:0 for k in nodes}
+            nodes.setdefault(result,{'node_id':result,'roles':[]})['roles'].append(iid+':RESULT');edges.append({'from':reaction or cause or obj or subject,'to':result,'interaction_id':iid,'kind':'REACTION_TO_CONSEQUENCE','causal_direction':row.get('causal_direction')})
+    adjacency={k:[] for k in nodes};indegree={k:0 for k in nodes}
     for edge in edges:
         a,b=edge['from'],edge['to']
         if a==b:continue
@@ -28,11 +23,6 @@ def build_interaction_graph(intents:list[dict])->dict:
         n=queue.pop(0);order.append(n)
         for nxt in sorted(adjacency.get(n,[])):
             indegree[nxt]-=1
-            if indegree[nxt]==0:
-                queue.append(nxt);queue.sort()
+            if indegree[nxt]==0:queue.append(nxt);queue.sort()
     cyclic=sorted(k for k,v in indegree.items() if v>0)
-    return {
-        'schema':'HEXA_INTERACTION_GRAPH_V2','version':'2.0',
-        'nodes':[nodes[k] for k in sorted(nodes)],'edges':edges,
-        'topological_order':order,'cycle_node_ids':cyclic,'pass':not cyclic,
-    }
+    return {'schema':'HEXA_INTERACTION_GRAPH_V2','version':'2.1_CAUSAL_DIRECTION','nodes':[nodes[k] for k in sorted(nodes)],'edges':edges,'topological_order':order,'cycle_node_ids':cyclic,'pass':not cyclic}
