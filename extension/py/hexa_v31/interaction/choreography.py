@@ -1,6 +1,6 @@
 from __future__ import annotations
 import math
-from hexa_v31.preset_authority import duration
+from hexa_v31.preset_authority import duration,preset
 
 _CENTER=(.487,.493);_LEFT=(.183,.493);_RIGHT=(.833,.493)
 
@@ -15,6 +15,30 @@ def _state(point):
     if .38<=x<=.62 and .14<=y<=.38:return 'UP'
     if .38<=x<=.62 and .62<=y<=.86:return 'DOWN'
     return 'OTHER'
+
+def _settled_point(event:dict):
+    """Return the position actually visible after authored motion settles.
+
+    ``card_rest_position_norm`` is a layout hint, not necessarily the rendered state:
+    an ENTRY_LEFT_TO_MIDDLE clip visibly settles at the preset's MIDDLE endpoint.
+    Choreography must chain from that endpoint or it can reject a valid interaction (or
+    worse, introduce a positional jump).  Existing within-frame layout actions are
+    folded in deterministically in authored order.
+    """
+    point=list(event.get('card_rest_position_norm') or [.5,.5])
+    entry=event.get('preset_entry') or {};name=str(entry.get('name') or '')
+    if name:
+        d=preset(name);family=str(d.get('family') or '')
+        end=d.get('end_norm')
+        if family in {'ENTRY_EXIT','WITHIN_FRAME'} and isinstance(end,(list,tuple)) and len(end)>=2:
+            point=[float(end[0]),float(end[1])]
+    for action in sorted((event.get('preset_actions') or []),key=lambda x:(float(x.get('start_seconds',0)),str(x.get('name') or ''))):
+        name=str(action.get('name') or '')
+        if not name:continue
+        d=preset(name);end=d.get('end_norm')
+        if str(d.get('family') or '')=='WITHIN_FRAME' and isinstance(end,(list,tuple)) and len(end)>=2:
+            point=[float(end[0]),float(end[1])]
+    return point
 
 def _has_existing_interaction_action(event:dict)->bool:
     return any(str(a.get('action_type') or '').upper() in {'SEMANTIC_RELATIONSHIP','INTERACTION_DIRECTOR'} for a in (event.get('preset_actions') or []))
@@ -54,13 +78,13 @@ def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:floa
     if not subject:return {'mode':'SAFE_STATIC_FALLBACK','reason':'MISSING_SUBJECT','steps':[]}
     if _has_existing_interaction_action(subject):return {'mode':'BASE_RELATIONSHIP_AUTHORITY','reason':'BASE_PLAN_ALREADY_AUTHORED_RELATIONSHIP_ACTION','steps':[]}
     if not intent.get('actionable'):return {'mode':'NON_ACTIONABLE','reason':intent.get('non_actionable_reason') or 'INTENT_NOT_ACTIONABLE','steps':[]}
-    subject_state=_state(subject.get('card_rest_position_norm') or [.5,.5]);action=str(intent.get('semantic_action') or '')
+    subject_point=_settled_point(subject);subject_state=_state(subject_point);action=str(intent.get('semantic_action') or '')
     if intent.get('physical_pair_allowed') and target:
         if not _safe_translation(subject):return {'mode':'SAFE_STATIC_FALLBACK','reason':'SUBJECT_TRANSLATION_UNSAFE','steps':[]}
         if not _safe_translation(target):return {'mode':'SAFE_STATIC_FALLBACK','reason':'TARGET_TRANSLATION_UNSAFE','steps':[]}
-        target_state=_state(target.get('card_rest_position_norm') or [.5,.5]);steps,template=_pair_steps(subject,target,subject_state,target_state,action)
-        if steps:return {'mode':'CAUSAL_PAIR_CHOREOGRAPHY','reason':None,'template':template,'subject_state':subject_state,'target_state':target_state,'steps':steps}
-        return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_PRESET_TEMPLATE_FOR_ACTUAL_PAIR_STATE','subject_state':subject_state,'target_state':target_state,'steps':[]}
+        target_point=_settled_point(target);target_state=_state(target_point);steps,template=_pair_steps(subject,target,subject_state,target_state,action)
+        if steps:return {'mode':'CAUSAL_PAIR_CHOREOGRAPHY','reason':None,'template':template,'subject_state':subject_state,'target_state':target_state,'subject_point':subject_point,'target_point':target_point,'steps':steps}
+        return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_PRESET_TEMPLATE_FOR_RENDERED_PAIR_STATE','subject_state':subject_state,'target_state':target_state,'subject_point':subject_point,'target_point':target_point,'steps':[]}
     steps,template=_focus_steps(subject,subject_state,action)
-    if steps:return {'mode':'FOCUS_MANIFESTATION','reason':None,'template':template,'subject_state':subject_state,'steps':steps}
-    return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_SAFE_PRESET_MANIFESTATION_FOR_ACTUAL_STATE','subject_state':subject_state,'steps':[]}
+    if steps:return {'mode':'FOCUS_MANIFESTATION','reason':None,'template':template,'subject_state':subject_state,'subject_point':subject_point,'steps':steps}
+    return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_SAFE_PRESET_MANIFESTATION_FOR_RENDERED_STATE','subject_state':subject_state,'subject_point':subject_point,'steps':[]}
