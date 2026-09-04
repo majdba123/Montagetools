@@ -32,24 +32,29 @@ with tempfile.TemporaryDirectory(prefix='hexa_problem2_closure_') as raw:
     qa=manifest.get('interaction_pixel_qa') or {};assert qa.get('pass') and qa.get('verified_action_count')==2 and not qa.get('vacuous'),qa
     assert manifest['visual_timeline_coverage_qa']['pass'] and manifest['encoded_visual_gap_qa']['pass']
 
-    # Production failure regression: translation safety is an operation-level guard,
-    # not a blanket ban on interaction. Both actors are physically unsafe to translate
-    # but remain certified for in-place scale/reveal. Existing APPEAR_HIGH_SCALE entries
-    # are the causal ACTION/REACTION and must survive through encoded pixel verification.
+    # Real-production regression: REACT is authored on the semantic subject. The
+    # paired object is therefore the stimulus/cause and must precede the subject's
+    # reaction. Both actors are translation-unsafe but scale/reveal-safe, so the
+    # legal embodiment is their existing in-place APPEAR_HIGH_SCALE motion.
     unsafe_source=layer('unsafe_source',(55,170,95));unsafe_target=layer('unsafe_target',(175,95,210))
     us=base_event('UNSAFE_SOURCE',.34,'PRIMARY','REACT',unsafe_source);ut=base_event('UNSAFE_TARGET',.66,'SUPPORTING','',unsafe_target)
-    set_appearance_entry(us,.12);set_appearance_entry(ut,.12+duration('APPEAR_HIGH_SCALE')+.08)
-    unsafe_base={'fps':30.,'events':[us,ut],'visual_cards':{'cards':[{'card_id':'FUTURE_CARD_X','start_seconds':0.,'end_seconds':4.4}]},'semantic_visual_sentence_compiler':{'sentences':[{'sentence_id':'SENTENCE_TRANSLATION_UNSAFE','scene_id':'FUTURE_PACKAGE_SCENE_X','visual_card_id':'FUTURE_CARD_X','subject_event_id':'UNSAFE_SOURCE','action':'REACT','object_event_id':'UNSAFE_TARGET','result_event_id':None,'confidence':.95,'physical_support':True}]},'budget_summary':{},'hard_invariants':{'full_frame_crossfade_forbidden':True},'motion_dna_version':'BASE_UNSAFE','scenes':[{'scene_id':'FUTURE_PACKAGE_SCENE_X','start_seconds':0.,'end_seconds':4.4}]}
+    cause_start=.12;reaction_start=cause_start+duration('APPEAR_HIGH_SCALE')+.08
+    set_appearance_entry(ut,cause_start);set_appearance_entry(us,reaction_start)
+    unsafe_base={'fps':30.,'events':[us,ut],'visual_cards':{'cards':[{'card_id':'FUTURE_CARD_X','start_seconds':0.,'end_seconds':4.4}]},'semantic_visual_sentence_compiler':{'sentences':[{'sentence_id':'SENTENCE_TRANSLATION_UNSAFE','scene_id':'FUTURE_PACKAGE_SCENE_X','visual_card_id':'FUTURE_CARD_X','subject_event_id':'UNSAFE_SOURCE','action':'REACT','object_event_id':'UNSAFE_TARGET','result_event_id':None,'confidence':.95,'physical_support':True}]},'budget_summary':{},'hard_invariants':{'full_frame_crossfade_forbidden':True},'motion_dna_version':'BASE_UNSAFE_REACT','scenes':[{'scene_id':'FUTURE_PACKAGE_SCENE_X','start_seconds':0.,'end_seconds':4.4}]}
     unsafe_plan={'scenes':[{'scene_id':'FUTURE_PACKAGE_SCENE_X','units':[{'unit_id':'UNSAFE_SOURCE'},{'unit_id':'UNSAFE_TARGET'}]}]}
     unsafe_motion=apply_interaction_director(copy.deepcopy(unsafe_base),unsafe_plan,{},30.);ue=unsafe_motion['interaction_engine']
     assert unsafe_motion['interaction_plan_qa']['pass'],unsafe_motion['interaction_plan_qa']
     assert ue['physical_action_count']==2 and ue['embodiment_ratio']==1.0 and ue['fallback_report']['count']==0,ue
+    assert ue['react_reverse_direction_count']==1,ue
+    intent=ue['intents'][0];assert intent['causal_source_event_id']=='UNSAFE_TARGET' and intent['causal_target_event_id']=='UNSAFE_SOURCE',intent
     unsafe_rows=sorted(ue['physical_actions'],key=lambda x:float(x['start_seconds']))
     assert [x['phase'] for x in unsafe_rows]==['ACTION','REACTION'],unsafe_rows
+    assert [x['event_id'] for x in unsafe_rows]==['UNSAFE_TARGET','UNSAFE_SOURCE'],unsafe_rows
+    assert all(x.get('source_event_id')=='UNSAFE_TARGET' and x.get('target_event_id')=='UNSAFE_SOURCE' for x in unsafe_rows),unsafe_rows
+    assert all(x.get('causal_direction')=='OBJECT_CAUSES_SUBJECT_REACTION' for x in unsafe_rows),unsafe_rows
     assert all(x['preset']=='APPEAR_HIGH_SCALE' and 'TRANSLATE' not in set(x.get('required_operations') or []) for x in unsafe_rows),unsafe_rows
     unsafe_manifest=render_scene_media({'events':[copy.deepcopy(e) for e in unsafe_motion['events']]},unsafe_motion,[],{'events':[]},{'events':[]},root/'unsafe_out',root/'unsafe_cache',width=1920,height=1080,fps=30.)
-    unsafe_pixel=unsafe_manifest.get('interaction_pixel_qa') or {}
-    assert unsafe_pixel.get('pass') and unsafe_pixel.get('verified_action_count')==2 and not unsafe_pixel.get('vacuous'),unsafe_pixel
+    unsafe_pixel=unsafe_manifest.get('interaction_pixel_qa') or {};assert unsafe_pixel.get('pass') and unsafe_pixel.get('verified_action_count')==2 and not unsafe_pixel.get('vacuous'),unsafe_pixel
 
     white=root/'white.mp4';writer=cv2.VideoWriter(str(white),cv2.VideoWriter_fourcc(*'mp4v'),30.,(640,360));frame=np.full((360,640,3),255,np.uint8)
     for _ in range(132):writer.write(frame)
