@@ -16,38 +16,78 @@ def _state(point):
     if .38<=x<=.62 and .62<=y<=.86:return 'DOWN'
     return 'OTHER'
 
-def _settled_point(event:dict):
-    """Return the position actually visible after authored motion settles.
+def _apply_preset_endpoint(point,name):
+    if not name:return point
+    d=preset(name);end=d.get('end_norm')
+    if str(d.get('family') or '') in {'ENTRY_EXIT','WITHIN_FRAME'} and isinstance(end,(list,tuple)) and len(end)>=2:
+        return [float(end[0]),float(end[1])]
+    return point
 
-    ``card_rest_position_norm`` is a layout hint, not necessarily the rendered state:
-    an ENTRY_LEFT_TO_MIDDLE clip visibly settles at the preset's MIDDLE endpoint.
-    Choreography must chain from that endpoint or it can reject a valid interaction (or
-    worse, introduce a positional jump).  Existing within-frame layout actions are
-    folded in deterministically in authored order.
+def _point_through(event:dict,cutoff_seconds:float|None=None):
+    """Rendered object position after authored transforms completed by ``cutoff``.
+
+    Layout rest is only a placement hint. Entry and within-frame preset endpoints are
+    the actual rendered state. A cutoff is used for authority bridging so a reaction
+    chains from the state that exists after the already-authored cause, not from a
+    later unrelated action on the same event.
     """
-    point=list(event.get('card_rest_position_norm') or [.5,.5])
+    point=list(event.get('card_rest_position_norm') or [.5,.5]);cutoff=float('inf') if cutoff_seconds is None else float(cutoff_seconds)
     entry=event.get('preset_entry') or {};name=str(entry.get('name') or '')
     if name:
-        d=preset(name);family=str(d.get('family') or '')
-        end=d.get('end_norm')
-        if family in {'ENTRY_EXIT','WITHIN_FRAME'} and isinstance(end,(list,tuple)) and len(end)>=2:
-            point=[float(end[0]),float(end[1])]
+        st=float(entry.get('start_seconds',event.get('start_seconds',0.0)));dd=float(entry.get('duration_seconds') or duration(name))
+        if st+dd<=cutoff+1e-6:point=_apply_preset_endpoint(point,name)
     for action in sorted((event.get('preset_actions') or []),key=lambda x:(float(x.get('start_seconds',0)),str(x.get('name') or ''))):
         name=str(action.get('name') or '')
         if not name:continue
-        d=preset(name);end=d.get('end_norm')
-        if str(d.get('family') or '')=='WITHIN_FRAME' and isinstance(end,(list,tuple)) and len(end)>=2:
-            point=[float(end[0]),float(end[1])]
+        st=float(action.get('start_seconds',0.0));dd=float(action.get('duration_seconds') or duration(name))
+        if st+dd<=cutoff+1e-6:point=_apply_preset_endpoint(point,name)
     return point
 
-def _has_existing_interaction_action(event:dict)->bool:
-    return any(str(a.get('action_type') or '').upper() in {'SEMANTIC_RELATIONSHIP','INTERACTION_DIRECTOR'} for a in (event.get('preset_actions') or []))
+def _settled_point(event:dict):
+    return _point_through(event,None)
+
+def _matching_existing_relationship_action(event:dict,intent:dict,target:dict|None):
+    if not target:return None
+    target_semantic=str(target.get('semantic_unit_id') or '')
+    target_event=str(target.get('event_id') or '')
+    hit=float(intent.get('semantic_hit_seconds',event.get('perceptual_hit_seconds',0.0)))
+    rows=[]
+    for action in event.get('preset_actions') or []:
+        if str(action.get('action_type') or '').upper() not in {'SEMANTIC_RELATIONSHIP','INTERACTION_DIRECTOR'}:continue
+        action_target_semantic=str(action.get('target_semantic_unit_id') or '')
+        action_target_event=str(action.get('target_event_id') or '')
+        if action_target_semantic and target_semantic and action_target_semantic!=target_semantic:continue
+        if action_target_event and target_event and action_target_event!=target_event:continue
+        if not action_target_semantic and not action_target_event:continue
+        name=str(action.get('name') or '')
+        if not name:continue
+        st=float(action.get('start_seconds',0.0));dd=float(action.get('duration_seconds') or duration(name));en=st+dd
+        rows.append((abs(st-hit),st,name,en,action))
+    if not rows:return None
+    _,st,name,en,action=sorted(rows,key=lambda x:(x[0],x[1],x[2]))[0]
+    return {'event_id':str(event.get('event_id')),'preset':name,'start_seconds':round(st,6),'end_seconds':round(en,6),
+            'duration_seconds':round(en-st,6),'phase':'ACTION','semantic_role':'BASE_AUTHORED_CAUSE',
+            'authority':str(action.get('authority') or 'BASE_RELATIONSHIP_AUTHORITY'),
+            'original_relationship_evidence':action.get('relationship_evidence'),
+            'key':'|'.join((str(event.get('event_id')),name,f'{st:.6f}',target_semantic or target_event))}
 
 def _safe_translation(event:dict)->bool:
     return bool(event.get('translation_safe_after_occlusion',event.get('animation_safe',True))) and str(event.get('render_mode') or '')!='RESIDUAL_SUPPORT'
 
-def _step(phase,event,preset_name,role):
-    return {'phase':phase,'event_id':event['event_id'],'preset':preset_name,'duration_seconds':duration(preset_name),'semantic_role':role}
+def _step(phase,event,preset_name,role,**extra):
+    return {'phase':phase,'event_id':event['event_id'],'preset':preset_name,'duration_seconds':duration(preset_name),'semantic_role':role,**extra}
+
+def _reaction_step(target,target_state,source_end_point,not_before):
+    if target_state=='RIGHT':name='WITHIN_RIGHT_TO_MIDDLE'
+    elif target_state=='LEFT':name='WITHIN_LEFT_TO_MIDDLE'
+    elif target_state=='MIDDLE':
+        sx=float(source_end_point[0]);sy=float(source_end_point[1])
+        if sx<.46:name='WITHIN_MIDDLE_TO_RIGHT'
+        elif sx>.54:name='WITHIN_MIDDLE_TO_LEFT'
+        elif sy<.42:name='WITHIN_MIDDLE_TO_DOWN'
+        else:name='WITHIN_MIDDLE_TO_UP'
+    else:return None
+    return _step('REACTION',target,name,'TARGET_REACTS_TO_AUTHORED_CAUSE',not_before_seconds=round(float(not_before),6))
 
 def _pair_steps(subject,target,subject_state,target_state,action):
     if subject_state=='MIDDLE' and target_state=='RIGHT':
@@ -76,15 +116,26 @@ def _focus_steps(subject,state,action):
 def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:float)->dict:
     subject=event_by_id.get(str(intent['subject_event_id']));target=event_by_id.get(str(intent.get('object_event_id') or ''))
     if not subject:return {'mode':'SAFE_STATIC_FALLBACK','reason':'MISSING_SUBJECT','steps':[]}
-    if _has_existing_interaction_action(subject):return {'mode':'BASE_RELATIONSHIP_AUTHORITY','reason':'BASE_PLAN_ALREADY_AUTHORED_RELATIONSHIP_ACTION','steps':[]}
     if not intent.get('actionable'):return {'mode':'NON_ACTIONABLE','reason':intent.get('non_actionable_reason') or 'INTENT_NOT_ACTIONABLE','steps':[]}
-    subject_point=_settled_point(subject);subject_state=_state(subject_point);action=str(intent.get('semantic_action') or '')
+    action=str(intent.get('semantic_action') or '')
     if intent.get('physical_pair_allowed') and target:
         if not _safe_translation(subject):return {'mode':'SAFE_STATIC_FALLBACK','reason':'SUBJECT_TRANSLATION_UNSAFE','steps':[]}
         if not _safe_translation(target):return {'mode':'SAFE_STATIC_FALLBACK','reason':'TARGET_TRANSLATION_UNSAFE','steps':[]}
-        target_point=_settled_point(target);target_state=_state(target_point);steps,template=_pair_steps(subject,target,subject_state,target_state,action)
+        adopted=_matching_existing_relationship_action(subject,intent,target)
+        if adopted:
+            cause_end=float(adopted['end_seconds']);source_end=_apply_preset_endpoint(_point_through(subject,float(adopted['start_seconds'])-1e-6),str(adopted['preset']))
+            target_cutoff=max(cause_end,float(target.get('settle_seconds',target.get('start_seconds',0.0))))
+            target_point=_point_through(target,target_cutoff);target_state=_state(target_point)
+            reaction=_reaction_step(target,target_state,source_end,cause_end+1.0/max(1.0,fps))
+            if reaction:
+                return {'mode':'BASE_ACTION_PLUS_REACTION','reason':None,'template':'AUTHORITY_BRIDGE_REACTION','adopted_action':adopted,
+                        'subject_state':_state(source_end),'target_state':target_state,'subject_point':source_end,'target_point':target_point,'steps':[reaction]}
+            return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_REACTION_PRESET_FOR_RENDERED_TARGET_STATE','adopted_action':adopted,
+                    'subject_state':_state(source_end),'target_state':target_state,'subject_point':source_end,'target_point':target_point,'steps':[]}
+        subject_point=_settled_point(subject);subject_state=_state(subject_point);target_point=_settled_point(target);target_state=_state(target_point)
+        steps,template=_pair_steps(subject,target,subject_state,target_state,action)
         if steps:return {'mode':'CAUSAL_PAIR_CHOREOGRAPHY','reason':None,'template':template,'subject_state':subject_state,'target_state':target_state,'subject_point':subject_point,'target_point':target_point,'steps':steps}
         return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_PRESET_TEMPLATE_FOR_RENDERED_PAIR_STATE','subject_state':subject_state,'target_state':target_state,'subject_point':subject_point,'target_point':target_point,'steps':[]}
-    steps,template=_focus_steps(subject,subject_state,action)
+    subject_point=_settled_point(subject);subject_state=_state(subject_point);steps,template=_focus_steps(subject,subject_state,action)
     if steps:return {'mode':'FOCUS_MANIFESTATION','reason':None,'template':template,'subject_state':subject_state,'subject_point':subject_point,'steps':steps}
     return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_SAFE_PRESET_MANIFESTATION_FOR_RENDERED_STATE','subject_state':subject_state,'subject_point':subject_point,'steps':[]}
