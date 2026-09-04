@@ -32,24 +32,28 @@ with tempfile.TemporaryDirectory(prefix='hexa_problem2_closure_') as raw:
     qa=manifest.get('interaction_pixel_qa') or {};assert qa.get('pass') and qa.get('verified_action_count')==2 and not qa.get('vacuous'),qa
     assert manifest['visual_timeline_coverage_qa']['pass'] and manifest['encoded_visual_gap_qa']['pass']
 
-    # Real-production regression: REACT is authored on the semantic subject. The
-    # paired object is therefore the stimulus/cause and must precede the subject's
-    # reaction. Both actors are translation-unsafe but scale/reveal-safe, so the
-    # legal embodiment is their existing in-place APPEAR_HIGH_SCALE motion.
+    # Exact failure-class regression: translation-unsafe REACT actors have simultaneous
+    # APPEAR_HIGH_SCALE entries on one semantic beat. The object/cause must be safely
+    # pre-rolled inside its unchanged physical lifetime; the semantic subject/reaction
+    # stays at its original voice-aligned entry and both must verify in encoded pixels.
     unsafe_source=layer('unsafe_source',(55,170,95));unsafe_target=layer('unsafe_target',(175,95,210))
     us=base_event('UNSAFE_SOURCE',.34,'PRIMARY','REACT',unsafe_source);ut=base_event('UNSAFE_TARGET',.66,'SUPPORTING','',unsafe_target)
-    cause_start=.12;reaction_start=cause_start+duration('APPEAR_HIGH_SCALE')+.08
-    set_appearance_entry(ut,cause_start);set_appearance_entry(us,reaction_start)
-    unsafe_base={'fps':30.,'events':[us,ut],'visual_cards':{'cards':[{'card_id':'FUTURE_CARD_X','start_seconds':0.,'end_seconds':4.4}]},'semantic_visual_sentence_compiler':{'sentences':[{'sentence_id':'SENTENCE_TRANSLATION_UNSAFE','scene_id':'FUTURE_PACKAGE_SCENE_X','visual_card_id':'FUTURE_CARD_X','subject_event_id':'UNSAFE_SOURCE','action':'REACT','object_event_id':'UNSAFE_TARGET','result_event_id':None,'confidence':.95,'physical_support':True}]},'budget_summary':{},'hard_invariants':{'full_frame_crossfade_forbidden':True},'motion_dna_version':'BASE_UNSAFE_REACT','scenes':[{'scene_id':'FUTURE_PACKAGE_SCENE_X','start_seconds':0.,'end_seconds':4.4}]}
+    shared_start=1.20;set_appearance_entry(us,shared_start);set_appearance_entry(ut,shared_start)
+    original_subject_start=us['preset_entry']['start_seconds'];original_target_start=ut['preset_entry']['start_seconds'];original_lifetimes={e['event_id']:(e['physical_start_seconds'],e['physical_end_seconds']) for e in (us,ut)}
+    unsafe_base={'fps':30.,'events':[us,ut],'visual_cards':{'cards':[{'card_id':'FUTURE_CARD_X','start_seconds':0.,'end_seconds':4.4}]},'semantic_visual_sentence_compiler':{'sentences':[{'sentence_id':'SENTENCE_TRANSLATION_UNSAFE','scene_id':'FUTURE_PACKAGE_SCENE_X','visual_card_id':'FUTURE_CARD_X','subject_event_id':'UNSAFE_SOURCE','action':'REACT','object_event_id':'UNSAFE_TARGET','result_event_id':None,'confidence':.95,'physical_support':True}]},'budget_summary':{},'hard_invariants':{'full_frame_crossfade_forbidden':True},'motion_dna_version':'BASE_UNSAFE_REACT_SIMULTANEOUS','scenes':[{'scene_id':'FUTURE_PACKAGE_SCENE_X','start_seconds':0.,'end_seconds':4.4}]}
     unsafe_plan={'scenes':[{'scene_id':'FUTURE_PACKAGE_SCENE_X','units':[{'unit_id':'UNSAFE_SOURCE'},{'unit_id':'UNSAFE_TARGET'}]}]}
-    unsafe_motion=apply_interaction_director(copy.deepcopy(unsafe_base),unsafe_plan,{},30.);ue=unsafe_motion['interaction_engine']
+    unsafe_motion=apply_interaction_director(copy.deepcopy(unsafe_base),unsafe_plan,{},30.);ue=unsafe_motion['interaction_engine'];unsafe_events={e['event_id']:e for e in unsafe_motion['events']}
     assert unsafe_motion['interaction_plan_qa']['pass'],unsafe_motion['interaction_plan_qa']
     assert ue['physical_action_count']==2 and ue['embodiment_ratio']==1.0 and ue['fallback_report']['count']==0,ue
-    assert ue['react_reverse_direction_count']==1,ue
+    assert ue['react_reverse_direction_count']==1 and ue['retimed_existing_motion_count']==1,ue
     intent=ue['intents'][0];assert intent['causal_source_event_id']=='UNSAFE_TARGET' and intent['causal_target_event_id']=='UNSAFE_SOURCE',intent
-    unsafe_rows=sorted(ue['physical_actions'],key=lambda x:float(x['start_seconds']))
-    assert [x['phase'] for x in unsafe_rows]==['ACTION','REACTION'],unsafe_rows
-    assert [x['event_id'] for x in unsafe_rows]==['UNSAFE_TARGET','UNSAFE_SOURCE'],unsafe_rows
+    unsafe_rows=sorted(ue['physical_actions'],key=lambda x:float(x['start_seconds']));assert [x['phase'] for x in unsafe_rows]==['ACTION','REACTION'],unsafe_rows;assert [x['event_id'] for x in unsafe_rows]==['UNSAFE_TARGET','UNSAFE_SOURCE'],unsafe_rows
+    assert unsafe_rows[0].get('retime_existing_entry') and not unsafe_rows[1].get('retime_existing_entry'),unsafe_rows
+    assert float(unsafe_rows[1]['start_seconds'])>=float(unsafe_rows[0]['end_seconds'])+1/30.-1e-6,unsafe_rows
+    assert float(unsafe_events['UNSAFE_TARGET']['preset_entry']['start_seconds'])<float(original_target_start)-1e-6
+    assert abs(float(unsafe_events['UNSAFE_SOURCE']['preset_entry']['start_seconds'])-float(original_subject_start))<1e-6
+    for eid in ('UNSAFE_SOURCE','UNSAFE_TARGET'):
+        assert (unsafe_events[eid]['physical_start_seconds'],unsafe_events[eid]['physical_end_seconds'])==original_lifetimes[eid]
     assert all(x.get('source_event_id')=='UNSAFE_TARGET' and x.get('target_event_id')=='UNSAFE_SOURCE' for x in unsafe_rows),unsafe_rows
     assert all(x.get('causal_direction')=='OBJECT_CAUSES_SUBJECT_REACTION' for x in unsafe_rows),unsafe_rows
     assert all(x['preset']=='APPEAR_HIGH_SCALE' and 'TRANSLATE' not in set(x.get('required_operations') or []) for x in unsafe_rows),unsafe_rows
