@@ -24,13 +24,6 @@ def _apply_preset_endpoint(point,name):
     return point
 
 def _point_through(event:dict,cutoff_seconds:float|None=None):
-    """Rendered object position after authored transforms completed by ``cutoff``.
-
-    Layout rest is only a placement hint. Entry and within-frame preset endpoints are
-    the actual rendered state. A cutoff is used for authority bridging so a reaction
-    chains from the state that exists after the already-authored cause, not from a
-    later unrelated action on the same event.
-    """
     point=list(event.get('card_rest_position_norm') or [.5,.5]);cutoff=float('inf') if cutoff_seconds is None else float(cutoff_seconds)
     entry=event.get('preset_entry') or {};name=str(entry.get('name') or '')
     if name:
@@ -46,19 +39,39 @@ def _point_through(event:dict,cutoff_seconds:float|None=None):
 def _settled_point(event:dict):
     return _point_through(event,None)
 
+def _entry_impact(event:dict,entry:dict,name:str)->float:
+    st=float(entry.get('start_seconds',event.get('start_seconds',0.0)));dd=float(entry.get('duration_seconds') or duration(name))
+    fraction=.90 if name.startswith('ENTRY_') else .70
+    return st+fraction*dd
+
+def _aligned_entry_manifestation(event:dict,intent:dict,phase:str,fps:float):
+    entry=event.get('preset_entry') or {};name=str(entry.get('name') or '')
+    if not name:return None
+    family=str(preset(name).get('family') or '')
+    if family not in {'ENTRY_EXIT','APPEARANCE'}:return None
+    st=float(entry.get('start_seconds',event.get('start_seconds',0.0)));dd=float(entry.get('duration_seconds') or duration(name));en=st+dd
+    event_hit=float(event.get('perceptual_hit_seconds',_entry_impact(event,entry,name)))
+    intent_hit=float(intent.get('semantic_hit_seconds',event_hit))
+    impact=_entry_impact(event,entry,name)
+    tolerance=max(6.0/max(1.0,fps),.20)
+    if abs(impact-event_hit)>tolerance+1e-6:return None
+    if phase=='ACTION' and abs(event_hit-intent_hit)>max(tolerance,.35)+1e-6:return None
+    return {'event_id':str(event.get('event_id')),'preset':name,'start_seconds':round(st,6),'end_seconds':round(en,6),
+            'duration_seconds':round(dd,6),'phase':phase,'semantic_role':'EXISTING_ENTRY_'+phase,
+            'authority':'BASE_PRESET_ENTRY_SEMANTIC_ALIGNMENT','source_kind':'PRESET_ENTRY',
+            'perceptual_impact_seconds':round(impact,6),'event_hit_seconds':round(event_hit,6),
+            'key':'|'.join((str(event.get('event_id')),name,f'{st:.6f}',phase))}
+
 def _matching_existing_relationship_action(event:dict,intent:dict,target:dict|None):
     if not target:return None
-    target_semantic=str(target.get('semantic_unit_id') or '')
-    target_event=str(target.get('event_id') or '')
-    hit=float(intent.get('semantic_hit_seconds',event.get('perceptual_hit_seconds',0.0)))
-    rows=[]
+    target_semantic=str(target.get('semantic_unit_id') or '');target_event=str(target.get('event_id') or '')
+    hit=float(intent.get('semantic_hit_seconds',event.get('perceptual_hit_seconds',0.0)));rows=[]
     for action in event.get('preset_actions') or []:
         if str(action.get('action_type') or '').upper() not in {'SEMANTIC_RELATIONSHIP','INTERACTION_DIRECTOR'}:continue
-        action_target_semantic=str(action.get('target_semantic_unit_id') or '')
-        action_target_event=str(action.get('target_event_id') or '')
-        if action_target_semantic and target_semantic and action_target_semantic!=target_semantic:continue
-        if action_target_event and target_event and action_target_event!=target_event:continue
-        if not action_target_semantic and not action_target_event:continue
+        ats=str(action.get('target_semantic_unit_id') or '');ate=str(action.get('target_event_id') or '')
+        if ats and target_semantic and ats!=target_semantic:continue
+        if ate and target_event and ate!=target_event:continue
+        if not ats and not ate:continue
         name=str(action.get('name') or '')
         if not name:continue
         st=float(action.get('start_seconds',0.0));dd=float(action.get('duration_seconds') or duration(name));en=st+dd
@@ -67,7 +80,7 @@ def _matching_existing_relationship_action(event:dict,intent:dict,target:dict|No
     _,st,name,en,action=sorted(rows,key=lambda x:(x[0],x[1],x[2]))[0]
     return {'event_id':str(event.get('event_id')),'preset':name,'start_seconds':round(st,6),'end_seconds':round(en,6),
             'duration_seconds':round(en-st,6),'phase':'ACTION','semantic_role':'BASE_AUTHORED_CAUSE',
-            'authority':str(action.get('authority') or 'BASE_RELATIONSHIP_AUTHORITY'),
+            'authority':str(action.get('authority') or 'BASE_RELATIONSHIP_AUTHORITY'),'source_kind':'PRESET_ACTION',
             'original_relationship_evidence':action.get('relationship_evidence'),
             'key':'|'.join((str(event.get('event_id')),name,f'{st:.6f}',target_semantic or target_event))}
 
@@ -87,7 +100,7 @@ def _reaction_step(target,target_state,source_end_point,not_before):
         elif sy<.42:name='WITHIN_MIDDLE_TO_DOWN'
         else:name='WITHIN_MIDDLE_TO_UP'
     else:return None
-    return _step('REACTION',target,name,'TARGET_REACTS_TO_AUTHORED_CAUSE',not_before_seconds=round(float(not_before),6))
+    return _step('REACTION',target,name,'TARGET_REACTS_TO_CAUSE',not_before_seconds=round(float(not_before),6))
 
 def _pair_steps(subject,target,subject_state,target_state,action):
     if subject_state=='MIDDLE' and target_state=='RIGHT':
@@ -113,6 +126,13 @@ def _focus_steps(subject,state,action):
         return [_step('ACTION',subject,name,'SEMANTIC_FOCUS_PUNCTUATION')],'CENTER_FOCUS_PUNCTUATION'
     return [],None
 
+def _fixed_pair_from_entries(subject,target,intent,fps):
+    action=_aligned_entry_manifestation(subject,intent,'ACTION',fps)
+    reaction=_aligned_entry_manifestation(target,intent,'REACTION',fps)
+    if not action or not reaction:return None
+    if float(reaction['start_seconds'])<float(action['end_seconds'])+1.0/max(1.0,fps)-1e-6:return None
+    return action,reaction
+
 def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:float)->dict:
     subject=event_by_id.get(str(intent['subject_event_id']));target=event_by_id.get(str(intent.get('object_event_id') or ''))
     if not subject:return {'mode':'SAFE_STATIC_FALLBACK','reason':'MISSING_SUBJECT','steps':[]}
@@ -121,21 +141,24 @@ def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:floa
     if intent.get('physical_pair_allowed') and target:
         if not _safe_translation(subject):return {'mode':'SAFE_STATIC_FALLBACK','reason':'SUBJECT_TRANSLATION_UNSAFE','steps':[]}
         if not _safe_translation(target):return {'mode':'SAFE_STATIC_FALLBACK','reason':'TARGET_TRANSLATION_UNSAFE','steps':[]}
-        adopted=_matching_existing_relationship_action(subject,intent,target)
+        fixed=_fixed_pair_from_entries(subject,target,intent,fps)
+        if fixed:
+            return {'mode':'FIXED_EXISTING_PAIR','reason':None,'template':'SEMANTICALLY_ALIGNED_ENTRY_PAIR','adopted_actions':list(fixed),'steps':[]}
+        adopted=_matching_existing_relationship_action(subject,intent,target) or _aligned_entry_manifestation(subject,intent,'ACTION',fps)
         if adopted:
             cause_end=float(adopted['end_seconds']);source_end=_apply_preset_endpoint(_point_through(subject,float(adopted['start_seconds'])-1e-6),str(adopted['preset']))
             target_cutoff=max(cause_end,float(target.get('settle_seconds',target.get('start_seconds',0.0))))
             target_point=_point_through(target,target_cutoff);target_state=_state(target_point)
             reaction=_reaction_step(target,target_state,source_end,cause_end+1.0/max(1.0,fps))
             if reaction:
-                return {'mode':'BASE_ACTION_PLUS_REACTION','reason':None,'template':'AUTHORITY_BRIDGE_REACTION','adopted_action':adopted,
+                return {'mode':'ADOPTED_ACTION_PLUS_REACTION','reason':None,'template':'SHORT_CARD_AUTHORITY_BRIDGE','adopted_action':adopted,
                         'subject_state':_state(source_end),'target_state':target_state,'subject_point':source_end,'target_point':target_point,'steps':[reaction]}
-            return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_REACTION_PRESET_FOR_RENDERED_TARGET_STATE','adopted_action':adopted,
-                    'subject_state':_state(source_end),'target_state':target_state,'subject_point':source_end,'target_point':target_point,'steps':[]}
         subject_point=_settled_point(subject);subject_state=_state(subject_point);target_point=_settled_point(target);target_state=_state(target_point)
         steps,template=_pair_steps(subject,target,subject_state,target_state,action)
         if steps:return {'mode':'CAUSAL_PAIR_CHOREOGRAPHY','reason':None,'template':template,'subject_state':subject_state,'target_state':target_state,'subject_point':subject_point,'target_point':target_point,'steps':steps}
-        return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_PRESET_TEMPLATE_FOR_RENDERED_PAIR_STATE','subject_state':subject_state,'target_state':target_state,'subject_point':subject_point,'target_point':target_point,'steps':[]}
+        return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_PRESET_TEMPLATE_OR_ALIGNED_EXISTING_MOTION','subject_state':subject_state,'target_state':target_state,'subject_point':subject_point,'target_point':target_point,'steps':[]}
+    adopted=_aligned_entry_manifestation(subject,intent,'ACTION',fps)
+    if adopted:return {'mode':'FIXED_EXISTING_FOCUS','reason':None,'template':'SEMANTICALLY_ALIGNED_ENTRY_FOCUS','adopted_actions':[adopted],'steps':[]}
     subject_point=_settled_point(subject);subject_state=_state(subject_point);steps,template=_focus_steps(subject,subject_state,action)
     if steps:return {'mode':'FOCUS_MANIFESTATION','reason':None,'template':template,'subject_state':subject_state,'subject_point':subject_point,'steps':steps}
     return {'mode':'SAFE_STATIC_FALLBACK','reason':'NO_SAFE_PRESET_MANIFESTATION_FOR_RENDERED_STATE','subject_state':subject_state,'subject_point':subject_point,'steps':[]}
