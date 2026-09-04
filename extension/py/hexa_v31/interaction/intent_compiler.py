@@ -1,19 +1,28 @@
 from __future__ import annotations
-from .contracts import InteractionIntent,canonical_action,PHYSICAL_CAUSAL_ACTIONS,FOCUS_ACTIONS
+from .contracts import (
+    InteractionIntent, canonical_action, PHYSICAL_CAUSAL_ACTIONS, FOCUS_ACTIONS,
+    MIN_SEMANTIC_CONFIDENCE, MIN_MAPPING_CONFIDENCE, MIN_PAIR_CONFIDENCE,
+)
 
 def _event_map(motion_plan:dict)->dict[str,dict]:
     return {str(e.get('event_id')):e for e in motion_plan.get('events') or [] if not e.get('suppressed_by_card_density')}
 
 def _explicit_semantic_evidence(event:dict,action:str)->bool:
-    fields=' '.join(str(event.get(k) or '') for k in ('semantic_intent','narrative_function','relationship')).upper()
+    fields=' '.join(str(event.get(k) or '') for k in ('canonical_clause','canonical_narration','visual_concept','semantic_intent','narrative_function','relationship')).upper()
     if not fields:return False
     signals={
-        'TRANSFER':('TRANSFER','SEND','HANDOFF','MOVE'),
+        'TRANSFER':('TRANSFER','SEND','HANDOFF','MOVE','FLOW'),
         'CONNECT':('CONNECT','LINK','FLOW','RELATION'),
         'BLOCK':('BLOCK','STOP','PREVENT','DENY','LIMIT'),
         'REJECT':('REJECT','FAIL','ERROR','INVALID'),
         'ACCEPT':('ACCEPT','SUCCESS','CONFIRM','VALID','APPROVE'),
         'REACT':('REACT','REACTION','RESPOND'),
+        'COMPARE':('COMPARE','COMPARISON','VERSUS','DIFFERENCE','MORE','LESS'),
+        'READ':('READ','MEASURE','CHECK','INSPECT','SCAN'),
+        'REVEAL':('REVEAL','SHOW','DISCOVER'),
+        'INCREASE':('INCREASE','RISE','GROW','HIGHER'),
+        'DECREASE':('DECREASE','DROP','REDUCE','LOWER'),
+        'RESOLVE':('RESOLVE','RESULT','CONCLUDE','COMPLETE'),
     }.get(action,(action,))
     return any(x in fields for x in signals)
 
@@ -33,6 +42,29 @@ def _explicit_pairs(source_plan:dict)->dict[tuple[str,str,str],str]:
                 pairs[(sid,uid,str(target))]='EXPLICIT_INTERACTION_TARGET'
     return pairs
 
+def _pair_authority(sentence:dict,subject:dict,obj:dict|None,explicit_pairs:dict)->tuple[str,float]:
+    if not obj:return 'NO_OBJECT',0.0
+    sid=str(sentence.get('scene_id') or subject.get('scene_id') or '')
+    suid=str(subject.get('semantic_unit_id') or '')
+    ouid=str(obj.get('semantic_unit_id') or '')
+    package=explicit_pairs.get((sid,suid,ouid))
+    if package:return package,1.0
+    sentence_conf=float(sentence.get('confidence') or 0.0)
+    sentence_explicit=bool(sentence.get('subject_event_id') and sentence.get('object_event_id') and sentence.get('physical_support'))
+    same_card=str(subject.get('visual_card_id') or '')==str(obj.get('visual_card_id') or '')
+    distinct_scope=str(subject.get('semantic_scope_id') or subject.get('event_id'))!=str(obj.get('semantic_scope_id') or obj.get('event_id'))
+    if sentence_explicit and same_card and distinct_scope and sentence_conf>=MIN_PAIR_CONFIDENCE:
+        return 'SEMANTIC_SENTENCE_EXPLICIT_PAIR',sentence_conf
+    return 'INSUFFICIENT_PAIR_AUTHORITY',sentence_conf
+
+def _physically_addressable(event:dict|None)->bool:
+    if not event:return False
+    if event.get('suppressed_by_card_density'):return False
+    ps=float(event.get('physical_start_seconds',event.get('start_seconds',0.0)))
+    pe=float(event.get('physical_end_seconds',event.get('end_seconds',ps)))
+    if pe<=ps+1e-6:return False
+    return bool(event.get('source_path') or event.get('source_layer_path') or event.get('render_mode'))
+
 def compile_interaction_intents(motion_plan:dict,source_plan:dict|None=None)->dict:
     events=_event_map(motion_plan);source_plan=source_plan or {};explicit_pairs=_explicit_pairs(source_plan)
     sentences=((motion_plan.get('semantic_visual_sentence_compiler') or {}).get('sentences') or [])
@@ -40,18 +72,52 @@ def compile_interaction_intents(motion_plan:dict,source_plan:dict|None=None)->di
     for sentence in sorted(sentences,key=lambda x:(str(x.get('visual_card_id')),str(x.get('sentence_id')))):
         action=canonical_action(sentence.get('action'))
         if action not in PHYSICAL_CAUSAL_ACTIONS|FOCUS_ACTIONS:continue
-        subject=events.get(str(sentence.get('subject_event_id') or ''));obj=events.get(str(sentence.get('object_event_id') or ''));result=events.get(str(sentence.get('result_event_id') or ''))
+        subject=events.get(str(sentence.get('subject_event_id') or ''))
+        obj=events.get(str(sentence.get('object_event_id') or ''))
+        result=events.get(str(sentence.get('result_event_id') or ''))
         if not subject:
             skipped.append({'sentence_id':sentence.get('sentence_id'),'reason':'SUBJECT_NOT_PHYSICAL'});continue
-        confidence=float(sentence.get('confidence') or 0.0);mapping_ok=float(subject.get('semantic_mapping_confidence') or 0.0)>=.85;object_mapping_ok=bool(obj and float(obj.get('semantic_mapping_confidence') or 0.0)>=.85)
+        confidence=float(sentence.get('confidence') or 0.0)
+        subject_mapping=float(subject.get('semantic_mapping_confidence') or 0.0)
+        object_mapping=float((obj or {}).get('semantic_mapping_confidence') or 0.0)
         semantic_explicit=_explicit_semantic_evidence(subject,action)
-        sid=str(sentence.get('scene_id') or subject.get('scene_id') or '');subject_uid=str(subject.get('semantic_unit_id') or '');object_uid=str((obj or {}).get('semantic_unit_id') or '')
-        pair_evidence=explicit_pairs.get((sid,subject_uid,object_uid)) if obj else None
-        physical_pair_allowed=bool(action in PHYSICAL_CAUSAL_ACTIONS and obj and confidence>=.72 and mapping_ok and object_mapping_ok and semantic_explicit and pair_evidence)
-        if physical_pair_allowed:evidence=pair_evidence+'__'+action
-        elif semantic_explicit:evidence='EXPLICIT_SEMANTIC_ACTION_WITHOUT_EXPLICIT_PHYSICAL_PAIR'
-        else:evidence='CANONICAL_CLAUSE_SEMANTIC_SENTENCE'
+        pair_authority,pair_confidence=_pair_authority(sentence,subject,obj,explicit_pairs)
+        pair_addressable=_physically_addressable(subject) and _physically_addressable(obj)
+        mapping_ok=subject_mapping>=MIN_MAPPING_CONFIDENCE and (obj is None or object_mapping>=MIN_MAPPING_CONFIDENCE)
+        causal=action in PHYSICAL_CAUSAL_ACTIONS
+        focus=action in FOCUS_ACTIONS
+        physical_pair_allowed=bool(causal and obj and confidence>=MIN_SEMANTIC_CONFIDENCE and mapping_ok and semantic_explicit and pair_addressable and pair_confidence>=MIN_PAIR_CONFIDENCE)
+        actionable=bool((physical_pair_allowed) or (focus and confidence>=MIN_SEMANTIC_CONFIDENCE and subject_mapping>=MIN_MAPPING_CONFIDENCE and _physically_addressable(subject)))
+        reason=None
+        if not actionable:
+            if confidence<MIN_SEMANTIC_CONFIDENCE:reason='LOW_SEMANTIC_CONFIDENCE'
+            elif not mapping_ok:reason='LOW_MAPPING_CONFIDENCE'
+            elif causal and not obj:reason='MISSING_OBJECT'
+            elif causal and not semantic_explicit:reason='NO_EXPLICIT_SEMANTIC_ACTION'
+            elif causal and pair_confidence<MIN_PAIR_CONFIDENCE:reason='INSUFFICIENT_PAIR_AUTHORITY'
+            elif causal and not pair_addressable:reason='PAIR_NOT_PHYSICALLY_ADDRESSABLE'
+            else:reason='NO_SAFE_ACTIONABLE_MANIFESTATION'
+        evidence=pair_authority+'__'+action if actionable else (pair_authority+'__'+(reason or 'NON_ACTIONABLE'))
         hit=float(subject.get('perceptual_hit_seconds',subject.get('start_seconds',0.0)))
-        intent=InteractionIntent(interaction_id='INT::'+str(sentence.get('sentence_id')),sentence_id=str(sentence.get('sentence_id')),scene_id=sid,visual_card_id=str(sentence.get('visual_card_id') or subject.get('visual_card_id') or ''),semantic_action=action,subject_event_id=str(subject.get('event_id')),object_event_id=str(obj.get('event_id')) if obj else None,result_event_id=str(result.get('event_id')) if result and result is not subject and result is not obj else None,semantic_hit_seconds=hit,confidence=confidence,evidence=evidence,physical_pair_allowed=physical_pair_allowed,requires_reaction=action in PHYSICAL_CAUSAL_ACTIONS)
+        intent=InteractionIntent(
+            interaction_id='INT::'+str(sentence.get('sentence_id')),
+            sentence_id=str(sentence.get('sentence_id')),
+            scene_id=str(sentence.get('scene_id') or subject.get('scene_id') or ''),
+            visual_card_id=str(sentence.get('visual_card_id') or subject.get('visual_card_id') or ''),
+            semantic_action=action,
+            subject_event_id=str(subject.get('event_id')),
+            object_event_id=str(obj.get('event_id')) if obj else None,
+            result_event_id=str(result.get('event_id')) if result and result is not subject and result is not obj else None,
+            semantic_hit_seconds=hit,confidence=confidence,evidence=evidence,
+            pair_authority=pair_authority,pair_confidence=round(pair_confidence,3),
+            physical_pair_allowed=physical_pair_allowed,actionable=actionable,
+            non_actionable_reason=reason,requires_reaction=causal,
+        )
         rows.append(intent.to_dict())
-    return {'schema':'HEXA_INTERACTION_INTENT_SET_V2','version':'2.1_EXPLICIT_PAIR_AUTHORITY','intents':rows,'skipped':skipped,'explicit_pair_count':len(explicit_pairs),'intent_count':len(rows),'physical_pair_candidate_count':sum(bool(x['physical_pair_allowed']) for x in rows)}
+    return {
+        'schema':'HEXA_INTERACTION_INTENT_SET_V3','version':'3.0_MULTI_TIER_PAIR_AUTHORITY',
+        'intents':rows,'skipped':skipped,'explicit_pair_count':len(explicit_pairs),
+        'intent_count':len(rows),'actionable_intent_count':sum(bool(x['actionable']) for x in rows),
+        'physical_pair_candidate_count':sum(bool(x['physical_pair_allowed']) for x in rows),
+        'pair_authority_counts':{k:sum(x['pair_authority']==k for x in rows) for k in sorted(set(x['pair_authority'] for x in rows))},
+    }
