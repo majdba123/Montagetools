@@ -58,20 +58,50 @@ def _point_through(event:dict,cutoff_seconds:float|None=None):
 
 def _settled_point(event:dict):return _point_through(event,None)
 
-def _entry_impact(event:dict,entry:dict,name:str)->float:
-    st=float(entry.get('start_seconds',event.get('start_seconds',0.0)));dd=float(entry.get('duration_seconds') or duration(name));fraction=.90 if name.startswith('ENTRY_') else .70
-    return st+fraction*dd
+def _entry_fraction(name:str)->float:return .90 if str(name).startswith('ENTRY_') else .70
 
-def _aligned_entry_manifestation(event:dict,intent:dict,phase:str,fps:float,anchor_to_intent:bool|None=None):
+def _entry_impact(event:dict,entry:dict,name:str)->float:
+    st=float(entry.get('start_seconds',event.get('start_seconds',0.0)));dd=float(entry.get('duration_seconds') or duration(name))
+    return st+_entry_fraction(name)*dd
+
+def _entry_manifestation(event:dict,phase:str):
     entry=event.get('preset_entry') or {};name=str(entry.get('name') or '')
     if not name or not _manifestation_safe(event,name):return None
     family=str(preset(name).get('family') or '')
     if family not in {'ENTRY_EXIT','APPEARANCE'}:return None
-    st=float(entry.get('start_seconds',event.get('start_seconds',0.0)));dd=float(entry.get('duration_seconds') or duration(name));en=st+dd;event_hit=float(event.get('perceptual_hit_seconds',_entry_impact(event,entry,name)));intent_hit=float(intent.get('semantic_hit_seconds',event_hit));impact=_entry_impact(event,entry,name);tolerance=max(6.0/max(1.0,fps),.20)
-    if abs(impact-event_hit)>tolerance+1e-6:return None
+    st=float(entry.get('start_seconds',event.get('start_seconds',0.0)));dd=float(entry.get('duration_seconds') or duration(name));en=st+dd
+    impact=_entry_impact(event,entry,name);event_hit=float(event.get('perceptual_hit_seconds',impact))
+    return {'event_id':str(event.get('event_id')),'preset':name,'start_seconds':round(st,6),'end_seconds':round(en,6),'duration_seconds':round(dd,6),'phase':phase,'semantic_role':'EXISTING_ENTRY_'+phase,'authority':'BASE_PRESET_ENTRY_SEMANTIC_ALIGNMENT','source_kind':'PRESET_ENTRY','required_operations':sorted(_required_operations(name)),'perceptual_impact_seconds':round(impact,6),'event_hit_seconds':round(event_hit,6),'perceptual_hit_source':str(event.get('perceptual_hit_source') or ''),'key':'|'.join((str(event.get('event_id')),name,f'{st:.6f}',phase))}
+
+def _aligned_entry_manifestation(event:dict,intent:dict,phase:str,fps:float,anchor_to_intent:bool|None=None):
+    row=_entry_manifestation(event,phase)
+    if not row:return None
     if anchor_to_intent is None:anchor_to_intent=(phase=='ACTION')
-    if anchor_to_intent and abs(event_hit-intent_hit)>max(tolerance,.35)+1e-6:return None
-    return {'event_id':str(event.get('event_id')),'preset':name,'start_seconds':round(st,6),'end_seconds':round(en,6),'duration_seconds':round(dd,6),'phase':phase,'semantic_role':'EXISTING_ENTRY_'+phase,'authority':'BASE_PRESET_ENTRY_SEMANTIC_ALIGNMENT','source_kind':'PRESET_ENTRY','required_operations':sorted(_required_operations(name)),'perceptual_impact_seconds':round(impact,6),'event_hit_seconds':round(event_hit,6),'semantic_anchor_match':bool(anchor_to_intent),'key':'|'.join((str(event.get('event_id')),name,f'{st:.6f}',phase))}
+    tolerance=max(6.0/max(1.0,fps),.20);impact=float(row['perceptual_impact_seconds']);event_hit=float(row['event_hit_seconds']);intent_hit=float(intent.get('semantic_hit_seconds',event_hit));source=str(row.get('perceptual_hit_source') or '').upper()
+    # SOURCE_INTERVAL_FALLBACK is carrier timing, not semantic timing.  It may be
+    # adopted as an earlier causal source when the interaction compiler supplies
+    # the actual semantic relationship, but never as the anchored reaction itself.
+    if abs(impact-event_hit)>tolerance+1e-6 and not (not anchor_to_intent and source=='SOURCE_INTERVAL_FALLBACK'):return None
+    if anchor_to_intent and abs(impact-intent_hit)>max(tolerance,.35)+1e-6:return None
+    row['semantic_anchor_match']=bool(abs(impact-intent_hit)<=max(tolerance,.35)+1e-6)
+    return row
+
+def _retime_fallback_reaction_entry(event:dict,intent:dict,fps:float,not_before:float):
+    row=_entry_manifestation(event,'REACTION')
+    if not row:return None
+    if str(intent.get('semantic_action') or '')!='REACT' or str(intent.get('causal_direction') or '')!='OBJECT_CAUSES_SUBJECT_REACTION':return None
+    if str(row.get('perceptual_hit_source') or '').upper()!='SOURCE_INTERVAL_FALLBACK':return None
+    if 'TRANSLATE' in set(row.get('required_operations') or []):return None
+    dd=float(row['duration_seconds']);impact_fraction=_entry_fraction(str(row['preset']));semantic_hit=float(intent.get('semantic_hit_seconds',row['event_hit_seconds']));new_start=semantic_hit-impact_fraction*dd;new_end=new_start+dd
+    physical_start=float(event.get('physical_start_seconds',event.get('start_seconds',new_start)));physical_end=float(event.get('physical_end_seconds',event.get('end_seconds',new_end)))
+    if new_start<physical_start-1e-6 or new_end>physical_end+1e-6:return None
+    if new_start<float(not_before)-1e-6:return None
+    px=event.get('preset_exit') or {}
+    if px and new_end>float(px.get('start_seconds',physical_end))+1e-6:return None
+    for action in event.get('preset_actions') or []:
+        if float(action.get('start_seconds',physical_end))<new_end-1e-6:return None
+    retimed=dict(row);retimed.update({'start_seconds':round(new_start,6),'end_seconds':round(new_end,6),'perceptual_impact_seconds':round(semantic_hit,6),'retime_existing_entry':True,'original_start_seconds':float(row['start_seconds']),'original_end_seconds':float(row['end_seconds']),'retime_reason':'REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT','semantic_anchor_match':True,'key':'|'.join((str(event.get('event_id')),str(row['preset']),f'{new_start:.6f}','REACTION_SEMANTIC_PROMOTION'))})
+    return retimed
 
 def _matching_existing_relationship_action(event:dict,intent:dict,target:dict|None):
     if not target:return None
@@ -122,14 +152,15 @@ def _focus_steps(subject,state,action):
     return [],None
 
 def _fixed_or_retimed_pair_from_entries(cause,reaction,intent,fps):
-    semantic_subject=str(intent.get('subject_event_id') or '');cause_is_subject=str(cause.get('event_id'))==semantic_subject;reaction_is_subject=str(reaction.get('event_id'))==semantic_subject
-    action=_aligned_entry_manifestation(cause,intent,'ACTION',fps,anchor_to_intent=cause_is_subject);reply=_aligned_entry_manifestation(reaction,intent,'REACTION',fps,anchor_to_intent=reaction_is_subject)
+    semantic_subject=str(intent.get('subject_event_id') or '');cause_is_subject=str(cause.get('event_id'))==semantic_subject;reaction_is_subject=str(reaction.get('event_id'))==semantic_subject;frame=1.0/max(1.0,fps)
+    action=_aligned_entry_manifestation(cause,intent,'ACTION',fps,anchor_to_intent=cause_is_subject)
+    reply=_aligned_entry_manifestation(reaction,intent,'REACTION',fps,anchor_to_intent=reaction_is_subject)
+    if action and not reply and reaction_is_subject:
+        reply=_retime_fallback_reaction_entry(reaction,intent,fps,float(action['end_seconds'])+frame)
     if not action or not reply:return None
-    frame=1.0/max(1.0,fps)
     if float(reply['start_seconds'])>=float(action['end_seconds'])+frame-1e-6:return action,reply
-    # Only REACT has explicit reverse causal authority: its semantic subject is the
-    # reactor, so an already-authored in-place object appearance may be moved into
-    # causal pre-roll. Never retime a position path or a generic subject action.
+    # If both entries are already semantic-aligned but simultaneous, only REACT
+    # may move the in-place cause earlier. Position paths and generic actions stay immutable.
     if str(intent.get('semantic_action') or '')!='REACT' or str(intent.get('causal_direction') or '')!='OBJECT_CAUSES_SUBJECT_REACTION':return None
     if action.get('source_kind')!='PRESET_ENTRY' or reply.get('source_kind')!='PRESET_ENTRY':return None
     if 'TRANSLATE' in set(action.get('required_operations') or []):return None
@@ -138,7 +169,7 @@ def _fixed_or_retimed_pair_from_entries(cause,reaction,intent,fps):
     if new_start<physical_start-1e-6 or desired_end>physical_end+1e-6:return None
     px=cause.get('preset_exit') or {}
     if px and desired_end>float(px.get('start_seconds',physical_end))+1e-6:return None
-    retimed=dict(action);retimed.update({'start_seconds':round(new_start,6),'end_seconds':round(desired_end,6),'perceptual_impact_seconds':round(new_start+.70*float(action['duration_seconds']),6),'retime_existing_entry':True,'original_start_seconds':float(action['start_seconds']),'original_end_seconds':float(action['end_seconds']),'retime_reason':'REACT_CAUSAL_PRE_ROLL','semantic_anchor_match':False,'key':'|'.join((str(cause.get('event_id')),str(action['preset']),f'{new_start:.6f}','ACTION_RETIMED'))})
+    retimed=dict(action);retimed.update({'start_seconds':round(new_start,6),'end_seconds':round(desired_end,6),'perceptual_impact_seconds':round(new_start+_entry_fraction(str(action['preset']))*float(action['duration_seconds']),6),'retime_existing_entry':True,'original_start_seconds':float(action['start_seconds']),'original_end_seconds':float(action['end_seconds']),'retime_reason':'REACT_CAUSAL_PRE_ROLL','semantic_anchor_match':False,'key':'|'.join((str(cause.get('event_id')),str(action['preset']),f'{new_start:.6f}','ACTION_RETIMED'))})
     return retimed,reply
 
 def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:float)->dict:
@@ -151,7 +182,8 @@ def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:floa
         fixed=_fixed_or_retimed_pair_from_entries(cause,reaction,intent,fps)
         if fixed:
             retimed=sum(bool(x.get('retime_existing_entry')) for x in fixed)
-            return {'mode':'RETIMED_EXISTING_PAIR' if retimed else 'FIXED_EXISTING_PAIR','reason':None,'template':'REACT_CAUSAL_PRE_ROLL_EXISTING_APPEARANCE' if retimed else 'SEMANTICALLY_ALIGNED_CAPABILITY_SAFE_ENTRY_PAIR','adopted_actions':list(fixed),'steps':[],'retimed_existing_motion_count':retimed,'cause_translation_safe':_safe_translation(cause),'reaction_translation_safe':_safe_translation(reaction),**direction}
+            promoted=sum(str(x.get('retime_reason') or '')=='REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT' for x in fixed)
+            return {'mode':'RETIMED_EXISTING_PAIR' if retimed else 'FIXED_EXISTING_PAIR','reason':None,'template':'REACT_SOURCE_INTERVAL_SEMANTIC_PROMOTION' if promoted else ('REACT_CAUSAL_PRE_ROLL_EXISTING_APPEARANCE' if retimed else 'SEMANTICALLY_ALIGNED_CAPABILITY_SAFE_ENTRY_PAIR'),'adopted_actions':list(fixed),'steps':[],'retimed_existing_motion_count':retimed,'semantic_promoted_reaction_count':promoted,'cause_translation_safe':_safe_translation(cause),'reaction_translation_safe':_safe_translation(reaction),**direction}
         authored=_matching_existing_relationship_action(cause,intent,reaction);cause_anchor=str(cause.get('event_id'))==str(intent.get('subject_event_id'));adopted=authored or _aligned_entry_manifestation(cause,intent,'ACTION',fps,anchor_to_intent=cause_anchor)
         if adopted:
             cause_end=float(adopted['end_seconds']);source_end=_apply_preset_endpoint(_point_through(cause,float(adopted['start_seconds'])-1e-6),str(adopted['preset']));reaction_cutoff=max(cause_end,float(reaction.get('settle_seconds',reaction.get('start_seconds',0.0))));reaction_point=_point_through(reaction,reaction_cutoff);reaction_state=_state(reaction_point);reply=_reaction_step(reaction,reaction_state,source_end,cause_end+1.0/max(1.0,fps))
