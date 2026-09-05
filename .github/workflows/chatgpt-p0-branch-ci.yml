@@ -211,6 +211,8 @@ jobs:
           try {
             & $cfg.python_exe tests/test_v31_problem2_short_card_production_replay.py
             if ($LASTEXITCODE -ne 0) { throw "Installed short-card production replay failed" }
+            & $cfg.python_exe tests/test_v31_problem2_full_planner_react.py
+            if ($LASTEXITCODE -ne 0) { throw "Installed full-planner REACT render certification failed" }
             & $cfg.python_exe tests/test_v31_problem2_closure.py
             if ($LASTEXITCODE -ne 0) { throw "Installed encoded interaction pixel certification failed" }
           } finally {
