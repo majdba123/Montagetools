@@ -1,7 +1,8 @@
 from __future__ import annotations
-import pathlib,tempfile
+import json,pathlib,tempfile
 from PIL import Image,ImageDraw
-from hexa_v31.motion import build_motion_plan
+from hexa_v31.planning.preset_story_planner import build_preset_story_motion_plan
+from hexa_v31.interaction.director import apply_interaction_director
 
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 RULES=ROOT/'extension/resources/HEXA_EDITING_RULES_V20.json'
@@ -40,7 +41,19 @@ with tempfile.TemporaryDirectory(prefix='hexa_full_planner_react_') as raw:
     }]
     alignment={'method':'FULL_PLANNER_REACT_TEST','scene_timings':[{'scene_id':'S_REACT','start':0.0,'end':4.0}],'word_timings':[]}
     plan={'project_id':'GENERIC_REACT_PLANNER','scenes':[scene]}
-    motion=build_motion_plan(plan,alignment,vision,RULES,REFERENCE,fps=30.0)
+    base=build_preset_story_motion_plan(plan,alignment,vision,RULES,REFERENCE,fps=30.0)
+    base_rows=[]
+    for e in sorted(base['events'],key=lambda x:x['event_id']):
+        entry=e.get('preset_entry') or {};base_rows.append({
+            'event_id':e['event_id'],'attention_priority':e.get('attention_priority'),
+            'semantic_intent':e.get('semantic_intent'),'perceptual_hit_seconds':e.get('perceptual_hit_seconds'),
+            'start_seconds':e.get('start_seconds'),'settle_seconds':e.get('settle_seconds'),'end_seconds':e.get('end_seconds'),
+            'physical_start_seconds':e.get('physical_start_seconds'),'physical_end_seconds':e.get('physical_end_seconds'),
+            'preset_entry':entry,'preset_exit':e.get('preset_exit'),'planned_rect_norm':e.get('planned_rect_norm'),
+            'translation_safe_after_occlusion':e.get('translation_safe_after_occlusion'),'independent_motion_allowed':e.get('independent_motion_allowed'),
+        })
+    print('V31_FULL_PLANNER_REACT_BASE_STATE',json.dumps(base_rows,sort_keys=True),flush=True)
+    motion=apply_interaction_director(base,plan,alignment,fps=30.0)
     engine=motion.get('interaction_engine') or {};qa=motion.get('interaction_plan_qa') or {}
     assert qa.get('pass'),qa
     assert engine.get('actionable_interaction_count')==1,engine
