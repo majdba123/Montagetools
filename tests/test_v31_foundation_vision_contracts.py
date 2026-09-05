@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json,pathlib,tempfile
+import importlib.util,json,pathlib,tempfile
 import numpy as np
 from PIL import Image,ImageDraw
 from hexa_v31.vision.foundation.candidate_fusion import fuse_candidates
@@ -8,6 +8,7 @@ from hexa_v31.vision.foundation.device_policy import select_device,MIN_FOUNDATIO
 from hexa_v31.vision.foundation.model_registry import resolve_models,ModelIntegrityError
 from hexa_v31.extraction.actor_validation import classify_actor
 
+ROOT=pathlib.Path(__file__).resolve().parents[1]
 rows=[
  {'label':'bank building','confidence':.9,'bbox':[10,15,70,70],'source':'OD'},
  {'label':'bank building','confidence':.8,'bbox':[11,16,69,69],'source':'DENSE'},
@@ -52,6 +53,19 @@ class LowCuda:
 class LowTorch:cuda=LowCuda()
 low=select_device(LowTorch());assert low['device']=='cpu' and low['profile']=='LOW_MEMORY' and low['reason']=='CUDA_VRAM_BELOW_MINIMUM',low
 assert low['minimum_cuda_vram_bytes']==MIN_FOUNDATION_CUDA_VRAM_BYTES
+
+# The installer and runtime must make the same VRAM decision.  A 930MX-class
+# adapter must not receive a CUDA Foundation environment that runtime immediately
+# refuses to use; higher-memory adapters remain CUDA eligible.
+spec=importlib.util.spec_from_file_location('hexa_foundation_provisioner',ROOT/'tools/provision_foundation_vision.py');provisioner=importlib.util.module_from_spec(spec);spec.loader.exec_module(provisioner)
+def fake_smi(memory_mb,capability='5.0'):
+ def run_command(cmd,timeout=30):return f'GPU, {memory_mb}, {capability}\n'
+ return run_command
+p2=provisioner.detect_hardware(fake_smi(2048));assert p2['nvidia_present'] and not p2['cuda_eligible'] and p2['profile']=='LOW_MEMORY',p2
+p8=provisioner.detect_hardware(fake_smi(8192,'8.6'));assert p8['cuda_eligible'] and p8['profile']=='LOW_MEMORY',p8
+p12=provisioner.detect_hardware(fake_smi(12288,'8.6'));assert p12['cuda_eligible'] and p12['profile']=='QUALITY',p12
+assert provisioner.MIN_FOUNDATION_CUDA_VRAM_BYTES==MIN_FOUNDATION_CUDA_VRAM_BYTES
+assert 'minimum_foundation_cuda_vram_bytes' in provisioner.provision_contract.__code__.co_consts or provisioner.MIN_FOUNDATION_CUDA_VRAM_BYTES==4*1024**3
 
 with tempfile.TemporaryDirectory() as td:
  root=pathlib.Path(td);model=root/'model';model.mkdir();checkpoint=model/'weights.bin';checkpoint.write_bytes(b'corrupt')
