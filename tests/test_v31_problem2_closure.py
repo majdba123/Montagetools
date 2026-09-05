@@ -1,7 +1,8 @@
 from __future__ import annotations
-import copy,pathlib,tempfile
+import copy,json,pathlib,tempfile
 import numpy as np,cv2
 from PIL import Image,ImageDraw
+from hexa_v31.app import pipeline
 from hexa_v31.interaction.director import apply_interaction_director
 from hexa_v31.interaction.graphics_guard import guard_relationship_graphics
 from hexa_v31.scene_media import render_scene_media
@@ -27,6 +28,16 @@ with tempfile.TemporaryDirectory(prefix='hexa_problem2_closure_') as raw:
     gp={'events':[{'graphic_id':'ARROW_FUTURE','kind':'ARROW','scene_id':'FUTURE_PACKAGE_SCENE_X','source_semantic_unit_id':'SOURCE','target_semantic_unit_id':'TARGET','start_seconds':.1,'end_seconds':3.0}],'event_count':1}
     guarded=guard_relationship_graphics(gp,graphic_motion,30.);assert guarded['event_count']==1,guarded;arrow=guarded['events'][0];assert abs(arrow['start_seconds']-.8)<1e-6 and abs(arrow['end_seconds']-2.1)<1e-6,guarded;assert arrow['interaction_orphan_guard']=='SOURCE_AND_TARGET_VISIBLE_OVERLAP'
     no_overlap=copy.deepcopy(graphic_motion);next(e for e in no_overlap['events'] if e['event_id']=='TARGET')['physical_start_seconds']=2.5;assert guard_relationship_graphics(gp,no_overlap,30.)['event_count']==0
+    endpoint_lifetimes={e['event_id']:(e['physical_start_seconds'],e['physical_end_seconds']) for e in graphic_motion['events'] if e['event_id'] in {'SOURCE','TARGET'}};received={};original_renderer=pipeline.render_scene_media
+    def capture_renderer(render_edit_map,motion_plan,vision_results,text_plan,graphics_plan,out_dir,cache_dir,**kwargs):received['graphics_plan']=copy.deepcopy(graphics_plan);return {'captured':True}
+    pipeline.render_scene_media=capture_renderer
+    try:
+        artifact=root/'HEXA_V31_SEMANTIC_GRAPHICS_PLAN.json';result=pipeline._render_scene_media_with_guard({},graphic_motion,[],{},gp,artifact,root/'handoff_out',root/'handoff_cache',fps=30.)
+    finally:pipeline.render_scene_media=original_renderer
+    handed_arrow=received['graphics_plan']['events'][0];persisted=json.loads(artifact.read_text(encoding='utf-8'))['events'][0]
+    assert result['captured'] and abs(handed_arrow['start_seconds']-.8)<1e-6 and abs(handed_arrow['end_seconds']-2.1)<1e-6,(result,received)
+    assert persisted==handed_arrow and gp['events'][0]['end_seconds']==3.0,(persisted,handed_arrow,gp)
+    assert {e['event_id']:(e['physical_start_seconds'],e['physical_end_seconds']) for e in graphic_motion['events'] if e['event_id'] in {'SOURCE','TARGET'}}==endpoint_lifetimes
     edit={'events':[copy.deepcopy(e) for e in motion['events']]};manifest=render_scene_media(edit,motion,[],{'events':[]},{'events':[]},root/'out',root/'cache',width=1920,height=1080,fps=30.)
     framing=manifest.get('visible_ink_source_framing') or {};assert framing.get('changed_event_count')==2,framing
     qa=manifest.get('interaction_pixel_qa') or {};assert qa.get('pass') and qa.get('verified_action_count')==2 and not qa.get('vacuous'),qa
