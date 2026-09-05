@@ -9,36 +9,69 @@ def _norm(v):return str(v or '').strip().upper()
 def _lerp(a,b,q):return float(a)+(float(b)-float(a))*float(q)
 
 def _state(e:dict,t:float):
+    """Evaluate visible state inside the physical carrier lifetime.
+
+    start_seconds/end_seconds bound authored motion. Physical lifetime is a
+    separate existence contract: after motion completes, a source-backed carrier
+    holds its last readable pose until physical_end_seconds. All lifetimes are
+    half-open [start,end), so one boundary frame cannot belong to both sources.
+    """
+    eps=1e-9
     st=float(e.get('start_seconds',0));en=float(e.get('end_seconds',st))
-    if t<st-1e-6 or t>en+1e-6:return None
-    rest=e.get('card_rest_position_norm') or [0.5,0.5];pos=[float(rest[0]),float(rest[1])];sc=1.0;op=1.0
+    physical_start=float(e.get('physical_start_seconds',st))
+    physical_end=float(e.get('physical_end_seconds',en))
+    if t<physical_start-eps or t>=physical_end-eps:return None
+    if t<st-eps:return None
+
+    motion_start=float(e.get('motion_start_seconds',st))
+    motion_end=float(e.get('motion_end_seconds',en))
+    eval_t=float(t)
+    if eval_t>motion_end+eps:
+        exit_start=float((e.get('preset_exit') or {}).get('start_seconds',motion_end))
+        hold_boundary=min(motion_end,exit_start)
+        eval_t=max(motion_start,hold_boundary-eps)
+
+    rest=e.get('card_rest_position_norm') or [0.5,0.5]
+    pos=[float(rest[0]),float(rest[1])];sc=1.0;op=1.0
     pe=e.get('preset_entry')
     if pe:
-        name=str(pe.get('name'));ps=float(pe.get('start_seconds',st));pd=float(pe.get('duration_seconds') or 0.8);d=preset_def(name);q=max(0.0,min(1.0,(t-ps)/max(1e-6,pd)))
-        fam=str(d.get('family') or '')
+        name=str(pe.get('name'));ps=float(pe.get('start_seconds',st));pd=float(pe.get('duration_seconds') or 0.8)
+        d=preset_def(name);q=max(0.0,min(1.0,(eval_t-ps)/max(1e-6,pd)));fam=str(d.get('family') or '')
         if fam in {'ENTRY_EXIT','WITHIN_FRAME'}:
-            a=d.get('start_norm') or [0.5,0.5];b=d.get('end_norm') or [0.5,0.5];pg=preset_progress(name,q);pos=[_lerp(a[0],b[0],pg),_lerp(a[1],b[1],pg)]
-        elif fam=='APPEARANCE':sc*=preset_scale(name,q);op*=preset_opacity(name,q)
+            a=d.get('start_norm') or [0.5,0.5];b=d.get('end_norm') or [0.5,0.5]
+            pg=preset_progress(name,q);pos=[_lerp(a[0],b[0],pg),_lerp(a[1],b[1],pg)]
+        elif fam=='APPEARANCE':
+            sc*=preset_scale(name,q);op*=preset_opacity(name,q)
+
     held=None
-    for a in sorted(e.get('preset_actions') or [],key=lambda x:float(x.get('start_seconds',0))):
-        name=str(a.get('name'));ast=float(a.get('start_seconds',0));ad=float(a.get('duration_seconds') or 0.8);d=preset_def(name)
-        if t<ast:continue
+    for action in sorted(e.get('preset_actions') or [],key=lambda x:float(x.get('start_seconds',0))):
+        name=str(action.get('name'));ast=float(action.get('start_seconds',0));ad=float(action.get('duration_seconds') or 0.8)
+        d=preset_def(name)
+        if eval_t<ast:continue
         if str(d.get('family'))=='WITHIN_FRAME':
             aa=d.get('start_norm') or [0.5,0.5];bb=d.get('end_norm') or [0.5,0.5]
-            if t>=ast+ad:held=[float(bb[0]),float(bb[1])]
+            if eval_t>=ast+ad:
+                held=[float(bb[0]),float(bb[1])]
             else:
-                q=max(0.0,min(1.0,(t-ast)/max(1e-6,ad)));pg=preset_progress(name,q);held=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
+                q=max(0.0,min(1.0,(eval_t-ast)/max(1e-6,ad)));pg=preset_progress(name,q)
+                held=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
     if held is not None:pos=held
+
     px=e.get('preset_exit')
     if px:
         name=str(px.get('name'));xs=float(px.get('start_seconds',en));xd=float(px.get('duration_seconds') or 0.6)
-        if t>=xs:
-            q=max(0.0,min(1.0,(t-xs)/max(1e-6,xd)));d=preset_def(name);fam=str(d.get('family') or '')
+        if eval_t>=xs:
+            q=max(0.0,min(1.0,(eval_t-xs)/max(1e-6,xd)));d=preset_def(name);fam=str(d.get('family') or '')
             if fam=='ENTRY_EXIT':
-                aa=d.get('start_norm') or [0.5,0.5];bb=d.get('end_norm') or [0.5,0.5];pg=preset_progress(name,q);pos=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
+                aa=d.get('start_norm') or [0.5,0.5];bb=d.get('end_norm') or [0.5,0.5]
+                pg=preset_progress(name,q);pos=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
             elif fam=='DISAPPEARANCE':
-                dd=d.get('position_delta_norm') or [0,0];pos=[pos[0]+float(dd[0])*q,pos[1]+float(dd[1])*q];sc*=preset_scale(name,q);op*=preset_opacity(name,q)
-    fp=_fp(e);scale=float(e.get('layout_scale_multiplier') or 1.0)*sc;return pos,scale,op,_rect(pos,fp,scale)
+                dd=d.get('position_delta_norm') or [0,0]
+                pos=[pos[0]+float(dd[0])*q,pos[1]+float(dd[1])*q]
+                sc*=preset_scale(name,q);op*=preset_opacity(name,q)
+
+    fp=_fp(e);scale=float(e.get('layout_scale_multiplier') or 1.0)*sc
+    return pos,scale,op,_rect(pos,fp,scale)
 
 def _settled_rect(e:dict):
     fp=_fp(e);c=e.get('card_rest_position_norm') or [0.5,0.5];s=float(e.get('layout_scale_multiplier') or 1.0)

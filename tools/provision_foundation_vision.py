@@ -4,10 +4,9 @@ import argparse, hashlib, json, os, pathlib, shutil, subprocess, tempfile, time,
 
 TORCH_VERSION = '2.5.1'
 TORCHVISION_VERSION = '0.20.1'
-# CUDA 11.8 is the newest official 2.5.1 wheel line that still has a realistic
-# execution path on the Maxwell (compute 5.0) GeForce 930MX.
 CUDA_INDEX = 'https://download.pytorch.org/whl/cu118'
 CPU_INDEX = 'https://download.pytorch.org/whl/cpu'
+MIN_FOUNDATION_CUDA_VRAM_BYTES = 4 * 1024 ** 3
 PACKAGES = (
     'transformers==4.49.0', 'huggingface-hub==0.28.1', 'safetensors==0.5.2',
     'numpy==1.26.4', 'Pillow==11.1.0', 'hydra-core==1.3.2',
@@ -17,7 +16,8 @@ PACKAGES = (
 
 def provision_contract():
     payload={'torch':TORCH_VERSION,'torchvision':TORCHVISION_VERSION,'cuda_index':CUDA_INDEX,
-             'cpu_index':CPU_INDEX,'packages':PACKAGES}
+             'cpu_index':CPU_INDEX,'minimum_foundation_cuda_vram_bytes':MIN_FOUNDATION_CUDA_VRAM_BYTES,
+             'packages':PACKAGES}
     return hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
 
@@ -39,15 +39,18 @@ def sha256_file(path):
 
 def detect_hardware(run_command=run):
     result = {'nvidia_present': False, 'gpu_name': None, 'vram_bytes': 0,
-              'compute_capability': None, 'profile': 'LOW_MEMORY'}
+              'compute_capability': None, 'profile': 'LOW_MEMORY', 'cuda_eligible': False,
+              'minimum_foundation_cuda_vram_bytes': MIN_FOUNDATION_CUDA_VRAM_BYTES}
     try:
         output = run_command(['nvidia-smi', '--query-gpu=name,memory.total,compute_cap',
                               '--format=csv,noheader,nounits'], timeout=30).splitlines()[0]
         name, memory_mb, capability = [part.strip() for part in output.split(',', 2)]
+        vram_bytes=int(float(memory_mb)) * 1024 ** 2
         result.update(nvidia_present=True, gpu_name=name,
-                      vram_bytes=int(float(memory_mb)) * 1024 ** 2,
-                      compute_capability=capability)
-        result['profile'] = 'QUALITY' if result['vram_bytes'] >= 10 * 1024 ** 3 else 'LOW_MEMORY'
+                      vram_bytes=vram_bytes,
+                      compute_capability=capability,
+                      cuda_eligible=bool(vram_bytes>=MIN_FOUNDATION_CUDA_VRAM_BYTES))
+        result['profile'] = 'QUALITY' if vram_bytes >= 10 * 1024 ** 3 else 'LOW_MEMORY'
     except Exception as exc:
         result['detection_error'] = str(exc)
     return result
@@ -134,7 +137,6 @@ def _download_models(python, env, registry, models_root, profile):
         raise RuntimeError('Selected profile does not contain both Florence2 and SAM2')
     for index,item in enumerate(selected):
         target = models_root / item['local_path']
-        # Stable short names permit Hugging Face range-resume and avoid MAX_PATH.
         partial = models_root / ('.p' + str(index))
         patterns = (['*.json', '*.txt', '*.py', '*.model', '*.tiktoken', '*.safetensors',
                      'tokenizer*', 'vocab*', 'merges*'] if item['backend'] == 'florence2'
@@ -167,12 +169,13 @@ def _download_models(python, env, registry, models_root, profile):
     return selected
 
 
-def _reuse_existing(destination, registry_path, registry, profile):
+def _reuse_existing(destination, registry_path, registry, profile, desired_device):
     report_path = destination / 'provision_report.json'; python = _python(destination / 'venv')
     if not report_path.is_file() or not python.is_file(): return None
     try:
         report = json.loads(report_path.read_text(encoding='utf-8'))
         if report.get('foundation_profile') != profile: return None
+        if str(report.get('foundation_device') or '').lower()!=str(desired_device).lower(): return None
         if report.get('sam2_source', {}).get('commit') != registry['sam2_source']['commit']: return None
         env = os.environ.copy(); env['PYTHONPATH'] = str(registry_path.parents[1] / 'py')
         code = ('from hexa_v31.vision.foundation.model_registry import resolve_models,fingerprint;import json;'
@@ -188,7 +191,8 @@ def _reuse_existing(destination, registry_path, registry, profile):
                   'actual={k:importlib.metadata.version(k) for k in expected};'
                   'assert all(actual[k].split("+")[0]==v for k,v in expected.items()),(expected,actual);print(json.dumps(actual))') % json.dumps(expected)
         dependency_probe=json.loads(run([python,'-c',dep_code],env=env).splitlines()[-1])
-        probe = cuda_probe(python, report.get('foundation_device') == 'cuda')
+        probe = cuda_probe(python, desired_device == 'cuda')
+        if str(probe.get('device') or '').lower()!=str(desired_device).lower(): return None
         report.update(status='PASS', reused_existing=True, foundation_cuda_probe=probe,
                       foundation_python_exe=str(python), foundation_models_root=str(destination/'models'),
                       provision_contract=provision_contract(),dependency_probe=dependency_probe,
@@ -206,15 +210,13 @@ def main(argv=None):
     args = parser.parse_args(argv)
     runtime = pathlib.Path(args.runtime_root).resolve(); registry_path = pathlib.Path(args.registry).resolve()
     registry = json.loads(registry_path.read_text(encoding='utf-8'))
-    hardware = detect_hardware(); profile = hardware['profile']
+    hardware = detect_hardware(); profile = hardware['profile'];use_cuda=bool(hardware.get('cuda_eligible'));desired_device='cuda' if use_cuda else 'cpu'
     destination = runtime / 'foundation_vision'
-    reused = _reuse_existing(destination, registry_path, registry, profile)
+    reused = _reuse_existing(destination, registry_path, registry, profile, desired_device)
     if reused:
         print(json.dumps(reused, separators=(',', ':'))); return 0
-    # Keep the generated stage deliberately short. PyTorch's C++ header tree can
-    # otherwise exceed the legacy Windows MAX_PATH limit before atomic promotion.
     resumable=sorted((p for p in runtime.glob('.fv-*') if _python(p/'venv').is_file()),key=lambda p:p.stat().st_mtime,reverse=True)
-    resumed=bool(args.continue_after_observed_cuda_failure and resumable)
+    resumed=bool(args.continue_after_observed_cuda_failure and resumable and use_cuda)
     stage = resumable[0] if resumed else runtime / ('.fv-' + uuid.uuid4().hex[:8])
     stage.mkdir(parents=True,exist_ok=True); env_root = stage / 'venv'; models = stage / 'models'; models.mkdir(exist_ok=True)
     cuda_failure = None
@@ -224,15 +226,15 @@ def main(argv=None):
             probe=cuda_probe(python,False);cuda_failure='PRIOR_REAL_CUDA_TENSOR_PROBE_FAILED_ON_THIS_MACHINE'
         else:
             try:
-                if args.continue_after_observed_cuda_failure and hardware['nvidia_present']:
+                if args.continue_after_observed_cuda_failure and use_cuda:
                     raise RuntimeError('PRIOR_REAL_CUDA_TENSOR_PROBE_FAILED_ON_THIS_MACHINE')
-                python, env = _install_stack(env_root, hardware['nvidia_present'])
-                probe = cuda_probe(python, hardware['nvidia_present'])
+                python, env = _install_stack(env_root, use_cuda)
+                probe = cuda_probe(python, use_cuda)
             except Exception as exc:
-                if not hardware['nvidia_present']: raise
+                if not use_cuda: raise
                 cuda_failure = str(exc)
                 python, env = _install_stack(env_root, False)
-                probe = cuda_probe(python, False)
+                probe = cuda_probe(python, False);desired_device='cpu'
         sam2 = _install_official_sam2(python, env, registry['sam2_source'], stage / 'source',runtime/'.downloads')
         selected = _download_models(python, env, registry, models, profile)
         extension_py = registry_path.parents[1] / 'py'
@@ -242,10 +244,15 @@ def main(argv=None):
                 'assert all(x["installation_status"]=="INSTALLED" for x in r.values());print(json.dumps(r))') % (
                     str(registry_path), str(models), profile)
         run([python, '-c', code], env=probe_env)
+        if not hardware.get('nvidia_present'):classification='CPU_ONLY_NO_NVIDIA'
+        elif not hardware.get('cuda_eligible'):classification='CUDA_VRAM_BELOW_FOUNDATION_MINIMUM'
+        elif cuda_failure:classification='CUDA_UNSUPPORTED_FOR_FOUNDATION'
+        else:classification='CUDA_SUPPORTED_FOR_FOUNDATION'
         report = {'status': 'PASS', 'foundation_profile': profile,
                   'foundation_device': probe['device'], 'foundation_cuda_probe': probe,
                   'foundation_cuda_failure': cuda_failure,
-                  'foundation_device_classification': ('CUDA_UNSUPPORTED_FOR_FOUNDATION' if cuda_failure else 'CUDA_SUPPORTED_FOR_FOUNDATION'),
+                  'foundation_device_classification': classification,
+                  'minimum_foundation_cuda_vram_bytes':MIN_FOUNDATION_CUDA_VRAM_BYTES,
                   'foundation_hardware': hardware,
                   'foundation_python_exe': str(destination / 'venv' / python.relative_to(env_root)),
                   'foundation_models_root': str(destination / 'models'),

@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Premiere preset authority is byte-hashed. Keep its canonical repository
+# representation LF on every platform so Windows checkout cannot invalidate it.
+*.prfpset text eol=lf

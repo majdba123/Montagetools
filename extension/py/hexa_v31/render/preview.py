@@ -112,7 +112,8 @@ def _preset_event_state(e:dict,t:float):
     absolute=str(e.get('preset_coordinate_mode') or '').upper()=='ABSOLUTE_OBJECT_CENTER'
     pos=[float(rest[0]),float(rest[1])];sc=1.0;op=1.0
     st=float(e.get('start_seconds',0));en=float(e.get('end_seconds',st))
-    if t<st-1e-6 or t>en+1e-6:return None
+    # Existence is owned by _event_state's physical lifetime gate.
+    if t<st-1e-9:return None
 
     pe=e.get('preset_entry')
     if pe:
@@ -174,19 +175,21 @@ def _preset_event_state(e:dict,t:float):
 def _event_state(e:dict,t:float):
     physical_start=float(e.get('physical_start_seconds',e.get('start_seconds',0)))
     physical_end=float(e.get('physical_end_seconds',e.get('end_seconds',physical_start)))
-    if t<physical_start-1e-6 or t>physical_end+1e-6:return None
+    # Physical carriers use the same half-open [start,end) lifetime as QA.
+    if t<physical_start-1e-9 or t>=physical_end-1e-9:return None
     if e.get('render_mode')=='RESIDUAL_SUPPORT':
         rest=e.get('object_rest_position_px') or e.get('end_position_px') or e.get('rest_position_px') or [960.0,540.0]
         return (float(rest[0]),float(rest[1])),1.0,1.0
     motion_start=float(e.get('motion_start_seconds',e.get('start_seconds',physical_start)))
     motion_end=float(e.get('motion_end_seconds',e.get('end_seconds',physical_end)))
-    if t>motion_end+1e-6:
+    if t>motion_end+1e-9:
         exit_start=float((e.get('preset_exit') or {}).get('start_seconds',motion_end))
-        t=max(motion_start,min(motion_end-1e-6,exit_start-1e-6))
+        hold_boundary=min(motion_end,exit_start)
+        t=max(motion_start,hold_boundary-1e-9)
     if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions'):
         return _preset_event_state(e,t)
     st=float(e.get('start_seconds',0)); settle=float(e.get('settle_seconds',st)); end=float(e.get('end_seconds',st))
-    if t<st-1e-6 or t>end+1e-6:return None
+    if t<st-1e-9:return None
     progress=1.0 if settle<=st else _ease((t-st)/(settle-st))
     sp=e.get('start_position_px') or [960,540];ep=e.get('end_position_px') or [960,540]
     if e.get('position_animated'):
@@ -298,7 +301,7 @@ def render_preview(edit_map:dict, motion_plan:dict, vision_results:list[dict], a
     for e in edit_map.get('events',[]):
         img=_prescale(_load_rgba(e['source_path']),float(e.get('base_fit_scale_percent',100)),width)
         typ=e.get('semantic_type') or e.get('kind') or '';z=4 if typ in ('MAIN_CHARACTER','SECONDARY_CHARACTER') or e.get('kind') in ('MAIN_NARRATOR','SECONDARY_CHARACTER') else (3 if e.get('semantic_role')=='PRIMARY' else 2)
-        runtime.append({'e':e,'img':img,'sf':max(0,int(math.floor(float(e.get('start_seconds',0))*fps))),'ef':min(total-1,int(math.ceil(float(e.get('end_seconds',0))*fps))),'z':z})
+        runtime.append({'e':e,'img':img,'sf':max(0,int(math.floor(float(e.get('physical_start_seconds',e.get('start_seconds',0)))*fps))),'ef':min(total-1,max(0,int(math.ceil(float(e.get('physical_end_seconds',e.get('end_seconds',0)))*fps))-1)),'z':z})
     starts=[[] for _ in range(total+1)];ends=[[] for _ in range(total+1)]
     for i,r in enumerate(runtime):
         starts[r['sf']].append(i)
@@ -360,7 +363,7 @@ def render_production_mp4(edit_map:dict, motion_plan:dict, vision_results:list[d
     for e in edit_map.get('events',[]):
         img=_prescale(_load_rgba(e['source_path']),float(e.get('base_fit_scale_percent',100)),width)
         typ=e.get('semantic_type') or e.get('kind') or '';z=4 if typ in ('MAIN_CHARACTER','SECONDARY_CHARACTER') or e.get('kind') in ('MAIN_NARRATOR','SECONDARY_CHARACTER') else (3 if e.get('semantic_role')=='PRIMARY' else 2)
-        runtime.append({'e':e,'img':img,'sf':max(0,int(math.floor(float(e.get('start_seconds',0))*fps))),'ef':min(total-1,int(math.ceil(float(e.get('end_seconds',0))*fps))),'z':z})
+        runtime.append({'e':e,'img':img,'sf':max(0,int(math.floor(float(e.get('physical_start_seconds',e.get('start_seconds',0)))*fps))),'ef':min(total-1,max(0,int(math.ceil(float(e.get('physical_end_seconds',e.get('end_seconds',0)))*fps))-1)),'z':z})
     starts=[[] for _ in range(total+1)];ends=[[] for _ in range(total+1)]
     for i,r in enumerate(runtime):
         starts[r['sf']].append(i)
