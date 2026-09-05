@@ -195,6 +195,24 @@ jobs:
             Remove-Item Env:HEXA_CI_EXTENSION_ROOT -ErrorAction SilentlyContinue
           }
 
+      - name: Installed Foundation real inference smoke
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          $cfg = Get-Content (Join-Path $runtimeDir 'runtime_config.json') -Raw | ConvertFrom-Json
+          $lock = Get-Content (Join-Path $runtimeDir 'runtime_lock.json') -Raw | ConvertFrom-Json
+          $roots = @((Join-Path $lock.extension_root 'py')) + @($cfg.python_import_roots)
+          $old = $env:PYTHONPATH
+          $env:PYTHONPATH = ($roots -join ';')
+          try {
+            & $cfg.foundation_python_exe tools/foundation_real_smoke.py --registry $cfg.foundation_model_registry --models-root $cfg.foundation_models_root --profile $cfg.foundation_profile --device $cfg.foundation_device
+            if ($LASTEXITCODE -ne 0) { throw "Installed real Florence/SAM2 inference smoke failed" }
+          } finally {
+            $env:PYTHONPATH = $old
+          }
+
       - name: Installed interaction production certification
         shell: pwsh
         env:
