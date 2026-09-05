@@ -91,13 +91,34 @@ def _retime_entry(event:dict,row:dict,intent:dict)->dict|None:
     px=event.get('preset_exit') or {}
     if px and new_end>float(px.get('start_seconds',pe))+1e-6:
         return {'interaction_id':intent['interaction_id'],'reason':'RETIME_OVERLAPS_EXIT','event_id':event.get('event_id')}
-    original_physical=(ps,pe);old_end=old_start+dd
+    moving_later=new_start>old_start+1e-6
+    if moving_later:
+        blocking=[a for a in event.get('preset_actions') or [] if float(a.get('start_seconds',pe))<new_end-1e-6]
+        if blocking:
+            return {'interaction_id':intent['interaction_id'],'reason':'RETIME_LATER_CONFLICTS_EXISTING_ACTION','event_id':event.get('event_id'),'blocking_action_count':len(blocking)}
+    original_physical=(ps,pe);old_end=old_start+dd;old_event_start=float(event.get('start_seconds',old_start));old_settle=float(event.get('settle_seconds',old_end))
     entry['start_seconds']=round(new_start,6);entry['duration_seconds']=dd
     entry['interaction_causal_retime']={'reason':row.get('retime_reason') or 'CAUSAL_PRE_ROLL','original_start_seconds':round(old_start,6),'new_start_seconds':round(new_start,6),'original_end_seconds':round(old_end,6),'new_end_seconds':round(new_end,6)}
-    event['start_seconds']=round(min(float(event.get('start_seconds',old_start)),new_start),6)
-    if abs(float(event.get('settle_seconds',old_end))-old_end)<=1e-4:event['settle_seconds']=round(new_end,6)
-    event['motion_start_seconds']=round(min(float(event.get('motion_start_seconds',old_start)),new_start),6)
-    if abs(float(event.get('motion_end_seconds',old_end))-old_end)<=1e-4:event['motion_end_seconds']=round(new_end,6)
+    if moving_later:
+        if abs(old_event_start-old_start)>1e-4:
+            return {'interaction_id':intent['interaction_id'],'reason':'RETIME_LATER_EVENT_START_NOT_ENTRY_OWNED','event_id':event.get('event_id'),'event_start':old_event_start,'entry_start':old_start}
+        event['start_seconds']=round(new_start,6)
+    else:event['start_seconds']=round(min(old_event_start,new_start),6)
+    if abs(old_settle-old_end)<=1e-4:event['settle_seconds']=round(new_end,6)
+    elif moving_later and old_settle<new_end-1e-6:
+        return {'interaction_id':intent['interaction_id'],'reason':'RETIME_LATER_SETTLE_AUTHORITY_CONFLICT','event_id':event.get('event_id'),'settle_seconds':old_settle,'requested_end':new_end}
+    intervals=event.setdefault('motion_intervals',[]);matched=False
+    for interval in intervals:
+        if str(interval.get('kind') or '').upper()!='ENTRY' or str(interval.get('name') or '')!=name:continue
+        ist=float(interval.get('start_seconds',old_start))
+        if abs(ist-old_start)>1e-4:continue
+        interval['start_seconds']=round(new_start,6);interval['duration_seconds']=dd;interval['effective_start_seconds']=round(new_start,6);interval['effective_end_seconds']=round(new_end,6);interval['effective_duration_seconds']=round(dd,6);matched=True;break
+    if not matched:
+        intervals.append({'kind':'ENTRY','name':name,'start_seconds':round(new_start,6),'duration_seconds':dd,'effective_start_seconds':round(new_start,6),'effective_end_seconds':round(new_end,6),'effective_duration_seconds':round(dd,6),'effective_visible_fraction':1.0})
+    starts=[];ends=[]
+    for interval in intervals:
+        ist=float(interval.get('effective_start_seconds',interval.get('start_seconds',new_start)));ien=float(interval.get('effective_end_seconds',ist+float(interval.get('duration_seconds') or 0.0)));starts.append(ist);ends.append(ien)
+    event['motion_start_seconds']=round(min(starts or [new_start]),6);event['motion_end_seconds']=round(max(ends or [new_end]),6)
     if (float(event.get('physical_start_seconds',ps)),float(event.get('physical_end_seconds',pe)))!=original_physical:
         return {'interaction_id':intent['interaction_id'],'reason':'RETIME_MUTATED_PHYSICAL_LIFETIME','event_id':event.get('event_id')}
     return None
@@ -123,6 +144,7 @@ def _adopt_existing_manifestation(plan:dict,intent:dict,row:dict)->tuple[dict|No
         if not matched:return None,{'interaction_id':intent['interaction_id'],'reason':'ADOPTED_PRESET_ACTION_NOT_FOUND','event_id':event.get('event_id')}
     elif source_kind=='PRESET_ENTRY':
         entry=event.get('preset_entry') or {};entry['interaction_id']=intent['interaction_id'];entry['interaction_phase']=row.get('phase');entry['semantic_action']=intent.get('semantic_action');entry['interaction_authority_bridge']='SEMANTICALLY_ALIGNED_EXISTING_ENTRY';entry['causal_direction']=intent.get('causal_direction')
+        if row.get('retime_reason'):entry['semantic_promotion_authority']=row.get('retime_reason')
     adopted_from_base=source_kind=='PRESET_ACTION'
     return {**row,'interaction_id':intent['interaction_id'],'semantic_action':intent.get('semantic_action'),'source_event_id':cause_id or intent.get('subject_event_id'),'target_event_id':reaction_id or intent.get('object_event_id'),'semantic_subject_event_id':intent.get('subject_event_id'),'semantic_object_event_id':intent.get('object_event_id'),'causal_direction':intent.get('causal_direction'),'swept_geometry':geo,'adopted_existing_motion':True,'adopted_from_base_plan':adopted_from_base},None
 
@@ -149,15 +171,15 @@ def _fallback_summary(fallbacks:list[dict])->dict:
 
 def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fps:float=30.0,logger=None)->dict:
     plan=base_plan;compiled=compile_interaction_intents(plan,source_plan);intents=compiled['intents'];graph=build_interaction_graph(intents);event_by_id={str(e.get('event_id')):e for e in plan.get('events') or [] if not e.get('suppressed_by_card_density')}
-    physical=[];schedules=[];fallbacks=[];orphan_guards=[];adopted_count=0;adopted_base_causes=0;retimed_existing_motion=0
+    physical=[];schedules=[];fallbacks=[];orphan_guards=[];adopted_count=0;adopted_base_causes=0;retimed_existing_motion=0;semantic_promoted_reactions=0
     for intent in intents:
         orphan_guards.extend(_relationship_visual_guard(intent,event_by_id,fps));candidate=build_choreography_candidate(intent,event_by_id,fps);adopted_rows=list(candidate.get('adopted_actions') or [])
         if adopted_rows:
             adopted,failed=_adopt_existing_batch(plan,intent,adopted_rows,fps)
-            schedule={'status':'ADOPTED_EXISTING_MOTION' if not failed else 'SAFE_FALLBACK_ADOPTION_FAILED','solver':'FIXED_EXISTING_MOTION','steps':[],'interaction_id':intent['interaction_id'],'candidate_mode':candidate.get('mode'),'candidate_reason':candidate.get('reason'),'candidate_template':candidate.get('template'),'causal_source_event_id':intent.get('causal_source_event_id'),'causal_target_event_id':intent.get('causal_target_event_id'),'causal_direction':intent.get('causal_direction'),'retimed_existing_motion_count':sum(bool(x.get('retime_existing_entry')) for x in adopted)};schedules.append(schedule)
+            schedule={'status':'ADOPTED_EXISTING_MOTION' if not failed else 'SAFE_FALLBACK_ADOPTION_FAILED','solver':'FIXED_EXISTING_MOTION','steps':[],'interaction_id':intent['interaction_id'],'candidate_mode':candidate.get('mode'),'candidate_reason':candidate.get('reason'),'candidate_template':candidate.get('template'),'causal_source_event_id':intent.get('causal_source_event_id'),'causal_target_event_id':intent.get('causal_target_event_id'),'causal_direction':intent.get('causal_direction'),'retimed_existing_motion_count':sum(bool(x.get('retime_existing_entry')) for x in adopted),'semantic_promoted_reaction_count':sum(str(x.get('retime_reason') or '')=='REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT' for x in adopted)};schedules.append(schedule)
             if failed:fallbacks.append(failed)
             else:
-                physical.extend(adopted);adopted_count+=len(adopted);adopted_base_causes+=sum(bool(x.get('adopted_from_base_plan')) for x in adopted);retimed_existing_motion+=sum(bool(x.get('retime_existing_entry')) for x in adopted)
+                physical.extend(adopted);adopted_count+=len(adopted);adopted_base_causes+=sum(bool(x.get('adopted_from_base_plan')) for x in adopted);retimed_existing_motion+=sum(bool(x.get('retime_existing_entry')) for x in adopted);semantic_promoted_reactions+=sum(str(x.get('retime_reason') or '')=='REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT' for x in adopted)
             continue
         schedule=solve_interaction_schedule(intent,candidate,event_by_id,fps);schedule['interaction_id']=intent['interaction_id'];schedule['candidate_mode']=candidate.get('mode');schedule['candidate_reason']=candidate.get('reason');schedule['candidate_template']=candidate.get('template');schedule['causal_source_event_id']=intent.get('causal_source_event_id');schedule['causal_target_event_id']=intent.get('causal_target_event_id');schedule['causal_direction']=intent.get('causal_direction');schedules.append(schedule)
         if schedule.get('status')=='COMMITTED':
@@ -168,18 +190,19 @@ def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fp
                 if adopt_rejection:fallbacks.append(adopt_rejection)
                 elif candidate.get('adopted_action') and not adopted:fallbacks.append({'interaction_id':intent['interaction_id'],'reason':'AUTHORED_CAUSE_ADOPTION_FAILED'})
                 else:
-                    if adopted:physical.append(adopted);adopted_count+=1;adopted_base_causes+=int(bool(adopted.get('adopted_from_base_plan')));retimed_existing_motion+=int(bool(adopted.get('retime_existing_entry')))
+                    if adopted:
+                        physical.append(adopted);adopted_count+=1;adopted_base_causes+=int(bool(adopted.get('adopted_from_base_plan')));retimed_existing_motion+=int(bool(adopted.get('retime_existing_entry')));semantic_promoted_reactions+=int(str(adopted.get('retime_reason') or '')=='REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT')
                     physical.extend(committed)
             else:fallbacks.extend(rejected or [{'interaction_id':intent['interaction_id'],'reason':'NO_SAFE_COMMIT'}])
         elif intent.get('actionable'):
             reason=candidate.get('reason') or schedule.get('status') or 'NO_PHYSICAL_STEPS';fallbacks.append({'interaction_id':intent['interaction_id'],'reason':reason,'candidate_mode':candidate.get('mode'),'solver_status':schedule.get('status'),'semantic_action':intent.get('semantic_action'),'subject_event_id':intent.get('subject_event_id'),'object_event_id':intent.get('object_event_id'),'causal_source_event_id':intent.get('causal_source_event_id'),'causal_target_event_id':intent.get('causal_target_event_id')})
     physical_ids=set(str(x['interaction_id']) for x in physical);actionable=[x for x in intents if x.get('actionable')];actionable_ids=set(str(x['interaction_id']) for x in actionable);embodied_ids=physical_ids & actionable_ids;embodiment_ratio=len(embodied_ids)/max(1,len(actionable_ids));fallback_report=_fallback_summary(fallbacks)
-    engine={'schema':'HEXA_INTERACTION_ENGINE_V3','version':INTERACTION_ENGINE_VERSION,'intent_compiler':compiled,'intents':intents,'graph':graph,'schedules':schedules,'physical_actions':physical,'safe_fallbacks':fallbacks,'fallback_report':fallback_report,'relationship_orphan_guards':orphan_guards,'logical_interaction_count':len(intents),'actionable_interaction_count':len(actionable),'physical_interaction_count':len(physical_ids),'embodied_interaction_count':len(embodied_ids),'embodiment_ratio':round(embodiment_ratio,6),'physical_action_count':len(physical),'adopted_existing_motion_count':adopted_count,'adopted_base_cause_count':adopted_base_causes,'retimed_existing_motion_count':retimed_existing_motion,'react_reverse_direction_count':sum(x.get('causal_direction')=='OBJECT_CAUSES_SUBJECT_REACTION' for x in intents),'unembodied_actionable_interaction_ids':sorted(actionable_ids-embodied_ids),'ortools_required':True,'shapely_required':True,'deterministic_solver_contract':{'num_search_workers':1,'random_seed':0,'bounded_seconds_per_interaction':.20}}
-    plan['interaction_engine']=engine;qa=interaction_plan_qa(plan);plan['interaction_plan_qa']=qa;plan['final_semantic_timing_composition_qa']=composition_plan_qa({'events':plan.get('events') or [],'visual_cards':plan.get('visual_cards') or {},'fps':fps});plan['motion_dna_version']=str(plan.get('motion_dna_version') or 'HEXA_MOTION_DNA_V31')+'__INTERACTION_V3_REACT_CAUSAL_PREROLL';plan.setdefault('hard_invariants',{})['interaction_execution_authority_required']=True;plan['hard_invariants']['interaction_encoded_pixel_verification_required']=True
-    plan.setdefault('budget_summary',{})['interaction_logical_count']=engine['logical_interaction_count'];plan['budget_summary']['interaction_actionable_count']=engine['actionable_interaction_count'];plan['budget_summary']['interaction_physical_action_count']=engine['physical_action_count'];plan['budget_summary']['interaction_embodiment_ratio']=engine['embodiment_ratio'];plan['budget_summary']['interaction_adopted_existing_motion_count']=adopted_count;plan['budget_summary']['interaction_adopted_base_cause_count']=adopted_base_causes;plan['budget_summary']['interaction_retimed_existing_motion_count']=retimed_existing_motion
-    if logger:logger.log('INFO','INTERACTION_EXECUTION_DIAGNOSTICS',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_existing_motion=adopted_count,adopted_base_causes=adopted_base_causes,retimed_existing_motion=retimed_existing_motion,react_reverse_direction=engine['react_reverse_direction_count'],fallbacks=fallback_report['count'],fallback_reasons=fallback_report['reason_counts'])
+    engine={'schema':'HEXA_INTERACTION_ENGINE_V3','version':INTERACTION_ENGINE_VERSION,'intent_compiler':compiled,'intents':intents,'graph':graph,'schedules':schedules,'physical_actions':physical,'safe_fallbacks':fallbacks,'fallback_report':fallback_report,'relationship_orphan_guards':orphan_guards,'logical_interaction_count':len(intents),'actionable_interaction_count':len(actionable),'physical_interaction_count':len(physical_ids),'embodied_interaction_count':len(embodied_ids),'embodiment_ratio':round(embodiment_ratio,6),'physical_action_count':len(physical),'adopted_existing_motion_count':adopted_count,'adopted_base_cause_count':adopted_base_causes,'retimed_existing_motion_count':retimed_existing_motion,'semantic_promoted_reaction_count':semantic_promoted_reactions,'react_reverse_direction_count':sum(x.get('causal_direction')=='OBJECT_CAUSES_SUBJECT_REACTION' for x in intents),'unembodied_actionable_interaction_ids':sorted(actionable_ids-embodied_ids),'ortools_required':True,'shapely_required':True,'deterministic_solver_contract':{'num_search_workers':1,'random_seed':0,'bounded_seconds_per_interaction':.20}}
+    plan['interaction_engine']=engine;qa=interaction_plan_qa(plan);plan['interaction_plan_qa']=qa;plan['final_semantic_timing_composition_qa']=composition_plan_qa({'events':plan.get('events') or [],'visual_cards':plan.get('visual_cards') or {},'fps':fps});plan['motion_dna_version']=str(plan.get('motion_dna_version') or 'HEXA_MOTION_DNA_V31')+'__INTERACTION_V3_REACT_SEMANTIC_PROMOTION';plan.setdefault('hard_invariants',{})['interaction_execution_authority_required']=True;plan['hard_invariants']['interaction_encoded_pixel_verification_required']=True;plan['hard_invariants']['source_interval_fallback_react_must_promote_to_semantic_hit']=True
+    plan.setdefault('budget_summary',{})['interaction_logical_count']=engine['logical_interaction_count'];plan['budget_summary']['interaction_actionable_count']=engine['actionable_interaction_count'];plan['budget_summary']['interaction_physical_action_count']=engine['physical_action_count'];plan['budget_summary']['interaction_embodiment_ratio']=engine['embodiment_ratio'];plan['budget_summary']['interaction_adopted_existing_motion_count']=adopted_count;plan['budget_summary']['interaction_adopted_base_cause_count']=adopted_base_causes;plan['budget_summary']['interaction_retimed_existing_motion_count']=retimed_existing_motion;plan['budget_summary']['interaction_semantic_promoted_reaction_count']=semantic_promoted_reactions
+    if logger:logger.log('INFO','INTERACTION_EXECUTION_DIAGNOSTICS',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_existing_motion=adopted_count,adopted_base_causes=adopted_base_causes,retimed_existing_motion=retimed_existing_motion,semantic_promoted_reactions=semantic_promoted_reactions,react_reverse_direction=engine['react_reverse_direction_count'],fallbacks=fallback_report['count'],fallback_reasons=fallback_report['reason_counts'])
     if not qa.get('pass'):raise ValueError('INTERACTION_PLAN_QA_FAILED: '+str(qa.get('failures')[:8])+' FALLBACKS='+str(fallback_report))
-    if logger:logger.log('PASS','INTERACTION_DIRECTOR_COMPILED',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_existing_motion=adopted_count,adopted_base_causes=adopted_base_causes,retimed_existing_motion=retimed_existing_motion,react_reverse_direction=engine['react_reverse_direction_count'],fallbacks=len(fallbacks))
+    if logger:logger.log('PASS','INTERACTION_DIRECTOR_COMPILED',logical=engine['logical_interaction_count'],actionable=engine['actionable_interaction_count'],physical_interactions=engine['physical_interaction_count'],physical_actions=engine['physical_action_count'],embodiment_ratio=engine['embodiment_ratio'],adopted_existing_motion=adopted_count,adopted_base_causes=adopted_base_causes,retimed_existing_motion=retimed_existing_motion,semantic_promoted_reactions=semantic_promoted_reactions,react_reverse_direction=engine['react_reverse_direction_count'],fallbacks=len(fallbacks))
     return plan
 
 
