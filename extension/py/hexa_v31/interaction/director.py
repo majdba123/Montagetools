@@ -1,6 +1,8 @@
 from __future__ import annotations
 import collections
 import copy
+import hashlib
+import json
 
 from hexa_v31.preset_authority import duration
 from hexa_v31.composition_qa import card_motion_conflicts,composition_plan_qa
@@ -206,7 +208,56 @@ def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fp
     return plan
 
 
+_FINAL_TIMING_FIELDS=(
+    'start_seconds','end_seconds','physical_start_seconds','physical_end_seconds',
+    'motion_start_seconds','motion_end_seconds','preset_entry','preset_actions',
+    'preset_exit','story_actions','focus_beats','composition_states','motion_intervals',
+)
+
+
+def _final_timing_sha256(plan:dict)->str:
+    rows=[]
+    for event in sorted(plan.get('events') or [],key=lambda row:str(row.get('event_id') or '')):
+        rows.append({'event_id':event.get('event_id'),**{key:event.get(key) for key in _FINAL_TIMING_FIELDS}})
+    payload=json.dumps(rows,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode('utf-8')
+    return hashlib.sha256(payload).hexdigest()
+
+
+def assert_final_motion_plan_immutable(plan:dict)->dict:
+    barrier=plan.get('finalization_barrier') or {};expected=str(barrier.get('timing_sha256') or '')
+    actual=_final_timing_sha256(plan)
+    if not expected or actual!=expected:
+        raise ValueError(f'FINAL_MOTION_PLAN_MUTATED_AFTER_CERTIFICATION: expected={expected or "MISSING"} actual={actual}')
+    return barrier
+
+
+def finalize_interaction_motion_plan(plan:dict,fps:float=30.0)->dict:
+    """Reconcile interaction output once, certify it, then seal final timing."""
+    from hexa_v31.planning.preset_story_planner import _finalize_visual_lifetimes, _final_physical_certification
+    from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa
+
+    events=plan.get('events') or [];cards=plan.get('visual_cards') or {'cards':[]}
+    lifetime=_finalize_visual_lifetimes(events,cards,fps)
+    certification=_final_physical_certification(events,cards,fps)
+    coverage=visual_timeline_coverage_qa(plan,fps=fps)
+    if not coverage.get('pass'):
+        raise ValueError('FINAL_INTERACTION_LIFETIME_RECONCILIATION_FAILED: '+' | '.join(coverage.get('failures') or [])[:2000])
+    plan['final_lifetime_commit']=lifetime
+    plan['final_physical_certification']=certification
+    plan['final_visual_timeline_coverage_qa']=coverage
+    plan['final_semantic_timing_composition_qa']=certification.get('after') or certification.get('before')
+    timing_sha256=_final_timing_sha256(plan)
+    plan['finalization_barrier']={
+        'authority':'POST_INTERACTION_FINAL_LIFETIME_RECONCILIATION_AND_PHYSICAL_CERTIFICATION',
+        'timing_sha256':timing_sha256,
+        'immutable_timing_fields':list(_FINAL_TIMING_FIELDS),
+        'pass':True,
+    }
+    return plan
+
+
 def build_interaction_motion_plan(plan:dict,alignment:dict,vision_results:list[dict],rules_path,reference_path,*,fps:float=30.0,logger=None,calibration:dict|None=None):
     from hexa_v31.motion.motion import build_motion_plan as base_build_motion_plan
     base=base_build_motion_plan(plan,alignment,vision_results,rules_path,reference_path,fps=fps,logger=logger,calibration=calibration)
-    return apply_interaction_director(base,plan,alignment,fps=fps,logger=logger)
+    interacted=apply_interaction_director(base,plan,alignment,fps=fps,logger=logger)
+    return finalize_interaction_motion_plan(interacted,fps=fps)

@@ -16,6 +16,7 @@ from hexa_v31.scene_media import render_scene_media, assemble_final_mp4
 from hexa_v31.reference_metrics import analyze_video, score_against_reference_floor
 from hexa_v31.graphics import build_graphics_plan
 from hexa_v31.interaction.graphics_guard import guard_relationship_graphics
+from hexa_v31.interaction.director import assert_final_motion_plan_immutable
 from hexa_v31.layout.encoded_composition_qa import verify_encoded_composition
 from hexa_v31.production_cert import certify_production
 from hexa_v31.orchestration import balance_presentation
@@ -309,6 +310,7 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         write_json(root/'HEXA_V31_PREMIUM_VISUAL_CHOREOGRAPHY_REPORT.json',choreography_report)
         log.log('PASS','PREMIUM_VISUAL_CHOREOGRAPHY_MEASURED',motion_units=choreography_report.get('independent_motion_unit_count'),text_opportunities=choreography_report.get('available_viewer_text_opportunities'),text_used=choreography_report.get('used_viewer_text_opportunities'),fade_only=choreography_report.get('fade_only_transition_count'),progressive_reveals=choreography_report.get('progressive_reveal_count'),handoffs=choreography_report.get('handoff_count'),static_poster_risks=choreography_report.get('static_poster_risk_count'),low_optical_impact=choreography_report.get('low_optical_impact_count'))
         write_json(root/'HEXA_V31_PRESENTATION_BUDGET_REPORT.json',budget_report)
+        assert_final_motion_plan_immutable(motion)
         pre_reference=preset_story_plan_qa(motion,vision,float(audio['duration_seconds']))
         write_json(root/'HEXA_V31_PRE_RENDER_STORY_PLAN_QA.json',pre_reference)
         if not pre_reference.get('pass'):
@@ -317,6 +319,7 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         log.log('PASS','PRE_RENDER_USER_PRESET_PLAN_QA_PASS',visual_cards=pre_reference.get('visual_card_count'),preset_events=pre_reference.get('preset_event_count'),relationship_actions=pre_reference.get('relationship_action_count'),cutout_policy=pre_reference.get('cutout_policy'))
 
         log.phase('SCENE_MEDIA_RENDER')
+        assert_final_motion_plan_immutable(motion)
         render_map=build_layer_render_map(pkg,voice_over,alignment,vision,motion,ensure_dir(root/'render_map'),logger=log)
         render_edit_map=read_json(render_map['edit_map'])
         animated_dir=ensure_dir(root/'animated_scenes')
@@ -352,6 +355,7 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
             log.log('PASS','PHYSICAL_ACTING_VERIFICATION_PASS',verified_ratio=physical_acting.get('verified_ratio'),planned=physical_acting.get('planned_physical_actions'),verified=physical_acting.get('verified_physical_actions'))
 
         log.phase('PREMIERE_HANDOFF')
+        assert_final_motion_plan_immutable(motion)
         prem=build_premiere_handoff_from_scene_media(pkg,voice_over,alignment,scene_media,motion,ensure_dir(root/'premiere'),logger=log,project_save_path=project_save_path,production_mp4_path=production_mp4,export_preset_path=None)
 
         log.phase('REFERENCE_QUALITY_PROXY')

@@ -1584,6 +1584,27 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict, fps:float=30.0)->d
         if carrier_end<=carrier_start+1e-6:
             raise ValueError(f"{key[0]}:{key[1]}:{key[2]} invalid Foundation partition carrier lifetime")
         for e in members:
+            # Composition states are motion and cannot outlive the certified
+            # source carrier. Preserve every state and its destination while
+            # clipping only the transition envelope at the immutable card /
+            # partition boundary.
+            composition_state_timing_clamped=False
+            for state in e.get('composition_states') or []:
+                old_start=float(state.get('start_seconds',carrier_start))
+                old_duration=max(0.0,float(state.get('transition_duration_seconds') or 0.0))
+                new_start=max(carrier_start,min(old_start,carrier_end))
+                new_duration=min(old_duration,max(0.0,carrier_end-new_start))
+                if abs(new_start-old_start)>1e-6 or abs(new_duration-old_duration)>1e-6:
+                    state['start_seconds']=round(new_start,6)
+                    state['transition_duration_seconds']=round(new_duration,6)
+                    state['carrier_timing_authority']='FINAL_PARTITION_CARRIER_BOUNDARY'
+                    composition_state_timing_clamped=True
+            if composition_state_timing_clamped:
+                e['final_partition_composition_state_timing_clamped']=True
+                intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+                e['motion_intervals']=intervals
+                e['motion_start_seconds']=round(motion_start,6)
+                e['motion_end_seconds']=round(motion_end,6)
             # Existence is group-owned; reveal/action timing remains actor-owned.
             # If this member's disappearance was scheduled before the group
             # carrier ends, move only that final exit to the carrier boundary.
