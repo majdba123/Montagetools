@@ -66,7 +66,7 @@ def composition_state_at(event:dict,t:float,base_center=None)->tuple[list[float]
     and rendering so metadata cannot describe a state the pixels ignore.
     """
     center=list(base_center or event.get('card_rest_position_norm') or [0.5,0.5]);scale=1.0;visibility=1.0
-    states=sorted((event.get('composition_states') or []),key=lambda x:(float(x.get('start_seconds',0)),str(x.get('state_id') or '')))
+    states=sorted((event.get('composition_states') or [])+(event.get('composition_participant_states') or []),key=lambda x:(float(x.get('start_seconds',0)),str(x.get('state_id') or '')))
     previous={'center_norm':center,'scale_multiplier':scale,'visibility':visibility}
     for state in states:
         start=float(state.get('start_seconds',0));transition=max(0.0,float(state.get('transition_duration_seconds') or 0.0))

@@ -209,6 +209,13 @@ def _recomposition_optimize(events, cards, fps):
 
 def _adaptive_composition_state_optimize(events, cards, fps):
     """Compile deterministic semantic layout states for long, material-rich cards."""
+    from hexa_v31.composition_qa import _state
+    def peak_visible(local, start, end):
+        step=max(1.0/float(fps),.10);peak=0;t=float(start)
+        while t<float(end)-1e-9:
+            peak=max(peak,sum(1 for event in local if (lambda state: bool(state and state[2]>.22))(_state(event,t))))
+            t+=step
+        return peak
     stats={'candidates_evaluated':0,'candidates_committed':0,'encoded_verification_required':0,'event_ids':[],'rejections':{}}
     for card in cards.get('cards') or []:
         cs=float(card.get('start_seconds',0));ce=float(card.get('end_seconds',cs))
@@ -227,13 +234,28 @@ def _adaptive_composition_state_optimize(events, cards, fps):
             else:
                 state_scale=1.14
             if math.hypot(float(target[0])-float(base[0]),float(target[1])-float(base[1]))<.10 and abs(state_scale-1.0)<.10:continue
-            stats['candidates_evaluated']+=1;snapshot=copy.deepcopy(current)
+            stats['candidates_evaluated']+=1;snapshot=copy.deepcopy(current);next_snapshot=copy.deepcopy(nxt)
+            # A relationship state names both actors, so both actors must own an
+            # encoded change. Translation-unsafe sources keep their solved centers;
+            # the support briefly yields, then assumes its final hierarchy as the
+            # focal actor completes the handoff. These are participant states, not
+            # additional recompositions, and therefore remain subordinate to B.
+            participant_base=list(nxt.get('card_rest_position_norm') or [.5,.5])
+            participant_start=max(float(nxt.get('settle_seconds',nxt.get('start_seconds',cs))),transition_start-.32)
+            participant_duration=max(.10,transition_start-participant_start)
+            nxt.setdefault('composition_participant_states',[]).extend([
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A::'+str(nxt.get('event_id')),'owner_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','semantic_beat':'SUPPORT_YIELDS_FOR_FOCAL_ESTABLISHMENT','start_seconds':round(participant_start,6),'transition_duration_seconds':round(participant_duration,6),'center_norm':[round(float(participant_base[0]),6),round(float(participant_base[1]),6)],'scale_multiplier':.86,'visibility':1.0,'translation_safe':False},
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B::'+str(nxt.get('event_id')),'owner_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','semantic_beat':'SUPPORT_ASSUMES_RELATIONSHIP_HIERARCHY','start_seconds':round(transition_start,6),'transition_duration_seconds':transition_duration,'center_norm':[round(float(participant_base[0]),6),round(float(participant_base[1]),6)],'scale_multiplier':1.10,'visibility':1.0,'translation_safe':False,'previous_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A::'+str(nxt.get('event_id'))}])
             current['composition_states']=[
                 {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A','scene_id':current.get('scene_id'),'card_id':card.get('card_id'),'semantic_beat':'FOCAL_ESTABLISHED','start_seconds':round(float(current.get('settle_seconds',current.get('start_seconds',cs))),6),'transition_duration_seconds':0.0,'participating_event_ids':[str(current.get('event_id'))],'role':current.get('composition_role') or current.get('attention_priority'),'center_norm':[round(float(base[0]),6),round(float(base[1]),6)],'scale_multiplier':1.0,'visibility':1.0,'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'state_reason':'INITIAL_SOLVED_COMPOSITION','translation_safe':translation_safe},
                 {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','scene_id':current.get('scene_id'),'card_id':card.get('card_id'),'semantic_beat':'SUPPORT_OR_RELATIONSHIP_REVEAL','start_seconds':round(transition_start,6),'transition_duration_seconds':transition_duration,'participating_event_ids':[str(current.get('event_id')),str(nxt.get('event_id'))],'role':'YIELD_FOCUS','center_norm':[round(float(target[0]),6),round(float(target[1]),6)],'scale_multiplier':state_scale,'visibility':1.0,'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'state_reason':'SEMANTIC_FOCUS_TRANSFER_TO_NEXT_ACTOR','translation_safe':translation_safe,'previous_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A'}]
             current['adaptive_composition_authority']='SEMANTIC_CARD_PHASE_STATE_SEQUENCE';current['meaningful_recomposition']=True
-            if card_motion_conflicts(local,cs,ce,fps):
-                current.clear();current.update(snapshot);stats['rejections']['COLLISION_OR_PATH']=stats['rejections'].get('COLLISION_OR_PATH',0)+1;continue
+            conflicts=card_motion_conflicts(local,cs,ce,fps)
+            density_serialized=len(local)>=2 and peak_visible(local,cs,ce)<2
+            if conflicts or density_serialized:
+                current.clear();current.update(snapshot);nxt.clear();nxt.update(next_snapshot)
+                reason='COLLISION_OR_PATH' if conflicts else 'DENSITY_CONCURRENCY'
+                stats['rejections'][reason]=stats['rejections'].get(reason,0)+1;continue
             stats['candidates_committed']+=1;stats['encoded_verification_required']+=1;stats['event_ids'].append(str(current.get('event_id')))
     return stats
 
