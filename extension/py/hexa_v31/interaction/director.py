@@ -6,6 +6,7 @@ import json
 
 from hexa_v31.preset_authority import duration
 from hexa_v31.composition_qa import card_motion_conflicts,composition_plan_qa
+from hexa_v31.composition_solver import within_preset_safe, _fp, _rect
 from .contracts import INTERACTION_ENGINE_VERSION,RELATIONSHIP_VISUAL_TYPES
 from .intent_compiler import compile_interaction_intents
 from .graph import build_interaction_graph
@@ -38,6 +39,31 @@ def _restore(events:list[dict],snapshots:dict[str,dict]):
             live.clear();live.update(copy.deepcopy(snap))
 
 
+def _normalize_interaction_path_geometry(event:dict,preset_name:str)->bool:
+    """Fit an interaction endpoint using the existing solved-scale authority."""
+    current=max(0.0,float(event.get('layout_scale_multiplier') or 1.0))
+    if within_preset_safe(event,preset_name,current):
+        return True
+    minimum=0.30 if event.get('composite_atomic') else (0.40 if str(event.get('attention_priority') or '').upper()=='PRIMARY' else 0.32)
+    if not within_preset_safe(event,preset_name,minimum):
+        return False
+    low,high=minimum,current
+    for _ in range(24):
+        mid=(low+high)/2.0
+        if within_preset_safe(event,preset_name,mid):low=mid
+        else:high=mid
+    scale=round(low,6);center=event.get('card_rest_position_norm') or [0.5,0.5]
+    rect=_rect((float(center[0]),float(center[1])),_fp(event),scale)
+    event['layout_scale_multiplier']=scale
+    event['planned_rect_norm']=[round(float(x),6) for x in rect]
+    event['collision_envelope_rect_norm']=list(event['planned_rect_norm'])
+    event['interaction_path_geometry_normalization']={
+        'preset':preset_name,'original_scale':round(current,6),'committed_scale':scale,
+        'authority':'EXISTING_SAFE_VIEWPORT_PRESET_ENVELOPE',
+    }
+    return True
+
+
 def _relationship_visual_guard(intent:dict,event_by_id:dict[str,dict],fps:float)->list[dict]:
     subject=event_by_id.get(str(intent.get('subject_event_id') or ''));target=event_by_id.get(str(intent.get('object_event_id') or ''))
     if not subject or not target:return []
@@ -67,6 +93,8 @@ def _commit_actions(plan:dict,intent:dict,schedule:dict)->tuple[list[dict],list[
     for step in schedule.get('steps') or []:
         e=events.get(str(step['event_id']))
         if not e:continue
+        if not _normalize_interaction_path_geometry(e,str(step['preset'])):
+            rejected.append({'interaction_id':intent['interaction_id'],'phase':step['phase'],'reason':'NO_SAFE_VIEWPORT_PRESET_ENVELOPE','event_id':e.get('event_id'),'preset':step['preset']});_restore(local,snapshots);return [],rejected
         geo=swept_path_report(e,str(step['preset']),float(step['start_seconds']),float(step['end_seconds']),local)
         if not geo.get('pass'):
             rejected.append({'interaction_id':intent['interaction_id'],'phase':step['phase'],'reason':geo.get('reason'),'geometry':geo});_restore(local,snapshots);return [],rejected
