@@ -2018,8 +2018,12 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     cross_card_stats=_cross_card_handoff_optimize(events,cards,fps)
     atomic_stats=_atomic_handoff_optimize(events,cards,fps)
     final_secondary_geometry=_finalize_secondary_character_geometry(events)
-    final_physical_certification=_final_physical_certification(events,cards,fps)
     final_lifetime_commit=_finalize_visual_lifetimes(events,cards,fps)
+    # Lifetime finalization owns the bounded cross-scene handoff search.  Its
+    # committed carrier timing must therefore precede the physical gate; the
+    # gate certifies the final geometry rather than rejecting a provisional
+    # overlap before the handoff solver is allowed to run.
+    final_physical_certification=_final_physical_certification(events,cards,fps)
     from hexa_v31.composition_qa import composition_plan_qa
     final_composition_qa=composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     # This is intentionally retained as an authoritative final-plan record.
