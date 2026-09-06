@@ -24,3 +24,14 @@ node_modules/
 .f/
 .foundation-certification/
 .pytest_cache/
+
+# Environment / local secrets
+.env
+.env.*
+!.env.example
+
+# Local editor / OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
