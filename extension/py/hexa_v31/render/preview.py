@@ -11,6 +11,7 @@ from hexa_v31.util import ensure_dir
 from hexa_v31.typography import render_text_rgba
 from hexa_v31.motion_solver import min_jerk5, s_curve7
 from hexa_v31.preset_authority import preset as _preset_def, progress as _preset_progress, scale as _preset_scale, opacity as _preset_opacity
+from hexa_v31.composition_solver import composition_state_at
 
 class PreviewError(RuntimeError): pass
 
@@ -154,6 +155,9 @@ def _preset_event_state(e:dict,t:float):
     if absolute and held_abs is not None:pos=held_abs
     else:pos[0]+=accx;pos[1]+=accy
 
+    state_center,state_scale,state_visibility=composition_state_at(e,t,[pos[0]/rw,pos[1]/rh])
+    pos=[float(state_center[0])*rw,float(state_center[1])*rh];sc*=state_scale;op*=state_visibility
+
     px=e.get('preset_exit')
     if px:
         name=str(px.get('name')); xs=float(px.get('start_seconds',en)); xd=float(px.get('duration_seconds') or _preset_def(name).get('duration_seconds') or 0.6)
@@ -186,7 +190,7 @@ def _event_state(e:dict,t:float):
         exit_start=float((e.get('preset_exit') or {}).get('start_seconds',motion_end))
         hold_boundary=min(motion_end,exit_start)
         t=max(motion_start,hold_boundary-1e-9)
-    if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions'):
+    if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions') or e.get('composition_states'):
         return _preset_event_state(e,t)
     st=float(e.get('start_seconds',0)); settle=float(e.get('settle_seconds',st)); end=float(e.get('end_seconds',st))
     if t<st-1e-9:return None

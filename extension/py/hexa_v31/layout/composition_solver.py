@@ -58,6 +58,30 @@ def _rect(center,fp:Footprint,scale:float):
     cx,cy=center;w=fp.w*scale;h=fp.h*scale
     return (cx-w/2,cy-h/2,w,h)
 
+def composition_state_at(event:dict,t:float,base_center=None)->tuple[list[float],float,float]:
+    """Evaluate the planner-authored composition destination at ``t``.
+
+    States are absolute layout destinations; presets remain responsible only
+    for the path/easing used to arrive there.  The function is shared by QA
+    and rendering so metadata cannot describe a state the pixels ignore.
+    """
+    center=list(base_center or event.get('card_rest_position_norm') or [0.5,0.5]);scale=1.0;visibility=1.0
+    states=sorted((event.get('composition_states') or []),key=lambda x:(float(x.get('start_seconds',0)),str(x.get('state_id') or '')))
+    previous={'center_norm':center,'scale_multiplier':scale,'visibility':visibility}
+    for state in states:
+        start=float(state.get('start_seconds',0));transition=max(0.0,float(state.get('transition_duration_seconds') or 0.0))
+        if t<start:break
+        target_center=list(state.get('center_norm') or previous['center_norm']);target_scale=float(state.get('scale_multiplier',previous['scale_multiplier']));target_visibility=float(state.get('visibility',previous['visibility']))
+        if transition>1e-9 and t<start+transition:
+            q=max(0.0,min(1.0,(t-start)/transition));q=q*q*(3.0-2.0*q)
+            center=[float(previous['center_norm'][0])+(float(target_center[0])-float(previous['center_norm'][0]))*q,float(previous['center_norm'][1])+(float(target_center[1])-float(previous['center_norm'][1]))*q]
+            scale=float(previous['scale_multiplier'])+(target_scale-float(previous['scale_multiplier']))*q
+            visibility=float(previous['visibility'])+(target_visibility-float(previous['visibility']))*q
+            return center,scale,visibility
+        center=[float(target_center[0]),float(target_center[1])];scale=target_scale;visibility=target_visibility
+        previous={'center_norm':center,'scale_multiplier':scale,'visibility':visibility}
+    return center,scale,visibility
+
 def candidate_middle_envelope_geometry(event:dict, center=(0.5,0.5))->dict:
     """Return authoritative geometry for snapping a solved object to middle."""
     fp=_fp(event);scale=float(event.get('layout_scale_multiplier') or 1.0)

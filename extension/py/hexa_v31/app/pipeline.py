@@ -16,6 +16,7 @@ from hexa_v31.scene_media import render_scene_media, assemble_final_mp4
 from hexa_v31.reference_metrics import analyze_video, score_against_reference_floor
 from hexa_v31.graphics import build_graphics_plan
 from hexa_v31.interaction.graphics_guard import guard_relationship_graphics
+from hexa_v31.layout.encoded_composition_qa import verify_encoded_composition
 from hexa_v31.production_cert import certify_production
 from hexa_v31.orchestration import balance_presentation
 from hexa_v31.qa import build_qa_report, motion_rule_qa, alignment_qa, reference_plan_qa
@@ -357,6 +358,10 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         # V31 measures the actual final MP4 assembled from the exact same animated Scene clips
         # Premiere receives. There is no separate low-resolution synthetic preview authority.
         preview_metrics=analyze_video(production_mp4,root/'HEXA_V31_REFERENCE_PREVIEW_METRICS.json')
+        encoded_composition_qa=verify_encoded_composition(production_mp4,motion,density_report,fps=30.0)
+        write_json(root/'HEXA_V31_ENCODED_ADAPTIVE_COMPOSITION_QA.json',encoded_composition_qa)
+        if not encoded_composition_qa.get('pass'):
+            raise BuildFailure('Encoded adaptive composition QA failed: '+str((encoded_composition_qa.get('failures') or [])[:4]))
         spike_report=attribute_spikes(preview_metrics,motion,root/'HEXA_V31_SPIKE_ATTRIBUTION.json')
         log.log('INFO','SPIKE_ATTRIBUTION',severe_spikes=spike_report.get('severe_spike_count'),attributed=spike_report.get('attributed_count'),by_cause=spike_report.get('by_cause_class'))
         preview_score=score_against_reference_floor(preview_metrics,ref)

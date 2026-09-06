@@ -1,6 +1,6 @@
 from __future__ import annotations
 import math
-from hexa_v31.composition_solver import overlap_ratio, _fp, _rect, _in_safe
+from hexa_v31.composition_solver import overlap_ratio, _fp, _rect, _in_safe, composition_state_at
 from hexa_v31.preset_authority import preset as preset_def, progress as preset_progress, scale as preset_scale, opacity as preset_opacity
 
 
@@ -56,6 +56,9 @@ def _state(e:dict,t:float):
                 q=max(0.0,min(1.0,(eval_t-ast)/max(1e-6,ad)));pg=preset_progress(name,q)
                 held=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
     if held is not None:pos=held
+
+    pos,state_scale,state_visibility=composition_state_at(e,eval_t,pos)
+    sc*=state_scale;op*=state_visibility
 
     px=e.get('preset_exit')
     if px:

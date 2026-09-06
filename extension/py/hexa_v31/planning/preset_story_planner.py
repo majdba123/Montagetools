@@ -207,6 +207,37 @@ def _recomposition_optimize(events, cards, fps):
     return stats
 
 
+def _adaptive_composition_state_optimize(events, cards, fps):
+    """Compile deterministic semantic layout states for long, material-rich cards."""
+    stats={'candidates_evaluated':0,'candidates_committed':0,'encoded_verification_required':0,'event_ids':[],'rejections':{}}
+    for card in cards.get('cards') or []:
+        cs=float(card.get('start_seconds',0));ce=float(card.get('end_seconds',cs))
+        if ce-cs<2.4:continue
+        local=sorted((e for e in events if not e.get('suppressed_by_card_density') and float(e.get('start_seconds',0))<ce and float(e.get('end_seconds',0))>cs),key=lambda e:(float(e.get('perceptual_hit_seconds',e.get('start_seconds',0))),str(e.get('event_id'))))
+        if len(local)<2:continue
+        for current,nxt in zip(local,local[1:]):
+            if current.get('composition_states') or current.get('preset_actions'):continue
+            physical_end=float(current.get('physical_end_seconds',current.get('end_seconds',0)));next_hit=float(nxt.get('perceptual_hit_seconds',nxt.get('start_seconds',0)))
+            transition_duration=.48;transition_start=max(float(current.get('settle_seconds',current.get('start_seconds',0)))+.22,next_hit-transition_duration)
+            if transition_start+transition_duration>physical_end-.12:continue
+            base=list(current.get('card_rest_position_norm') or [.5,.5]);target=list(base);translation_safe=bool(current.get('translation_safe_after_occlusion',current.get('animation_safe',True))) and str(current.get('render_mode') or '')!='RESIDUAL_SUPPORT'
+            if translation_safe:
+                next_center=nxt.get('card_rest_position_norm') or [.5,.5];target=[.28 if float(next_center[0])>=.5 else .72,float(base[1])]
+                state_scale=.92
+            else:
+                state_scale=1.14
+            if math.hypot(float(target[0])-float(base[0]),float(target[1])-float(base[1]))<.10 and abs(state_scale-1.0)<.10:continue
+            stats['candidates_evaluated']+=1;snapshot=copy.deepcopy(current)
+            current['composition_states']=[
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A','scene_id':current.get('scene_id'),'card_id':card.get('card_id'),'semantic_beat':'FOCAL_ESTABLISHED','start_seconds':round(float(current.get('settle_seconds',current.get('start_seconds',cs))),6),'transition_duration_seconds':0.0,'participating_event_ids':[str(current.get('event_id'))],'role':current.get('composition_role') or current.get('attention_priority'),'center_norm':[round(float(base[0]),6),round(float(base[1]),6)],'scale_multiplier':1.0,'visibility':1.0,'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'state_reason':'INITIAL_SOLVED_COMPOSITION','translation_safe':translation_safe},
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','scene_id':current.get('scene_id'),'card_id':card.get('card_id'),'semantic_beat':'SUPPORT_OR_RELATIONSHIP_REVEAL','start_seconds':round(transition_start,6),'transition_duration_seconds':transition_duration,'participating_event_ids':[str(current.get('event_id')),str(nxt.get('event_id'))],'role':'YIELD_FOCUS','center_norm':[round(float(target[0]),6),round(float(target[1]),6)],'scale_multiplier':state_scale,'visibility':1.0,'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'state_reason':'SEMANTIC_FOCUS_TRANSFER_TO_NEXT_ACTOR','translation_safe':translation_safe,'previous_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A'}]
+            current['adaptive_composition_authority']='SEMANTIC_CARD_PHASE_STATE_SEQUENCE';current['meaningful_recomposition']=True
+            if card_motion_conflicts(local,cs,ce,fps):
+                current.clear();current.update(snapshot);stats['rejections']['COLLISION_OR_PATH']=stats['rejections'].get('COLLISION_OR_PATH',0)+1;continue
+            stats['candidates_committed']+=1;stats['encoded_verification_required']+=1;stats['event_ids'].append(str(current.get('event_id')))
+    return stats
+
+
 def _effect_variety_director(events, cards, fps):
     """Deterministically fill safe, meaningful pre-reveal recompositions.
 
@@ -1138,6 +1169,7 @@ def _compile_final_motion_intervals(e:dict)->tuple[list[dict],float,float]:
     raw=[]
     if e.get('preset_entry'):raw.append(('ENTRY',e['preset_entry']))
     raw.extend(('ACTION',a) for a in (e.get('preset_actions') or []))
+    raw.extend(('COMPOSITION_STATE',dict(s,duration_seconds=float(s.get('transition_duration_seconds') or 0.0))) for s in (e.get('composition_states') or []))
     if e.get('preset_exit'):raw.append(('EXIT',e['preset_exit']))
     starts=[float(e.get('start_seconds',0))]
     ends=[float(e.get('end_seconds',e.get('start_seconds',0)))]
@@ -1966,6 +1998,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     lifetime_stats=_commit_persistent_lifetimes(events,scenes_out,fps)
     segment_stats=_solve_semantic_segments(events,cards,fps)
     readable_hold_stats=_commit_readable_state_holds(events,cards,fps)
+    adaptive_composition_stats=_adaptive_composition_state_optimize(events,cards,fps)
     recomposition_stats=_recomposition_optimize(events,cards,fps)
     optical_scale_stats=_optical_scale_optimize(events,cards,fps)
     spatial_choreography_stats=_spatial_choreography_optimize(events,cards,fps)
@@ -2004,6 +2037,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['semantic_segment_solver']=segment_stats
     out['readable_state_hold_optimizer']=readable_hold_stats
     out['premium_recomposition_optimizer']=recomposition_stats
+    out['adaptive_composition_state_optimizer']=adaptive_composition_stats
     out['effect_variety_director']=effect_variety_stats
     out['editorial_motion_grammar_director']=editorial_motion_grammar
     out['semantic_visual_sentence_compiler']=semantic_visual_sentences
