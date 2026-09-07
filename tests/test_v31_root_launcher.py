@@ -18,15 +18,10 @@ def _fixture_installer_text() -> str:
         '@echo off\n'
         'if defined HEXA_TEST_INSTALL_MARKER >"%HEXA_TEST_INSTALL_MARKER%" echo LATEST_INSTALLER_INVOKED\n'
         'if defined HEXA_TEST_INSTALL_EXIT exit /b %HEXA_TEST_INSTALL_EXIT%\n'
-        'set "HEXA_TEST_RELEASE_IDENTITY=%~dp0release_identity.json"\n'
-        'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command '
-        '"$ri=Get-Content -LiteralPath $env:HEXA_TEST_RELEASE_IDENTITY -Raw | ConvertFrom-Json; '
-        '$runtime=Join-Path $env:LOCALAPPDATA \'HEXA\\VideoBuilderV31\'; '
-        'New-Item -ItemType Directory -Force -Path $runtime | Out-Null; '
-        '$payload=@{source_commit=[string]$ri.source_commit}; '
-        '$payload | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtime \'runtime_config.json\') -Encoding UTF8; '
-        '$payload | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtime \'runtime_lock.json\') -Encoding UTF8"\n'
-        'if errorlevel 1 exit /b %errorlevel%\n'
+        'set "HEXA_TEST_RUNTIME=%LOCALAPPDATA%\\HEXA\\VideoBuilderV31"\n'
+        'if not exist "%HEXA_TEST_RUNTIME%" mkdir "%HEXA_TEST_RUNTIME%"\n'
+        '>"%HEXA_TEST_RUNTIME%\\runtime_config.json" echo {"source_commit":"%HEXA_TEST_SOURCE_COMMIT%"}\n'
+        '>"%HEXA_TEST_RUNTIME%\\runtime_lock.json" echo {"source_commit":"%HEXA_TEST_SOURCE_COMMIT%"}\n'
         'exit /b 0\n'
     )
 
@@ -94,10 +89,12 @@ def run_launcher(repo: Path, cwd: Path, *, code: int = 0):
     marker = repo / 'latest installer marker.txt'
     localapp = repo / '.test-localappdata'
     localapp.mkdir(parents=True, exist_ok=True)
+    expected = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
     env = os.environ.copy()
     env['LOCALAPPDATA'] = str(localapp)
     env['HEXA_TEST_INSTALL_MARKER'] = str(marker)
     env['HEXA_TEST_INSTALL_EXIT'] = str(code)
+    env['HEXA_TEST_SOURCE_COMMIT'] = expected
     command = f'cmd.exe /d /s /c call "{repo / "bayer.bat"}"'
     cp = subprocess.run(
         command,
