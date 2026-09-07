@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import math
 import tempfile
 from pathlib import Path
 from PIL import Image,ImageDraw
 
 from hexa_v31.render.scene_media import prepare_composition_actor
+
+
+def assert_center(actual,expected):
+    assert len(actual)==2,actual
+    assert math.isclose(float(actual[0]),float(expected[0]),rel_tol=0.0,abs_tol=1e-9),(actual,expected)
+    assert math.isclose(float(actual[1]),float(expected[1]),rel_tol=0.0,abs_tol=1e-9),(actual,expected)
 
 
 with tempfile.TemporaryDirectory(prefix='hexa_render_center_authority_') as raw:
@@ -27,12 +34,12 @@ with tempfile.TemporaryDirectory(prefix='hexa_render_center_authority_') as raw:
     }
     runtime,crop=prepare_composition_actor(event,1920,1080)
     assert crop.shape[0]>0 and crop.shape[1]>0,crop.shape
-    assert runtime['object_rest_position_px']==[595.2,723.6],runtime
+    assert_center(runtime['object_rest_position_px'],[595.2,723.6])
     assert runtime['preset_coordinate_mode']=='ABSOLUTE_OBJECT_CENTER',runtime
 
     # Moving only the final planner center must move the runtime actor center.
     moved=dict(event,card_rest_position_norm=[0.72,0.28])
     runtime2,_=prepare_composition_actor(moved,1920,1080)
-    assert runtime2['object_rest_position_px']==[1382.4,302.4],runtime2
+    assert_center(runtime2['object_rest_position_px'],[1382.4,302.4])
 
 print('V31_COMPOSITION_RENDER_CENTER_AUTHORITY_PASS')
