@@ -18,6 +18,11 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
         graphics_guard=guarded_graphics.get('interaction_graphics_guard')
         if logger and graphics_guard:logger.log('PASS','INTERACTION_GRAPHICS_GUARD',relationship_graphics=graphics_guard.get('relationship_graphic_count'),suppressed=graphics_guard.get('suppressed_count'),clamped=graphics_guard.get('clamped_count'))
     manifest=_base_render_scene_media(framed_render_map,motion_plan,vision_results,text_plan,guarded_graphics,out_dir,cache_dir,width=width,height=height,fps=fps,logger=logger)
+    composition_sources=pathlib.Path(out_dir)/'HEXA_V31_COMPOSITION_RENDER_SOURCES.json'
+    write_json(composition_sources,dict(framed_render_map,
+        composition_text_events=list((text_plan or {}).get('events') or []),
+        composition_graphic_events=list((guarded_graphics or {}).get('events') or [])))
+    manifest['composition_render_map_path']=str(composition_sources)
     if motion_plan.get('interaction_engine') is not None:
         from hexa_v31.interaction.pixel_qa import verify_encoded_interactions
         clip=(manifest.get('clips') or [{}])[0];report=verify_encoded_interactions(str(clip.get('source_path') or ''),motion_plan,fps=fps)

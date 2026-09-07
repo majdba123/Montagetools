@@ -239,7 +239,7 @@ def apply_interaction_director(base_plan:dict,source_plan:dict,alignment:dict,fp
 _FINAL_TIMING_FIELDS=(
     'start_seconds','end_seconds','physical_start_seconds','physical_end_seconds',
     'motion_start_seconds','motion_end_seconds','preset_entry','preset_actions',
-    'preset_exit','story_actions','focus_beats','composition_states','motion_intervals',
+    'preset_exit','story_actions','focus_beats','composition_states','composition_participant_states','motion_intervals',
 )
 
 

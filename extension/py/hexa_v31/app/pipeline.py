@@ -362,7 +362,9 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         # V31 measures the actual final MP4 assembled from the exact same animated Scene clips
         # Premiere receives. There is no separate low-resolution synthetic preview authority.
         preview_metrics=analyze_video(production_mp4,root/'HEXA_V31_REFERENCE_PREVIEW_METRICS.json')
-        encoded_composition_qa=verify_encoded_composition(production_mp4,motion,density_report,fps=30.0)
+        composition_sources=scene_media.get('composition_render_map_path')
+        encoded_composition_qa=verify_encoded_composition(production_mp4,motion,density_report,fps=30.0,
+            render_edit_map=read_json(pathlib.Path(composition_sources)) if composition_sources else None)
         write_json(root/'HEXA_V31_ENCODED_ADAPTIVE_COMPOSITION_QA.json',encoded_composition_qa)
         if not encoded_composition_qa.get('pass'):
             raise BuildFailure('Encoded adaptive composition QA failed: '+str((encoded_composition_qa.get('failures') or [])[:4]))

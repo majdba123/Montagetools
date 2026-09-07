@@ -343,6 +343,26 @@ def assemble_final_mp4(scene_media:dict,audio_path,output_path,work_dir,logger=N
 # scene boundaries remain timing/semantic metadata only; they are not full-frame
 # transition operators.  Every visible change is an object preset event.
 # ---------------------------------------------------------------------------
+def prepare_composition_actor(event,width,height):
+    """Prepare identical source geometry for rendering and attribution probes."""
+    full=_prescale(_load_rgba(event['source_path']),float(event.get('base_fit_scale_percent',100.0))*float(event.get('layout_scale_multiplier',1.0)),width)
+    yy,xx=np.where(full[:,:,3]>3)
+    if len(xx):
+        pad=max(3,int(round(min(full.shape[0],full.shape[1])*0.003)))
+        x0=max(0,int(xx.min())-pad);x1=min(full.shape[1],int(xx.max())+1+pad)
+        y0=max(0,int(yy.min())-pad);y1=min(full.shape[0],int(yy.max())+1+pad)
+        crop=full[y0:y1,x0:x1].copy()
+        rest=[(width-full.shape[1])/2.0+(x0+x1)/2.0,(height-full.shape[0])/2.0+(y0+y1)/2.0]
+    else:
+        crop=full;rest=[width/2.0,height/2.0]
+    er=dict(event);er['preset_coordinate_mode']='ABSOLUTE_OBJECT_CENTER'
+    planned=er.get('card_rest_position_norm')
+    if isinstance(planned,(list,tuple)) and len(planned)>=2:
+        rest=[float(planned[0])*width,float(planned[1])*height]
+    er['object_rest_position_px']=rest;er['sequence_width']=width;er['sequence_height']=height
+    return er,crop
+
+
 def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,graphics_plan,out_dir,cache_dir,width=1920,height=1080,fps=30.0,logger=None):
     from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa, encoded_visual_gap_qa, frame_survival_signature
     out=ensure_dir(out_dir);cache=ensure_dir(cache_dir)
@@ -371,7 +391,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
     # this complete module, so private forensic helpers do not masquerade as
     # production-renderer changes.
     try:
-        renderer_source_sha256=hashlib.sha256(inspect.getsource(render_scene_media).encode('utf-8')).hexdigest()
+        renderer_source_sha256=hashlib.sha256((inspect.getsource(render_scene_media)+inspect.getsource(prepare_composition_actor)).encode('utf-8')).hexdigest()
         typography_source_sha256=hashlib.sha256(pathlib.Path(render_text_rgba.__code__.co_filename).read_bytes()).hexdigest()
         compositor_source_sha256=hashlib.sha256(pathlib.Path(_apply.__code__.co_filename).read_bytes()).hexdigest()
     except OSError:
@@ -437,28 +457,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
                     active.discard(i);rows[i]['img']=None
                 for i in starts[fi]:
                     if rows[i]['img'] is None:
-                        full=_prescale(_load_rgba(rows[i]['src']),float(rows[i]['e'].get('base_fit_scale_percent',100.0))*float(rows[i]['e'].get('layout_scale_multiplier',1.0)),width)
-                        # Render the actual isolated object crop, not a translated 1920x1080
-                        # transparent canvas. Premiere Position presets are defined on clip/object
-                        # centers; applying them to a full transparent canvas was a core source of
-                        # P2 overshoot and visually wrong icon relationships.
-                        a=full[:,:,3]
-                        yy,xx=np.where(a>3)
-                        if len(xx):
-                            pad=max(3,int(round(min(full.shape[0],full.shape[1])*0.003)))
-                            x0=max(0,int(xx.min())-pad);x1=min(full.shape[1],int(xx.max())+1+pad)
-                            y0=max(0,int(yy.min())-pad);y1=min(full.shape[0],int(yy.max())+1+pad)
-                            crop=full[y0:y1,x0:x1].copy()
-                            canvas_left=(width-full.shape[1])/2.0;canvas_top=(height-full.shape[0])/2.0
-                            rest=[canvas_left+(x0+x1)/2.0,canvas_top+(y0+y1)/2.0]
-                        else:
-                            crop=full;rest=[width/2.0,height/2.0]
-                        er=dict(rows[i]['e']);er['preset_coordinate_mode']='ABSOLUTE_OBJECT_CENTER'
-                        planned=er.get('card_rest_position_norm')
-                        if isinstance(planned,(list,tuple)) and len(planned)>=2:
-                            rest=[float(planned[0])*width,float(planned[1])*height]
-                        er['object_rest_position_px']=rest;er['sequence_width']=width;er['sequence_height']=height
-                        rows[i]['e']=er;rows[i]['img']=crop
+                        rows[i]['e'],rows[i]['img']=prepare_composition_actor(rows[i]['e'],width,height)
                     active.add(i)
                 t=fi/float(fps)
                 card=next((c for c in cards if float(c.get('start_seconds',0))<=t<float(c.get('end_seconds',0))),None)

@@ -1,6 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import itertools, math
+import pathlib
+import copy
+from PIL import Image
 from hexa_v31.preset_authority import duration as preset_duration, preset as preset_def
 from hexa_v31.projected_visible_ink import ProjectedVisibleInkModel
 
@@ -20,6 +23,33 @@ MIN_SUPPORT_LAYOUT_SCALE=0.32
 MIN_ATOMIC_LAYOUT_SCALE=0.30
 MAX_PHASE_OBJECTS=5
 _VISIBLE_INK_MODEL=ProjectedVisibleInkModel()
+_OBJECT_INK_FRACTIONS={}
+
+
+def source_object_visible_fraction(event:dict):
+    """Alpha coverage in the same object bbox used by placement geometry.
+
+    Planner layers are full-source canvases. Their whole-canvas matte fraction
+    must not be multiplied by an already-tight object rectangle a second time.
+    This reads source evidence only; it does not crop or alter render assets.
+    """
+    source=event.get('source_layer_path');bbox=event.get('source_bbox_norm')
+    if not source or not bbox or len(bbox)!=4:return None
+    path=pathlib.Path(source)
+    try:
+        stat=path.stat();key=(str(path.resolve()),stat.st_size,stat.st_mtime_ns,tuple(bbox))
+        if key in _OBJECT_INK_FRACTIONS:return _OBJECT_INK_FRACTIONS[key]
+        with Image.open(path) as image:
+            w,h=image.size;x,y,bw,bh=map(float,bbox)
+            bounds=(max(0,int(math.floor(x*w))),max(0,int(math.floor(y*h))),min(w,int(math.ceil((x+bw)*w))),min(h,int(math.ceil((y+bh)*h))))
+            if bounds[2]<=bounds[0] or bounds[3]<=bounds[1]:return None
+            crop=image.crop(bounds)
+            crop.thumbnail((512,512))
+            value=float(sum(crop.getchannel('A').histogram()[4:]))/(crop.width*crop.height) if 'A' in crop.getbands() else 1.0
+        _OBJECT_INK_FRACTIONS[key]=value
+        return value
+    except (OSError,ValueError,TypeError):
+        return None
 
 @dataclass(frozen=True)
 class Footprint:
@@ -381,6 +411,107 @@ def within_preset_safe(e:dict,name:str,scale:float)->bool:
     """Only authorize fixed-position within-frame presets when the actual object fits."""
     r=_preset_end_rect(e,name,scale)
     return _in_safe(r)
+
+
+def certify_cross_card_placements(events,cards,fps,_allow_companion_repair=True):
+    """Repair static placement against every final overlapping card.
+
+    Never changes physical/motion lifetimes, presets, actor membership, or
+    partition geometry. Candidate centers are existing semantic solver slots;
+    scale can only stay unchanged or decrease along the existing scale set.
+    """
+    from hexa_v31.composition_qa import card_motion_conflicts,viewport_clipping_qa
+    active=[e for e in events if not e.get('suppressed_by_card_density')]
+    byid={str(e.get('event_id')):e for e in active}
+    grammar={str(c.get('card_id')):c.get('universal_scene_grammar') or {} for c in cards.get('cards') or []}
+    end=max((float(e.get('physical_end_seconds',e.get('end_seconds',0))) for e in active),default=0)
+    def conflicts():
+        return [c for c in card_motion_conflicts(active,0,end,fps)
+                if byid[c['event_a']].get('visual_card_id')!=byid[c['event_b']].get('visual_card_id')]
+    repairs=[];initial=conflicts()
+    for _ in range(len(initial)):
+        remaining=conflicts()
+        if not remaining:break
+        repaired=False
+        for conflict in remaining:
+            pair=[byid[conflict[k]] for k in ('event_a','event_b')]
+            pair.sort(key=lambda e:(-float(e.get('physical_start_seconds',e.get('start_seconds',0))),_fp(e).visible_area))
+            # Explore unchanged-scale placements for both endpoints before
+            # sacrificing either actor's projected visible content.
+            for event,allow_shrink in [(e,False) for e in pair]+[(e,True) for e in pair]:
+                if str(event.get('render_mode')) in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:continue
+                if event.get('partition_group_id'):continue
+                fp=_fp(event);old_center=list(event.get('card_rest_position_norm') or [.5,.5])
+                old_scale=float(event.get('layout_scale_multiplier') or 1)
+                arch=str(grammar.get(str(event.get('visual_card_id')),{}).get('archetype') or 'SINGLE_FOCUS')
+                centers=[tuple(old_center),*_adaptive_slots(arch,str(event.get('composition_role') or 'LEAD'),fp)]
+                centers=sorted(set(centers),key=lambda c:(math.dist(c,old_center),c))
+                scales=[s for s in _scale_candidates(fp,fp.primary) if s<old_scale-1e-6] if allow_shrink else [old_scale]
+                st=float(event.get('physical_start_seconds',event.get('start_seconds',0)))
+                en=float(event.get('physical_end_seconds',event.get('end_seconds',0)))
+                neighbors=[e for e in active if e is not event and float(e.get('physical_start_seconds',e.get('start_seconds',0)))<en and float(e.get('physical_end_seconds',e.get('end_seconds',0)))>st]
+                candidates=[]
+                for scale in scales:
+                    half_w=fp.w*scale*MOTION_ENVELOPE_SCALE/2
+                    half_h=fp.h*scale*MOTION_ENVELOPE_SCALE/2
+                    if half_w*2>SAFE_X[1]-SAFE_X[0] or half_h*2>SAFE_Y[1]-SAFE_Y[0]:continue
+                    # Project semantic anchors into the geometry's legal center
+                    # interval; a discrete slot just outside the safe frame must
+                    # not hide its adjacent, collision-free legal placement.
+                    legal_centers={
+                        (min(SAFE_X[1]-half_w,max(SAFE_X[0]+half_w,c[0])),
+                         min(SAFE_Y[1]-half_h,max(SAFE_Y[0]+half_h,c[1]))) for c in centers}
+                    candidates.extend((scale,c) for c in sorted(legal_centers,key=lambda c:(math.dist(c,old_center),c)))
+                for scale,center in candidates:
+                    rect=_rect(center,fp,scale*MOTION_ENVELOPE_SCALE)
+                    if not _in_safe(rect):continue
+                    trial=copy.deepcopy(event);trial['layout_scale_multiplier']=scale
+                    trial['card_rest_position_norm']=list(center)
+                    trial['planned_rect_norm']=list(rect);trial['collision_envelope_rect_norm']=list(rect)
+                    for key in ('composition_states','composition_participant_states'):
+                        for state in trial.get(key) or []:
+                            prior=state.get('center_norm') or old_center
+                            state['center_norm']=[prior[i]+center[i]-old_center[i] for i in (0,1)]
+                    if not viewport_clipping_qa([trial],fps)['pass']:continue
+                    if any(str(event['event_id']) in (c['event_a'],c['event_b']) for c in card_motion_conflicts([trial,*neighbors],st,en,fps)):continue
+                    event.clear();event.update(trial)
+                    repairs.append({'event_id':event['event_id'],'old_center':old_center,'new_center':list(center),'old_scale':old_scale,'new_scale':scale,'authority':'FINAL_OVERLAPPING_CARD_STATIC_PLACEMENT'})
+                    repaired=True;break
+                if repaired:break
+            if repaired:break
+        if not repaired:break
+    remaining=conflicts()
+    if remaining and _allow_companion_repair:
+        # A newly enlarged focal can pin its companion between itself and the
+        # preceding card. Repair that coupled placement, not the lifetimes: try
+        # the next existing focal scale, then solve the blocked neighbor again.
+        pair_ids={remaining[0]['event_a'],remaining[0]['event_b']}
+        affected_cards={byid[eid].get('visual_card_id') for eid in pair_ids}
+        companions=[e for e in active if e.get('visual_card_id') in affected_cards and str(e.get('event_id')) not in pair_ids
+                    and str(e.get('render_mode'))=='ROOT_ATOMIC' and not e.get('partition_group_id')]
+        companions.sort(key=lambda e:(_fp(e).visible_area,str(e.get('event_id'))))
+        for companion in companions:
+            old_scale=float(companion.get('layout_scale_multiplier') or 1)
+            fp=_fp(companion);center=companion.get('card_rest_position_norm') or [.5,.5]
+            for scale in _scale_candidates(fp,fp.primary):
+                if scale>=old_scale-1e-6:continue
+                trial=copy.deepcopy(active);changed=next(e for e in trial if e['event_id']==companion['event_id'])
+                changed['layout_scale_multiplier']=scale
+                changed['planned_rect_norm']=list(_rect(center,fp,scale*MOTION_ENVELOPE_SCALE))
+                changed['collision_envelope_rect_norm']=list(changed['planned_rect_norm'])
+                try:
+                    coupled=certify_cross_card_placements(trial,cards,fps,_allow_companion_repair=False)
+                except ValueError:
+                    continue
+                from hexa_v31.composition_qa import composition_plan_qa
+                if not composition_plan_qa({'events':trial,'visual_cards':cards,'fps':fps})['pass']:continue
+                for e in trial:
+                    live=byid[str(e['event_id'])];live.clear();live.update(e)
+                repairs.append({'event_id':companion['event_id'],'old_center':list(center),'new_center':list(center),'old_scale':old_scale,'new_scale':scale,'authority':'COUPLED_CARD_FOCAL_SUPPORT_SAFE_PLACEMENT'})
+                repairs.extend(coupled['repairs']);remaining=[];break
+            if not remaining:break
+    if remaining:raise ValueError('CROSS_CARD_COMPOSITION_PLACEMENT_FAILED: '+str(remaining[:4]))
+    return {'pass':True,'initial_conflict_count':len(initial),'repairs':repairs}
 
 def solve_card_layout(events:list[dict], grammar:dict, phase_plan:dict)->dict:
     """Deterministic phase-aware layout solver with co-occurrence decomposition.

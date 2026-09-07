@@ -190,7 +190,7 @@ def _event_state(e:dict,t:float):
         exit_start=float((e.get('preset_exit') or {}).get('start_seconds',motion_end))
         hold_boundary=min(motion_end,exit_start)
         t=max(motion_start,hold_boundary-1e-9)
-    if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions') or e.get('composition_states'):
+    if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions') or e.get('composition_states') or e.get('composition_participant_states'):
         return _preset_event_state(e,t)
     st=float(e.get('start_seconds',0)); settle=float(e.get('settle_seconds',st)); end=float(e.get('end_seconds',st))
     if t<st-1e-9:return None

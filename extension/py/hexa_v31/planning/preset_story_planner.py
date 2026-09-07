@@ -112,6 +112,17 @@ def _optical_scale_optimize(events, cards, fps):
         for e in primaries:
             eid=str(e.get('event_id'))
             if eid in optimized:continue
+            # A carrier can enter during the preceding card. Its scale is a
+            # lifetime-wide destination, not a placement local to that sliver.
+            # Validate every affected card before marking the actor optimized.
+            affected=[]
+            est=float(e.get('physical_start_seconds',e.get('start_seconds',0)))
+            een=float(e.get('physical_end_seconds',e.get('end_seconds',0)))
+            for scope in cards.get('cards') or []:
+                ss=float(scope.get('start_seconds',0));se=float(scope.get('end_seconds',ss))
+                if est>=se or een<=ss:continue
+                neighbors=[other for other in events if not other.get('suppressed_by_card_density') and float(other.get('physical_start_seconds',other.get('start_seconds',0)))<se and float(other.get('physical_end_seconds',other.get('end_seconds',0)))>ss]
+                affected.append((neighbors,ss,se))
             old_scale=float(e.get('layout_scale_multiplier') or 1.0);old_rect=list(map(float,e.get('planned_rect_norm')));cx=old_rect[0]+old_rect[2]/2;cy=old_rect[1]+old_rect[3]/2
             overlap_count=sum(
                 1 for other in local
@@ -127,7 +138,7 @@ def _optical_scale_optimize(events, cards, fps):
                 stats['candidates_evaluated']+=1;nw=old_rect[2]*factor;nh=old_rect[3]*factor;nr=[cx-nw/2,cy-nh/2,nw,nh]
                 if not _in_safe(nr):continue
                 e['layout_scale_multiplier']=round(old_scale*factor,6);e['planned_rect_norm']=[round(x,6) for x in nr];e['collision_envelope_rect_norm']=e['planned_rect_norm']
-                if card_motion_conflicts(local,cs,ce,fps):
+                if any(card_motion_conflicts(neighbors,ss,se,fps) for neighbors,ss,se in affected):
                     e['layout_scale_multiplier']=old_scale;e['planned_rect_norm']=old_rect;e['collision_envelope_rect_norm']=old_rect;continue
                 e['premium_optical_scale_factor']=factor;stats['candidates_committed']+=1
                 if cid not in stats['cards_improved']:stats['cards_improved'].append(cid)
@@ -209,13 +220,7 @@ def _recomposition_optimize(events, cards, fps):
 
 def _adaptive_composition_state_optimize(events, cards, fps):
     """Compile deterministic semantic layout states for long, material-rich cards."""
-    from hexa_v31.composition_qa import _state
-    def peak_visible(local, start, end):
-        step=max(1.0/float(fps),.10);peak=0;t=float(start)
-        while t<float(end)-1e-9:
-            peak=max(peak,sum(1 for event in local if (lambda state: bool(state and state[2]>.22))(_state(event,t))))
-            t+=step
-        return peak
+    from hexa_v31.visual_density import build_visual_density_report
     stats={'candidates_evaluated':0,'candidates_committed':0,'encoded_verification_required':0,'event_ids':[],'rejections':{}}
     for card in cards.get('cards') or []:
         cs=float(card.get('start_seconds',0));ce=float(card.get('end_seconds',cs))
@@ -241,17 +246,25 @@ def _adaptive_composition_state_optimize(events, cards, fps):
             # focal actor completes the handoff. These are participant states, not
             # additional recompositions, and therefore remain subordinate to B.
             participant_base=list(nxt.get('card_rest_position_norm') or [.5,.5])
-            participant_start=max(float(nxt.get('settle_seconds',nxt.get('start_seconds',cs))),transition_start-.32)
-            participant_duration=max(.10,transition_start-participant_start)
+            participant_reveal=max(float(nxt.get('motion_start_seconds',nxt.get('start_seconds',cs))),float(nxt.get('physical_start_seconds',nxt.get('start_seconds',cs))),float(nxt.get('start_seconds',cs)))
+            participant_handoff=max(transition_start,participant_reveal)
+            participant_start=max(participant_reveal,participant_handoff-.32)
+            participant_duration=participant_handoff-participant_start
+            participant_end=min(physical_end,float(nxt.get('physical_end_seconds',nxt.get('end_seconds',ce))))
+            participant_transition=min(transition_duration,participant_end-participant_handoff)
+            if participant_transition<.10 or str(nxt.get('render_mode') or '')=='RESIDUAL_SUPPORT':
+                stats['rejections']['PARTICIPANT_LIFECYCLE']=stats['rejections'].get('PARTICIPANT_LIFECYCLE',0)+1
+                continue
             nxt.setdefault('composition_participant_states',[]).extend([
                 {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A::'+str(nxt.get('event_id')),'owner_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','semantic_beat':'SUPPORT_YIELDS_FOR_FOCAL_ESTABLISHMENT','start_seconds':round(participant_start,6),'transition_duration_seconds':round(participant_duration,6),'center_norm':[round(float(participant_base[0]),6),round(float(participant_base[1]),6)],'scale_multiplier':.86,'visibility':1.0,'translation_safe':False},
-                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B::'+str(nxt.get('event_id')),'owner_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','semantic_beat':'SUPPORT_ASSUMES_RELATIONSHIP_HIERARCHY','start_seconds':round(transition_start,6),'transition_duration_seconds':transition_duration,'center_norm':[round(float(participant_base[0]),6),round(float(participant_base[1]),6)],'scale_multiplier':1.10,'visibility':1.0,'translation_safe':False,'previous_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A::'+str(nxt.get('event_id'))}])
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B::'+str(nxt.get('event_id')),'owner_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','semantic_beat':'SUPPORT_ASSUMES_RELATIONSHIP_HIERARCHY','start_seconds':round(participant_handoff,6),'transition_duration_seconds':round(participant_transition,6),'center_norm':[round(float(participant_base[0]),6),round(float(participant_base[1]),6)],'scale_multiplier':1.10,'visibility':1.0,'translation_safe':False,'previous_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A::'+str(nxt.get('event_id'))}])
             current['composition_states']=[
                 {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A','scene_id':current.get('scene_id'),'card_id':card.get('card_id'),'semantic_beat':'FOCAL_ESTABLISHED','start_seconds':round(float(current.get('settle_seconds',current.get('start_seconds',cs))),6),'transition_duration_seconds':0.0,'participating_event_ids':[str(current.get('event_id'))],'role':current.get('composition_role') or current.get('attention_priority'),'center_norm':[round(float(base[0]),6),round(float(base[1]),6)],'scale_multiplier':1.0,'visibility':1.0,'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'state_reason':'INITIAL_SOLVED_COMPOSITION','translation_safe':translation_safe},
                 {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','scene_id':current.get('scene_id'),'card_id':card.get('card_id'),'semantic_beat':'SUPPORT_OR_RELATIONSHIP_REVEAL','start_seconds':round(transition_start,6),'transition_duration_seconds':transition_duration,'participating_event_ids':[str(current.get('event_id')),str(nxt.get('event_id'))],'role':'YIELD_FOCUS','center_norm':[round(float(target[0]),6),round(float(target[1]),6)],'scale_multiplier':state_scale,'visibility':1.0,'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'state_reason':'SEMANTIC_FOCUS_TRANSFER_TO_NEXT_ACTOR','translation_safe':translation_safe,'previous_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A'}]
             current['adaptive_composition_authority']='SEMANTIC_CARD_PHASE_STATE_SEQUENCE';current['meaningful_recomposition']=True
             conflicts=card_motion_conflicts(local,cs,ce,fps)
-            density_serialized=len(local)>=2 and peak_visible(local,cs,ce)<2
+            density=build_visual_density_report({'events':local,'visual_cards':{'cards':[card]},'fps':fps})
+            density_serialized=len(local)>=2 and density['cards'][0]['peak_visible_object_count']<2
             if conflicts or density_serialized:
                 current.clear();current.update(snapshot);nxt.clear();nxt.update(next_snapshot)
                 reason='COLLISION_OR_PATH' if conflicts else 'DENSITY_CONCURRENCY'
@@ -379,9 +392,15 @@ def _finalize_secondary_character_geometry(events):
 def _final_physical_certification(events, cards, fps):
     """Perform one bounded repair, then certify the exact immutable plan state."""
     from hexa_v31.composition_qa import composition_plan_qa, _settled_rect
+    cross_card_placement={'pass':True,'initial_conflict_count':0,'repairs':[]}
+    # Ink-aware layouts may share a final physical interval with another card.
+    # Certify static placement across that interval without changing its owner.
+    if any(e.get('visible_ink_fraction_basis')=='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX' for e in events):
+        from hexa_v31.composition_solver import certify_cross_card_placements
+        cross_card_placement=certify_cross_card_placements(events,cards,fps)
     def qa(): return composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     before=qa(); repairs=[]
-    if before.get('pass'): return {'pass':True,'repair_passes':0,'before':before,'after':before,'repairs':repairs}
+    if before.get('pass'): return {'pass':True,'repair_passes':int(bool(cross_card_placement['repairs'])),'before':before,'after':before,'repairs':repairs,'cross_card_placement':cross_card_placement}
     # Settled conflicts are repaired by the same phase-aware solver that owns
     # composition. Every geometry field is committed as one tuple.
     for card in cards.get('cards') or []:
@@ -426,7 +445,7 @@ def _final_physical_certification(events, cards, fps):
                     e['final_physical_repair']='CERTIFIED_STATIC_SCALE_FALLBACK';repairs.append({'card_id':cid,'event_id':e.get('event_id'),'type':'STATIC_SCALE_FALLBACK'})
     after=qa()
     if not after.get('pass'):raise ValueError('FINAL_PHYSICAL_CERTIFICATION_FAILED: '+' | '.join(after.get('failures') or [])[:2000])
-    return {'pass':True,'repair_passes':1,'before':before,'after':after,'repairs':repairs}
+    return {'pass':True,'repair_passes':1,'before':before,'after':after,'repairs':repairs,'cross_card_placement':cross_card_placement}
 
 def _atomic_handoff_optimize(events, cards, fps):
     """Pre-commit, frame deterministic handoff optimization.
@@ -1192,6 +1211,7 @@ def _compile_final_motion_intervals(e:dict)->tuple[list[dict],float,float]:
     if e.get('preset_entry'):raw.append(('ENTRY',e['preset_entry']))
     raw.extend(('ACTION',a) for a in (e.get('preset_actions') or []))
     raw.extend(('COMPOSITION_STATE',dict(s,duration_seconds=float(s.get('transition_duration_seconds') or 0.0))) for s in (e.get('composition_states') or []))
+    raw.extend(('COMPOSITION_PARTICIPANT_STATE',dict(s,duration_seconds=float(s.get('transition_duration_seconds') or 0.0))) for s in (e.get('composition_participant_states') or []))
     if e.get('preset_exit'):raw.append(('EXIT',e['preset_exit']))
     starts=[float(e.get('start_seconds',0))]
     ends=[float(e.get('end_seconds',e.get('start_seconds',0)))]
@@ -1611,7 +1631,7 @@ def _finalize_visual_lifetimes(events:list[dict], cards:dict, fps:float=30.0)->d
             # clipping only the transition envelope at the immutable card /
             # partition boundary.
             composition_state_timing_clamped=False
-            for state in e.get('composition_states') or []:
+            for state in (e.get('composition_states') or [])+(e.get('composition_participant_states') or []):
                 old_start=float(state.get('start_seconds',carrier_start))
                 old_duration=max(0.0,float(state.get('transition_duration_seconds') or 0.0))
                 new_start=max(carrier_start,min(old_start,carrier_end))
@@ -1919,6 +1939,11 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
                 'reference_camera_scale':float(camera_fit['camera_scale']),'layout_scale_multiplier':1.0,'hierarchy_level':int(u.get('hierarchy_level') or 0),'parent_semantic_unit_id':u.get('parent_semantic_unit_id'),'composition_slot_id':u.get('composition_slot_id') or u.get('semantic_unit_id') or u.get('physical_id'),'fifth_element_overlay':False,
                 **_hierarchical_render_metadata(u),'reveal_safe':bool(u.get('reveal_safe',True)),'animation_safe':bool(u.get('animation_safe',True)),'matting':u.get('matting'),'semantic_mapping_confidence':float(u.get('semantic_mapping_confidence',0.0)),'cutout_policy':'TOP_LEVEL_SEMANTIC_GROUP_ONLY__PRESERVE_ATTACHED_DETAILS','relationship_motion_policy':'EXPLICIT_METADATA_ONLY__UNSAFE_TRAVEL_BECOMES_TEMPORAL_HANDOFF','attention_priority':'PRIMARY' if primary else 'SUPPORTING','motion_energy':'HIGH' if primary else 'MEDIUM','budget_cost':0.25 if primary else 0.12,
             }
+            from hexa_v31.composition_solver import source_object_visible_fraction
+            object_ink=source_object_visible_fraction(e)
+            if object_ink is not None:
+                e['visible_ink_fraction']=object_ink
+                e['visible_ink_fraction_basis']='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX'
             e['composite_atomic']=_event_is_atomic(e);events.append(e);scene_events.append(e)
         scenes_out.append({'scene_id':sid,'start_seconds':float(st['start']),'end_seconds':float(st['end']),'duration_seconds':float(st['end'])-float(st['start']),'duration_class':'CARD_MEMBER','vision_mode':vr.get('mode'),'choreography_profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','relation_to_previous':_relation(scene),'transition':{'mode':'OBJECT_PRESETS_ONLY__NO_FRAME_BLEND','duration_seconds':0.0,'white_reset':False,'relation':_relation(scene),'profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','energy_cost':0.0,'strong':False},'visual_card_id':card['card_id'],'reference_camera_fit':camera_fit,'event_ids':[e['event_id'] for e in scene_events],'internal_change_count':len(scene_events),'semantic_focus_count':0,'story_beat_count':0,'story_action_count':0,'physical_story_action_count':0,'max_story_gap_seconds':min(1.4,float(card['duration_seconds'])),'hierarchical_motion_unit_count':hierarchy_selection['hierarchical_motion_unit_count'],'hierarchy_render_selection':hierarchy_selection,'composition_slot_count':len(set(str(e.get('composition_slot_id')) for e in scene_events)),'short_beat':False,'motion_budget':{'budget_points':10.0,'duration_class':'CARD_MEMBER'},'estimated_motion_cost':sum(e['budget_cost'] for e in scene_events),'budget_utilization':0.0})
 
