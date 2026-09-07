@@ -49,6 +49,9 @@ rem installer subroutine frames cannot return into or replay this launcher.
 set "INSTALL_RC=%ERRORLEVEL%"
 if not "%INSTALL_RC%"=="0" exit /b %INSTALL_RC%
 
+call :VERIFY_INSTALLED_IDENTITY
+if errorlevel 1 exit /b %ERRORLEVEL%
+
 echo HEXA INSTALL COMPLETE
 exit /b 0
 
@@ -76,5 +79,16 @@ set "BUILD_RC=%ERRORLEVEL%"
 if not "%BUILD_RC%"=="0" (
   echo ERROR: Validated dist\latest rebuild failed with exit code %BUILD_RC%.
   exit /b %BUILD_RC%
+)
+exit /b 0
+
+:VERIFY_INSTALLED_IDENTITY
+set "HEXA_EXPECTED_SOURCE_COMMIT=%SOURCE_COMMIT%"
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$runtime=Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'; $cfgPath=Join-Path $runtime 'runtime_config.json'; $lockPath=Join-Path $runtime 'runtime_lock.json'; if(-not(Test-Path -LiteralPath $cfgPath -PathType Leaf)){throw 'Installed runtime_config.json missing'}; if(-not(Test-Path -LiteralPath $lockPath -PathType Leaf)){throw 'Installed runtime_lock.json missing'}; $cfg=Get-Content -LiteralPath $cfgPath -Raw ^| ConvertFrom-Json; $lock=Get-Content -LiteralPath $lockPath -Raw ^| ConvertFrom-Json; $expected=$env:HEXA_EXPECTED_SOURCE_COMMIT; if($cfg.source_commit -ne $expected -or $lock.source_commit -ne $expected){throw ('Installed source identity mismatch: expected='+$expected+' config='+$cfg.source_commit+' lock='+$lock.source_commit)}; Write-Host ('INSTALLED_SOURCE_COMMIT='+$expected)"
+set "VERIFY_RC=%ERRORLEVEL%"
+set "HEXA_EXPECTED_SOURCE_COMMIT="
+if not "%VERIFY_RC%"=="0" (
+  echo ERROR: Installed runtime identity verification failed with exit code %VERIFY_RC%.
+  exit /b %VERIFY_RC%
 )
 exit /b 0
