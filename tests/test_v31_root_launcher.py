@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -13,15 +13,27 @@ LAUNCHER = ROOT / 'bayer.bat'
 CLEANUP = ROOT / 'tools' / 'cleanup_generated_release_artifacts.ps1'
 
 
+FIXTURE_INSTALL_HELPER = '''from __future__ import annotations
+import json
+import os
+from pathlib import Path
+
+commit = os.environ['HEXA_TEST_SOURCE_COMMIT']
+runtime = Path(os.environ['LOCALAPPDATA']) / 'HEXA' / 'VideoBuilderV31'
+runtime.mkdir(parents=True, exist_ok=True)
+payload = {'source_commit': commit}
+for name in ('runtime_config.json', 'runtime_lock.json'):
+    (runtime / name).write_text(json.dumps(payload), encoding='utf-8')
+'''
+
+
 def _fixture_installer_text() -> str:
     return (
         '@echo off\n'
         'if defined HEXA_TEST_INSTALL_MARKER >"%HEXA_TEST_INSTALL_MARKER%" echo LATEST_INSTALLER_INVOKED\n'
         'if defined HEXA_TEST_INSTALL_EXIT exit /b %HEXA_TEST_INSTALL_EXIT%\n'
-        'set "HEXA_TEST_RUNTIME=%LOCALAPPDATA%\\HEXA\\VideoBuilderV31"\n'
-        'if not exist "%HEXA_TEST_RUNTIME%" mkdir "%HEXA_TEST_RUNTIME%"\n'
-        '>"%HEXA_TEST_RUNTIME%\\runtime_config.json" echo {"source_commit":"%HEXA_TEST_SOURCE_COMMIT%"}\n'
-        '>"%HEXA_TEST_RUNTIME%\\runtime_lock.json" echo {"source_commit":"%HEXA_TEST_SOURCE_COMMIT%"}\n'
+        'python "%~dp0tools\\fixture_install_identity.py"\n'
+        'if errorlevel 1 exit /b %errorlevel%\n'
         'exit /b 0\n'
     )
 
@@ -32,6 +44,7 @@ def make_fixture(base: Path, *, latest: bool = True, installer: bool = True,
     (repo / 'tools').mkdir(parents=True)
     shutil.copy2(LAUNCHER, repo / 'bayer.bat')
     shutil.copy2(CLEANUP, repo / 'tools' / CLEANUP.name)
+    (repo / 'tools' / 'fixture_install_identity.py').write_text(FIXTURE_INSTALL_HELPER, encoding='utf-8')
 
     subprocess.run(['git', 'init', '-q'], cwd=repo, check=True)
     (repo / 'source-marker.txt').write_text('source\n', encoding='utf-8')
@@ -50,6 +63,7 @@ def make_fixture(base: Path, *, latest: bool = True, installer: bool = True,
         (payload / 'tools').mkdir(parents=True, exist_ok=True)
         (payload / 'extension' / 'py' / 'hexa_v31' / '__init__.py').write_text('', encoding='utf-8')
         (payload / 'tools' / 'install_v31.py').write_text('# fixture\n', encoding='utf-8')
+        shutil.copy2(repo / 'tools' / 'fixture_install_identity.py', payload / 'tools' / 'fixture_install_identity.py')
         if installer:
             (payload / 'INSTALL_HEXA_V31.bat').write_text(_fixture_installer_text(), encoding='utf-8')
         (payload / 'release_identity.json').write_text(
@@ -58,10 +72,8 @@ def make_fixture(base: Path, *, latest: bool = True, installer: bool = True,
         )
 
     if build_helper:
-        installer_lines = _fixture_installer_text().splitlines()
-        installer_ps = ',\n'.join(repr(line) for line in installer_lines)
         (repo / 'tools' / 'build_latest_release.ps1').write_text(
-            f"""param([Parameter(Mandatory=$false)][string]$PackagePath)
+            """param([Parameter(Mandatory=$false)][string]$PackagePath)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $commit=(& git -C $root rev-parse HEAD | Out-String).Trim()
@@ -70,11 +82,17 @@ New-Item -ItemType Directory -Force -Path (Join-Path $latest 'extension\\py\\hex
 New-Item -ItemType Directory -Force -Path (Join-Path $latest 'tools') | Out-Null
 Set-Content -LiteralPath (Join-Path $latest 'extension\\py\\hexa_v31\\__init__.py') -Value '' -Encoding UTF8
 Set-Content -LiteralPath (Join-Path $latest 'tools\\install_v31.py') -Value '# fixture' -Encoding UTF8
+Copy-Item -LiteralPath (Join-Path $root 'tools\\fixture_install_identity.py') -Destination (Join-Path $latest 'tools\\fixture_install_identity.py') -Force
 $installerLines=@(
-{installer_ps}
+'@echo off',
+'if defined HEXA_TEST_INSTALL_MARKER >"%HEXA_TEST_INSTALL_MARKER%" echo LATEST_INSTALLER_INVOKED',
+'if defined HEXA_TEST_INSTALL_EXIT exit /b %HEXA_TEST_INSTALL_EXIT%',
+'python "%~dp0tools\\fixture_install_identity.py"',
+'if errorlevel 1 exit /b %errorlevel%',
+'exit /b 0'
 )
 Set-Content -LiteralPath (Join-Path $latest 'INSTALL_HEXA_V31.bat') -Encoding ASCII -Value $installerLines
-@{{schema='HEXA_V31_RELEASE_IDENTITY';source_commit=$commit}} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $latest 'release_identity.json') -Encoding UTF8
+@{schema='HEXA_V31_RELEASE_IDENTITY';source_commit=$commit} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $latest 'release_identity.json') -Encoding UTF8
 Write-Output 'HEXA_DIST_LATEST_BUILD_PASS'
 """,
             encoding='utf-8',
