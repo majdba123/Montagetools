@@ -6,7 +6,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.layout.perceptual_finalizer import finalize_perceptual_composition
 
     plan = build_interaction_motion_plan(*args, **kwargs)
-    fps = float(kwargs.get('fps', 30.0))
+    fps = float(plan.get('fps') or kwargs.get('fps', 30.0))
     stats = finalize_perceptual_composition(plan, fps=fps)
     plan['perceptual_composition_finalizer'] = stats
     if stats.get('changed'):
