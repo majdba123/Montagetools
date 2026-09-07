@@ -13,6 +13,24 @@ LAUNCHER = ROOT / 'bayer.bat'
 CLEANUP = ROOT / 'tools' / 'cleanup_generated_release_artifacts.ps1'
 
 
+def _fixture_installer_text() -> str:
+    return (
+        '@echo off\n'
+        'if defined HEXA_TEST_INSTALL_MARKER >"%HEXA_TEST_INSTALL_MARKER%" echo LATEST_INSTALLER_INVOKED\n'
+        'if defined HEXA_TEST_INSTALL_EXIT exit /b %HEXA_TEST_INSTALL_EXIT%\n'
+        'set "HEXA_TEST_RELEASE_IDENTITY=%~dp0release_identity.json"\n'
+        'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command '
+        '"$ri=Get-Content -LiteralPath $env:HEXA_TEST_RELEASE_IDENTITY -Raw | ConvertFrom-Json; '
+        '$runtime=Join-Path $env:LOCALAPPDATA \'HEXA\\VideoBuilderV31\'; '
+        'New-Item -ItemType Directory -Force -Path $runtime | Out-Null; '
+        '$payload=@{source_commit=[string]$ri.source_commit}; '
+        '$payload | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtime \'runtime_config.json\') -Encoding UTF8; '
+        '$payload | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtime \'runtime_lock.json\') -Encoding UTF8"\n'
+        'if errorlevel 1 exit /b %errorlevel%\n'
+        'exit /b 0\n'
+    )
+
+
 def make_fixture(base: Path, *, latest: bool = True, installer: bool = True,
                  build_helper: bool = True, validation_package: bool = True) -> Path:
     repo = base / 'Repository With Spaces'
@@ -38,21 +56,17 @@ def make_fixture(base: Path, *, latest: bool = True, installer: bool = True,
         (payload / 'extension' / 'py' / 'hexa_v31' / '__init__.py').write_text('', encoding='utf-8')
         (payload / 'tools' / 'install_v31.py').write_text('# fixture\n', encoding='utf-8')
         if installer:
-            (payload / 'INSTALL_HEXA_V31.bat').write_text(
-                '@echo off\n'
-                'if defined HEXA_TEST_INSTALL_MARKER >"%HEXA_TEST_INSTALL_MARKER%" echo LATEST_INSTALLER_INVOKED\n'
-                'if defined HEXA_TEST_INSTALL_EXIT exit /b %HEXA_TEST_INSTALL_EXIT%\n'
-                'exit /b 0\n',
-                encoding='utf-8',
-            )
+            (payload / 'INSTALL_HEXA_V31.bat').write_text(_fixture_installer_text(), encoding='utf-8')
         (payload / 'release_identity.json').write_text(
             json.dumps({'schema': 'HEXA_V31_RELEASE_IDENTITY', 'source_commit': source_commit}),
             encoding='utf-8',
         )
 
     if build_helper:
+        installer_lines = _fixture_installer_text().splitlines()
+        installer_ps = ',\n'.join(repr(line) for line in installer_lines)
         (repo / 'tools' / 'build_latest_release.ps1').write_text(
-            """param([Parameter(Mandatory=$false)][string]$PackagePath)
+            f"""param([Parameter(Mandatory=$false)][string]$PackagePath)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $commit=(& git -C $root rev-parse HEAD | Out-String).Trim()
@@ -61,13 +75,11 @@ New-Item -ItemType Directory -Force -Path (Join-Path $latest 'extension\\py\\hex
 New-Item -ItemType Directory -Force -Path (Join-Path $latest 'tools') | Out-Null
 Set-Content -LiteralPath (Join-Path $latest 'extension\\py\\hexa_v31\\__init__.py') -Value '' -Encoding UTF8
 Set-Content -LiteralPath (Join-Path $latest 'tools\\install_v31.py') -Value '# fixture' -Encoding UTF8
-Set-Content -LiteralPath (Join-Path $latest 'INSTALL_HEXA_V31.bat') -Encoding ASCII -Value @(
-'@echo off',
-'if defined HEXA_TEST_INSTALL_MARKER >"%HEXA_TEST_INSTALL_MARKER%" echo LATEST_INSTALLER_INVOKED',
-'if defined HEXA_TEST_INSTALL_EXIT exit /b %HEXA_TEST_INSTALL_EXIT%',
-'exit /b 0'
+$installerLines=@(
+{installer_ps}
 )
-@{schema='HEXA_V31_RELEASE_IDENTITY';source_commit=$commit} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $latest 'release_identity.json') -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $latest 'INSTALL_HEXA_V31.bat') -Encoding ASCII -Value $installerLines
+@{{schema='HEXA_V31_RELEASE_IDENTITY';source_commit=$commit}} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $latest 'release_identity.json') -Encoding UTF8
 Write-Output 'HEXA_DIST_LATEST_BUILD_PASS'
 """,
             encoding='utf-8',
@@ -80,7 +92,10 @@ Write-Output 'HEXA_DIST_LATEST_BUILD_PASS'
 
 def run_launcher(repo: Path, cwd: Path, *, code: int = 0):
     marker = repo / 'latest installer marker.txt'
+    localapp = repo / '.test-localappdata'
+    localapp.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
+    env['LOCALAPPDATA'] = str(localapp)
     env['HEXA_TEST_INSTALL_MARKER'] = str(marker)
     env['HEXA_TEST_INSTALL_EXIT'] = str(code)
     command = f'cmd.exe /d /s /c call "{repo / "bayer.bat"}"'
@@ -93,30 +108,42 @@ def run_launcher(repo: Path, cwd: Path, *, code: int = 0):
         stderr=subprocess.STDOUT,
         timeout=60,
     )
-    return cp, marker
+    return cp, marker, localapp
+
+
+def assert_installed_identity(repo: Path, localapp: Path) -> None:
+    expected = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
+    runtime = localapp / 'HEXA' / 'VideoBuilderV31'
+    cfg = json.loads((runtime / 'runtime_config.json').read_text(encoding='utf-8-sig'))
+    lock = json.loads((runtime / 'runtime_lock.json').read_text(encoding='utf-8-sig'))
+    assert cfg['source_commit'] == expected, (cfg, expected)
+    assert lock['source_commit'] == expected, (lock, expected)
 
 
 with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw:
     base = Path(raw)
 
     missing_latest = make_fixture(base / 'missing latest', latest=False)
-    cp, marker = run_launcher(missing_latest, base)
+    cp, marker, localapp = run_launcher(missing_latest, base)
     assert cp.returncode == 0, cp.stdout
     assert marker.is_file(), cp.stdout
     assert 'Rebuilding a validated release payload' in cp.stdout, cp.stdout
     assert 'HEXA INSTALL COMPLETE' in cp.stdout, cp.stdout
+    assert_installed_identity(missing_latest, localapp)
 
     no_project_package = make_fixture(base / 'no project package', latest=False, validation_package=False)
-    cp, marker = run_launcher(no_project_package, base)
+    cp, marker, localapp = run_launcher(no_project_package, base)
     assert cp.returncode == 0, cp.stdout
     assert marker.is_file(), cp.stdout
     assert 'Project package selection remains inside Premiere' in cp.stdout, cp.stdout
+    assert_installed_identity(no_project_package, localapp)
 
     missing_installer = make_fixture(base / 'missing installer', installer=False)
-    cp, marker = run_launcher(missing_installer, base)
+    cp, marker, localapp = run_launcher(missing_installer, base)
     assert cp.returncode == 0, cp.stdout
     assert marker.is_file(), cp.stdout
     assert 'Rebuilding a validated release payload' in cp.stdout, cp.stdout
+    assert_installed_identity(missing_installer, localapp)
 
     repo = make_fixture(base / 'success')
     protected = {
@@ -150,17 +177,19 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
 
     other_cwd = base / 'Different Current Directory'
     other_cwd.mkdir()
-    cp, marker = run_launcher(repo, other_cwd)
+    cp, marker, localapp = run_launcher(repo, other_cwd)
     assert cp.returncode == 0, cp.stdout
     assert marker.read_text(encoding='utf-8').strip() == 'LATEST_INSTALLER_INVOKED'
     assert 'HEXA INSTALL COMPLETE' in cp.stdout, cp.stdout
+    assert 'INSTALLED_SOURCE_COMMIT=' in cp.stdout, cp.stdout
+    assert_installed_identity(repo, localapp)
     assert not source_marker.exists(), 'launcher used repository-source installer'
     assert all(not path.parent.exists() for path in stale), 'allowlisted generated artifacts survived'
     for path, text in protected.items():
         assert path.read_text(encoding='utf-8') == text, f'protected path changed: {path}'
     assert (repo / 'dist' / 'latest').is_dir(), 'dist/latest was deleted'
 
-    cp, marker = run_launcher(repo, other_cwd, code=37)
+    cp, marker, _ = run_launcher(repo, other_cwd, code=37)
     assert cp.returncode == 37, (cp.returncode, cp.stdout)
     assert marker.is_file(), 'validated installer was not invoked for failure propagation test'
     assert 'HEXA INSTALL COMPLETE' not in cp.stdout, cp.stdout
@@ -169,12 +198,13 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
         json.dumps({'source_commit': '0' * 40}),
         encoding='utf-8',
     )
-    cp, marker = run_launcher(repo, other_cwd)
+    cp, marker, localapp = run_launcher(repo, other_cwd)
     assert cp.returncode == 0, cp.stdout
     assert marker.is_file(), cp.stdout
     assert 'Rebuilding a validated release payload' in cp.stdout, cp.stdout
     rebuilt = json.loads((repo / 'dist' / 'latest' / 'release_identity.json').read_text(encoding='utf-8-sig'))
     expected = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
     assert rebuilt['source_commit'] == expected, (rebuilt, expected)
+    assert_installed_identity(repo, localapp)
 
 print('V31_ROOT_LAUNCHER_PASS')
