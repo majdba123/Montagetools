@@ -63,7 +63,7 @@ if not exist "%LATEST_INSTALLER%" exit /b 0
 if not exist "%LATEST%\extension\py\hexa_v31\__init__.py" exit /b 0
 if not exist "%LATEST%\tools\install_v31.py" exit /b 0
 if not exist "%LATEST%\release_identity.json" exit /b 0
-for /f "delims=" %%S in ('%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -NoProfile -NonInteractive -Command "(Get-Content -LiteralPath '%LATEST%\release_identity.json' -Raw | ConvertFrom-Json).source_commit"') do if not defined RELEASE_COMMIT set "RELEASE_COMMIT=%%S"
+for /f "delims=" %%S in ('%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -NoProfile -NonInteractive -Command "(ConvertFrom-Json -InputObject (Get-Content -LiteralPath '%LATEST%\release_identity.json' -Raw)).source_commit"') do if not defined RELEASE_COMMIT set "RELEASE_COMMIT=%%S"
 if /i "%SOURCE_COMMIT%"=="%RELEASE_COMMIT%" set "RELEASE_READY=1"
 exit /b 0
 
@@ -84,7 +84,7 @@ exit /b 0
 
 :VERIFY_INSTALLED_IDENTITY
 set "HEXA_EXPECTED_SOURCE_COMMIT=%SOURCE_COMMIT%"
-"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$runtime=Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'; $cfgPath=Join-Path $runtime 'runtime_config.json'; $lockPath=Join-Path $runtime 'runtime_lock.json'; if(-not(Test-Path -LiteralPath $cfgPath -PathType Leaf)){throw 'Installed runtime_config.json missing'}; if(-not(Test-Path -LiteralPath $lockPath -PathType Leaf)){throw 'Installed runtime_lock.json missing'}; $cfg=Get-Content -LiteralPath $cfgPath -Raw ^| ConvertFrom-Json; $lock=Get-Content -LiteralPath $lockPath -Raw ^| ConvertFrom-Json; $expected=$env:HEXA_EXPECTED_SOURCE_COMMIT; if($cfg.source_commit -ne $expected -or $lock.source_commit -ne $expected){throw ('Installed source identity mismatch: expected='+$expected+' config='+$cfg.source_commit+' lock='+$lock.source_commit)}; Write-Host ('INSTALLED_SOURCE_COMMIT='+$expected)"
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$runtime=Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'; $cfgPath=Join-Path $runtime 'runtime_config.json'; $lockPath=Join-Path $runtime 'runtime_lock.json'; if(-not(Test-Path -LiteralPath $cfgPath -PathType Leaf)){throw 'Installed runtime_config.json missing'}; if(-not(Test-Path -LiteralPath $lockPath -PathType Leaf)){throw 'Installed runtime_lock.json missing'}; $cfg=ConvertFrom-Json -InputObject (Get-Content -LiteralPath $cfgPath -Raw); $lock=ConvertFrom-Json -InputObject (Get-Content -LiteralPath $lockPath -Raw); $expected=$env:HEXA_EXPECTED_SOURCE_COMMIT; if($cfg.source_commit -ne $expected -or $lock.source_commit -ne $expected){throw ('Installed source identity mismatch: expected='+$expected+' config='+$cfg.source_commit+' lock='+$lock.source_commit)}; Write-Host ('INSTALLED_SOURCE_COMMIT='+$expected)"
 set "VERIFY_RC=%ERRORLEVEL%"
 set "HEXA_EXPECTED_SOURCE_COMMIT="
 if not "%VERIFY_RC%"=="0" (
