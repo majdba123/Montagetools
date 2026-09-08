@@ -1,0 +1,405 @@
+from __future__ import annotations
+
+import copy
+import math
+
+from hexa_v31.composition_qa import card_motion_conflicts, composition_plan_qa
+from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, _fp, _in_safe, _rect
+from hexa_v31.visual_density import build_visual_density_report
+
+
+_PARTITION_MODES = {'CHILD_PARTITION', 'RESIDUAL_SUPPORT'}
+
+
+def _physical_interval(event: dict) -> tuple[float, float]:
+    return (
+        float(event.get('physical_start_seconds', event.get('start_seconds', 0.0))),
+        float(event.get('physical_end_seconds', event.get('end_seconds', 0.0))),
+    )
+
+
+def _overlap_seconds(a: dict, b: dict) -> float:
+    ast, aen = _physical_interval(a)
+    bst, ben = _physical_interval(b)
+    return max(0.0, min(aen, ben) - max(ast, bst))
+
+
+def _affected_cards(group: list[dict], cards: list[dict]) -> list[dict]:
+    out = []
+    seen = set()
+    for event in group:
+        est, een = _physical_interval(event)
+        for card in cards:
+            cs = float(card.get('start_seconds', 0.0))
+            ce = float(card.get('end_seconds', cs))
+            if est >= ce - 1e-6 or een <= cs + 1e-6:
+                continue
+            key = str(card.get('card_id') or '')
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(card)
+    return out
+
+
+def _card_neighbors(events: list[dict], card: dict) -> list[dict]:
+    cs = float(card.get('start_seconds', 0.0))
+    ce = float(card.get('end_seconds', cs))
+    return [
+        event for event in events
+        if not event.get('suppressed_by_card_density')
+        and _physical_interval(event)[0] < ce - 1e-6
+        and _physical_interval(event)[1] > cs + 1e-6
+    ]
+
+
+def _candidate_safe(plan: dict, group: list[dict], fps: float) -> bool:
+    events = plan.get('events') or []
+    cards = (plan.get('visual_cards') or {}).get('cards') or []
+    for card in _affected_cards(group, cards):
+        if card_motion_conflicts(
+            _card_neighbors(events, card),
+            float(card.get('start_seconds', 0.0)),
+            float(card.get('end_seconds', 0.0)),
+            fps,
+        ):
+            return False
+    return bool(composition_plan_qa(plan).get('pass'))
+
+
+def _density_not_worse(before: dict, after: dict) -> bool:
+    return (
+        float(after.get('near_blank_duration_seconds', 0.0))
+        <= float(before.get('near_blank_duration_seconds', 0.0)) + 0.01
+        and float(after.get('median_safe_frame_union_coverage', 0.0))
+        >= float(before.get('median_safe_frame_union_coverage', 0.0)) - 0.001
+        and float(after.get('mean_temporal_population', 0.0))
+        >= float(before.get('mean_temporal_population', 0.0)) - 0.001
+    )
+
+
+def _sync_constraint_layout(plan: dict, event: dict) -> None:
+    event_id = str(event.get('event_id') or '')
+    card_id = str(event.get('visual_card_id') or '')
+    for card in (plan.get('visual_cards') or {}).get('cards') or []:
+        if str(card.get('card_id') or '') != card_id:
+            continue
+        placement = ((card.get('constraint_layout') or {}).get('placements') or {}).get(event_id)
+        if placement is None:
+            return
+        placement['center_norm'] = list(event.get('card_rest_position_norm') or [0.5, 0.5])
+        placement['scale'] = float(event.get('layout_scale_multiplier') or 1.0)
+        placement['rect_norm'] = list(event.get('planned_rect_norm') or [])
+        return
+
+
+def _projected_settled_ink(event: dict) -> float:
+    fp = _fp(event)
+    scale = max(0.0, float(event.get('layout_scale_multiplier') or 1.0))
+    return max(0.0, float(fp.visible_area) * scale * scale)
+
+
+def _restore_group(group: list[dict], snapshots: dict[str, dict]) -> None:
+    for event in group:
+        event_id = str(event.get('event_id') or '')
+        # The id is captured before clear so rollback cannot lose its lookup key.
+        snapshot = snapshots[event_id]
+        event.clear()
+        event.update(copy.deepcopy(snapshot))
+
+
+def _restore_all(events: list[dict], snapshots: dict[str, dict]) -> None:
+    for event in events:
+        event_id = str(event.get('event_id') or '')
+        snapshot = snapshots.get(event_id)
+        if snapshot is None:
+            continue
+        event.clear()
+        event.update(copy.deepcopy(snapshot))
+
+
+def _group_has_position_authority(group: list[dict]) -> bool:
+    for event in group:
+        if event.get('position_animated') or event.get('preset_actions'):
+            return True
+        if event.get('composition_states') or event.get('composition_participant_states'):
+            return True
+        entry = str((event.get('preset_entry') or {}).get('name') or '')
+        exit_ = str((event.get('preset_exit') or {}).get('name') or '')
+        if entry.startswith('ENTRY_') or exit_.startswith('EXIT_'):
+            return True
+    return False
+
+
+def _partition_key(event: dict) -> tuple[str, str, str]:
+    return (
+        str(event.get('visual_card_id') or ''),
+        str(event.get('scene_id') or ''),
+        str(event.get('partition_group_id') or event.get('partition_root_id') or 'ROOT_COMPOSITE'),
+    )
+
+
+def _partition_groups(events: list[dict]) -> list[list[dict]]:
+    grouped: dict[tuple[str, str, str], list[dict]] = {}
+    for event in events:
+        if event.get('suppressed_by_card_density'):
+            continue
+        if str(event.get('render_mode') or '') not in _PARTITION_MODES:
+            continue
+        grouped.setdefault(_partition_key(event), []).append(event)
+    return [grouped[key] for key in sorted(grouped) if len(grouped[key]) >= 2]
+
+
+def _group_center(group: list[dict]) -> tuple[float, float]:
+    rects = [list(map(float, event.get('planned_rect_norm') or [])) for event in group]
+    rects = [rect for rect in rects if len(rect) == 4]
+    if not rects:
+        centers = [event.get('card_rest_position_norm') or [0.5, 0.5] for event in group]
+        return (
+            sum(float(center[0]) for center in centers) / len(centers),
+            sum(float(center[1]) for center in centers) / len(centers),
+        )
+    x0 = min(rect[0] for rect in rects)
+    y0 = min(rect[1] for rect in rects)
+    x1 = max(rect[0] + rect[2] for rect in rects)
+    y1 = max(rect[1] + rect[3] for rect in rects)
+    return ((x0 + x1) / 2.0, (y0 + y1) / 2.0)
+
+
+def _scale_partition_groups(plan: dict, fps: float, stats: dict) -> None:
+    events = plan.get('events') or []
+    density = build_visual_density_report(plan)
+    for group in _partition_groups(events):
+        stats['partition_groups_requested'] += 1
+        if _group_has_position_authority(group):
+            stats['partition_rejections']['POSITION_OR_STATE_AUTHORITY'] = stats['partition_rejections'].get('POSITION_OR_STATE_AUTHORITY', 0) + 1
+            continue
+        current_ink = sum(_projected_settled_ink(event) for event in group)
+        if current_ink <= 1e-8:
+            continue
+        ids = {str(event.get('event_id') or '') for event in group}
+        simultaneous = any(
+            str(other.get('event_id') or '') not in ids
+            and not other.get('suppressed_by_card_density')
+            and any(_overlap_seconds(member, other) >= 0.25 for member in group)
+            for other in events
+        )
+        target = 0.22 if simultaneous else 0.30
+        desired = math.sqrt(target / current_ink) if current_ink < target else 1.0
+        candidate_max = min(2.10, desired)
+        if candidate_max <= 1.025:
+            continue
+        factors = []
+        for factor in (candidate_max, 2.0, 1.85, 1.70, 1.55, 1.42, 1.32, 1.24, 1.16, 1.10):
+            factor = round(float(factor), 6)
+            if factor <= 1.025 or factor > candidate_max + 1e-6 or factor in factors:
+                continue
+            factors.append(factor)
+        snapshots = {str(event.get('event_id') or ''): copy.deepcopy(event) for event in group}
+        center = _group_center(group)
+        old_density = density
+        for factor in factors:
+            stats['partition_candidates_evaluated'] += 1
+            safe = True
+            for event in group:
+                event_id = str(event.get('event_id') or '')
+                original = snapshots[event_id]
+                original_center = original.get('card_rest_position_norm') or [0.5, 0.5]
+                new_center = [
+                    center[0] + (float(original_center[0]) - center[0]) * factor,
+                    center[1] + (float(original_center[1]) - center[1]) * factor,
+                ]
+                new_scale = float(original.get('layout_scale_multiplier') or 1.0) * factor
+                rect = list(_rect((new_center[0], new_center[1]), _fp(event), new_scale * MOTION_ENVELOPE_SCALE))
+                if not _in_safe(rect):
+                    safe = False
+                    break
+                event['card_rest_position_norm'] = [round(new_center[0], 6), round(new_center[1], 6)]
+                event['layout_scale_multiplier'] = round(new_scale, 6)
+                event['planned_rect_norm'] = [round(value, 6) for value in rect]
+                event['collision_envelope_rect_norm'] = list(event['planned_rect_norm'])
+            if not safe:
+                _restore_group(group, snapshots)
+                stats['partition_rejections']['SAFE_FRAME'] = stats['partition_rejections'].get('SAFE_FRAME', 0) + 1
+                continue
+            if not _candidate_safe(plan, group, fps):
+                _restore_group(group, snapshots)
+                stats['partition_rejections']['COLLISION_OR_COMPOSITION_QA'] = stats['partition_rejections'].get('COLLISION_OR_COMPOSITION_QA', 0) + 1
+                continue
+            candidate_density = build_visual_density_report(plan)
+            new_ink = sum(_projected_settled_ink(event) for event in group)
+            if not _density_not_worse(old_density, candidate_density) or new_ink <= current_ink + 0.010:
+                _restore_group(group, snapshots)
+                reason = 'DENSITY_MONOTONICITY' if not _density_not_worse(old_density, candidate_density) else 'NO_MATERIAL_INK_GAIN'
+                stats['partition_rejections'][reason] = stats['partition_rejections'].get(reason, 0) + 1
+                continue
+            for event in group:
+                event['reference_partition_scale_authority'] = 'SOURCE_BACKED_PARTITION_UNIFORM_TRANSFORM_FULL_LIFETIME_CERTIFIED'
+                event['reference_partition_scale_factor'] = factor
+                event['reference_partition_ink_before'] = round(current_ink, 6)
+                event['reference_partition_ink_after'] = round(new_ink, 6)
+                _sync_constraint_layout(plan, event)
+            stats['partition_groups_committed'] += 1
+            stats['partition_event_ids'].extend(sorted(ids))
+            density = candidate_density
+            break
+
+
+def _root_scale_target(event: dict, events: list[dict]) -> tuple[float, float]:
+    primary = str(event.get('attention_priority') or '').upper() == 'PRIMARY'
+    simultaneous = any(
+        other is not event
+        and not other.get('suppressed_by_card_density')
+        and _overlap_seconds(event, other) >= 0.25
+        for other in events
+    )
+    if primary:
+        return (0.23 if simultaneous else 0.30, 2.10)
+    return (0.11 if simultaneous else 0.15, 1.60)
+
+
+def _scale_root_actors(plan: dict, fps: float, stats: dict) -> None:
+    events = plan.get('events') or []
+    density = build_visual_density_report(plan)
+    candidates = sorted(
+        [
+            event for event in events
+            if not event.get('suppressed_by_card_density')
+            and str(event.get('render_mode') or 'ROOT_ATOMIC') == 'ROOT_ATOMIC'
+            and event.get('visible_ink_fraction') is not None
+            and event.get('planned_rect_norm')
+        ],
+        key=lambda event: (
+            0 if str(event.get('attention_priority') or '').upper() == 'PRIMARY' else 1,
+            _projected_settled_ink(event),
+            str(event.get('event_id') or ''),
+        ),
+    )
+    for event in candidates:
+        target, cap = _root_scale_target(event, events)
+        current_ink = _projected_settled_ink(event)
+        if current_ink <= 1e-8 or current_ink >= target - 1e-6:
+            continue
+        desired = min(cap, math.sqrt(target / current_ink))
+        if desired <= 1.025:
+            continue
+        factors = []
+        for factor in (desired, 2.0, 1.85, 1.70, 1.55, 1.42, 1.32, 1.24, 1.16, 1.10, 1.06):
+            factor = round(float(factor), 6)
+            if factor <= 1.025 or factor > desired + 1e-6 or factor in factors:
+                continue
+            factors.append(factor)
+        event_id = str(event.get('event_id') or '')
+        snapshot = copy.deepcopy(event)
+        old_density = density
+        old_scale = float(event.get('layout_scale_multiplier') or 1.0)
+        center = event.get('card_rest_position_norm') or [0.5, 0.5]
+        for factor in factors:
+            stats['root_candidates_evaluated'] += 1
+            new_scale = old_scale * factor
+            rect = list(_rect((float(center[0]), float(center[1])), _fp(event), new_scale * MOTION_ENVELOPE_SCALE))
+            if not _in_safe(rect):
+                stats['root_rejections']['SAFE_FRAME'] = stats['root_rejections'].get('SAFE_FRAME', 0) + 1
+                continue
+            event['layout_scale_multiplier'] = round(new_scale, 6)
+            event['planned_rect_norm'] = [round(value, 6) for value in rect]
+            event['collision_envelope_rect_norm'] = list(event['planned_rect_norm'])
+            if not _candidate_safe(plan, [event], fps):
+                event.clear(); event.update(copy.deepcopy(snapshot))
+                stats['root_rejections']['COLLISION_OR_COMPOSITION_QA'] = stats['root_rejections'].get('COLLISION_OR_COMPOSITION_QA', 0) + 1
+                continue
+            candidate_density = build_visual_density_report(plan)
+            new_ink = _projected_settled_ink(event)
+            if not _density_not_worse(old_density, candidate_density) or new_ink <= current_ink + 0.005:
+                event.clear(); event.update(copy.deepcopy(snapshot))
+                reason = 'DENSITY_MONOTONICITY' if not _density_not_worse(old_density, candidate_density) else 'NO_MATERIAL_INK_GAIN'
+                stats['root_rejections'][reason] = stats['root_rejections'].get(reason, 0) + 1
+                continue
+            event['reference_root_scale_authority'] = 'SOURCE_BACKED_REFERENCE_DENSITY_FULL_LIFETIME_CERTIFIED'
+            event['reference_root_scale_factor'] = factor
+            event['reference_root_ink_before'] = round(current_ink, 6)
+            event['reference_root_ink_after'] = round(new_ink, 6)
+            _sync_constraint_layout(plan, event)
+            stats['root_actors_committed'] += 1
+            stats['root_event_ids'].append(event_id)
+            density = candidate_density
+            break
+
+
+def _semantic_focus_cascade(plan: dict, fps: float, stats: dict) -> None:
+    events = plan.get('events') or []
+    cards = plan.get('visual_cards') or {'cards': []}
+    snapshots = {str(event.get('event_id') or ''): copy.deepcopy(event) for event in events}
+    before = build_visual_density_report(plan)
+
+    from hexa_v31.planning.preset_story_planner import _adaptive_composition_state_optimize
+
+    result = _adaptive_composition_state_optimize(events, cards, fps)
+    stats['semantic_cascade_candidates_evaluated'] = int(result.get('candidates_evaluated') or 0)
+    stats['semantic_cascade_committed'] = int(result.get('candidates_committed') or 0)
+    stats['semantic_cascade_event_ids'] = list(result.get('event_ids') or [])
+    stats['semantic_cascade_rejections'] = dict(result.get('rejections') or {})
+    if not stats['semantic_cascade_committed']:
+        return
+    after = build_visual_density_report(plan)
+    if not _density_not_worse(before, after) or not bool(composition_plan_qa(plan).get('pass')):
+        _restore_all(events, snapshots)
+        stats['semantic_cascade_rejections']['FULL_PLAN_QA_OR_DENSITY_MONOTONICITY'] = stats['semantic_cascade_committed']
+        stats['semantic_cascade_committed'] = 0
+        stats['semantic_cascade_event_ids'] = []
+        return
+    for event in events:
+        if str(event.get('event_id') or '') in stats['semantic_cascade_event_ids']:
+            event['reference_semantic_cascade_authority'] = 'SOURCE_REVEAL_FOCUS_TRANSFER_FULL_LIFETIME_CERTIFIED'
+
+
+def finalize_reference_geometry(plan: dict, fps: float = 30.0) -> dict:
+    """Certified reference-density geometry plus semantic focus-transfer cascade.
+
+    This stage is deliberately separate from the stable perceptual finalizer.
+    It may enlarge ROOT_ATOMIC actors from source-backed ink evidence, enlarge a
+    certified partition only as one uniform group transform, and synthesize
+    focus-transfer states only at existing source-backed reveal anchors. It does
+    not invent source pixels, change semantic hit times, split partition actors,
+    or authorize arbitrary camera drift.
+    """
+    before = build_visual_density_report(plan)
+    stats = {
+        'authority': 'REFERENCE_GEOMETRY_AND_SEMANTIC_FOCUS_V1',
+        'partition_groups_requested': 0,
+        'partition_candidates_evaluated': 0,
+        'partition_groups_committed': 0,
+        'partition_event_ids': [],
+        'partition_rejections': {},
+        'root_candidates_evaluated': 0,
+        'root_actors_committed': 0,
+        'root_event_ids': [],
+        'root_rejections': {},
+        'semantic_cascade_candidates_evaluated': 0,
+        'semantic_cascade_committed': 0,
+        'semantic_cascade_event_ids': [],
+        'semantic_cascade_rejections': {},
+        'before_median_alpha_coverage': before.get('median_estimated_alpha_coverage'),
+        'before_median_safe_frame_union_coverage': before.get('median_safe_frame_union_coverage'),
+        'before_mean_temporal_population': before.get('mean_temporal_population'),
+    }
+
+    _semantic_focus_cascade(plan, fps, stats)
+    _scale_partition_groups(plan, fps, stats)
+    _scale_root_actors(plan, fps, stats)
+
+    after = build_visual_density_report(plan)
+    stats['partition_event_ids'] = sorted(set(stats['partition_event_ids']))
+    stats['root_event_ids'] = sorted(set(stats['root_event_ids']))
+    stats['after_median_alpha_coverage'] = after.get('median_estimated_alpha_coverage')
+    stats['after_median_safe_frame_union_coverage'] = after.get('median_safe_frame_union_coverage')
+    stats['after_mean_temporal_population'] = after.get('mean_temporal_population')
+    stats['changed'] = bool(
+        stats['partition_groups_committed']
+        or stats['root_actors_committed']
+        or stats['semantic_cascade_committed']
+    )
+    stats['pass'] = _density_not_worse(before, after) and bool(composition_plan_qa(plan).get('pass'))
+    if not stats['pass']:
+        raise ValueError('REFERENCE_GEOMETRY_AND_SEMANTIC_FOCUS_FAILED')
+    return stats
