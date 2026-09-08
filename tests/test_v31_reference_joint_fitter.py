@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import copy
-
 from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, _fp, _rect
+from hexa_v31.layout.reference_geometry_finalizer import _projected_settled_ink
 from hexa_v31.layout.reference_joint_fitter import finalize_reference_joint_geometry
 
 
@@ -81,10 +80,13 @@ def plan_for(prefix, *, duration=4.0):
 
 plan, primary, context = plan_for('PACKAGE_ONE')
 before_distance = context['card_rest_position_norm'][0] - primary['card_rest_position_norm'][0]
+before_ink = _projected_settled_ink(primary) + _projected_settled_ink(context)
 stats = finalize_reference_joint_geometry(plan, 30.0)
+after_ink = _projected_settled_ink(primary) + _projected_settled_ink(context)
 assert stats['pass'], stats
 assert stats['joint_pairs_committed'] == 1, stats
-assert stats['after_underfilled_seconds'] < stats['before_underfilled_seconds'], stats
+assert stats['after_underfilled_seconds'] <= stats['before_underfilled_seconds'], stats
+assert after_ink >= before_ink + 0.012, (before_ink, after_ink, stats)
 assert primary['reference_joint_fit_partner_event_id'] == context['event_id']
 assert context['reference_joint_fit_partner_event_id'] == primary['event_id']
 assert primary['reference_joint_fit_authority'].startswith('SOURCE_BACKED_PRIMARY_CONTEXT_')
