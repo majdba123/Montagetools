@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, _fp, _rect
-from hexa_v31.layout.perceptual_finalizer import finalize_perceptual_composition
+from hexa_v31.layout.reference_geometry_finalizer import finalize_reference_geometry
 from hexa_v31.layout.reference_quality_finalizer import finalize_reference_density_topology
 
 
@@ -72,10 +72,11 @@ def card(events, *, end=4.0):
     }
 
 
-# P3 topology regression: a previously revealed support must be allowed to stay
-# as source-backed context when the next state would otherwise remain materially
-# underfilled. The pass changes lifetime only after full composition/collision QA.
-context = event('CONTEXT', .28, .52, (0, 0, .30, .32), start=0.0, end=2.0, hit=.7, ink=1.0)
+# P3 topology regression: the outgoing source-backed context is already dense
+# enough on its own. The incoming focus is deliberately sparse; once context
+# retires, a sustained underfilled interval appears and must be rescued by
+# retaining that real predecessor state rather than inventing new pixels.
+context = event('CONTEXT', .30, .52, (0, 0, .40, .52), start=0.0, end=2.0, hit=.7, ink=1.0)
 focus = event('FOCUS', .72, .52, (0, 0, .30, .32), start=1.5, end=4.0, hit=2.0, primary=True, ink=1.0)
 card_a = card([context, focus])
 plan = {'fps': 30.0, 'events': [context, focus], 'visual_cards': {'cards': [card_a]}}
@@ -90,7 +91,7 @@ assert topology['after_underfilled_seconds'] < topology['before_underfilled_seco
 
 # P3 partition regression: certified source partitions remain atomic, but the
 # whole partition may grow through one uniform transform. No child receives an
-# independent density scale authority.
+# independent source-ink scale authority.
 left = event('PART_L', .39, .52, (0, 0, .08, .18), end=2.0, hit=.5,
              render_mode='CHILD_PARTITION', ink=1.0, partition_root='ROOT_X')
 right = event('PART_R', .61, .52, (0, 0, .08, .18), end=2.0, hit=.5,
@@ -98,33 +99,32 @@ right = event('PART_R', .61, .52, (0, 0, .08, .18), end=2.0, hit=.5,
 partition_card = card([left, right], end=2.0)
 partition_plan = {'fps': 30.0, 'events': [left, right], 'visual_cards': {'cards': [partition_card]}}
 old_distance = abs(left['card_rest_position_norm'][0] - right['card_rest_position_norm'][0])
-partition_stats = finalize_perceptual_composition(partition_plan, fps=30.0)
+partition_stats = finalize_reference_geometry(partition_plan, fps=30.0)
 assert partition_stats['pass'], partition_stats
 assert partition_stats['partition_groups_committed'] >= 1, partition_stats
 assert left['layout_scale_multiplier'] == right['layout_scale_multiplier'], (left, right)
 assert left['layout_scale_multiplier'] > 1.0, (left, right)
 new_distance = abs(left['card_rest_position_norm'][0] - right['card_rest_position_norm'][0])
 assert new_distance > old_distance, (old_distance, new_distance)
-assert left['final_partition_group_scale_authority'] == 'SOURCE_BACKED_PARTITION_GROUP_UNIFORM_TRANSFORM_FULL_LIFETIME_CERTIFIED'
-assert right['final_partition_group_scale_authority'] == left['final_partition_group_scale_authority']
+assert left['reference_partition_scale_authority'] == 'SOURCE_BACKED_PARTITION_UNIFORM_TRANSFORM_FULL_LIFETIME_CERTIFIED'
+assert right['reference_partition_scale_authority'] == left['reference_partition_scale_authority']
 assert 'final_visible_ink_scale_authority' not in left
 assert 'final_visible_ink_scale_authority' not in right
 
 
-# P4 regression: after richer lifetimes exist, the final perceptual pass gets a
-# second chance to compile a semantic focus transfer at the real next reveal.
-# This is not idle camera drift; the state is owned by an existing semantic hit.
+# P4 regression: after richer lifetimes exist, the reference geometry stage gets
+# a second chance to compile a semantic focus transfer at the real next reveal.
+# This is source-owned editorial choreography, never idle camera drift.
 lead = event('LEAD', .28, .52, (0, 0, .16, .22), start=0.0, end=4.0, hit=.8, primary=True, ink=.9)
 support = event('SUPPORT', .72, .52, (0, 0, .16, .22), start=1.4, end=4.0, hit=2.4, ink=.9)
 cascade_card = card([lead, support])
 cascade_plan = {'fps': 30.0, 'events': [lead, support], 'visual_cards': {'cards': [cascade_card]}}
-cascade_stats = finalize_perceptual_composition(cascade_plan, fps=30.0)
+cascade_stats = finalize_reference_geometry(cascade_plan, fps=30.0)
 assert cascade_stats['pass'], cascade_stats
 assert cascade_stats['semantic_cascade_committed'] >= 1, cascade_stats
 assert lead.get('meaningful_recomposition'), lead
 assert len(lead.get('composition_states') or []) >= 2, lead
 assert len(support.get('composition_participant_states') or []) >= 2, support
 assert float(lead['composition_states'][-1]['start_seconds']) <= float(support['perceptual_hit_seconds']), lead
-assert cascade_stats['hierarchy_candidates_committed'] >= 0
 
 print('V31_REFERENCE_QUALITY_FINALIZERS_PASS')
