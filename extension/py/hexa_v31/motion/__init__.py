@@ -4,6 +4,7 @@
 def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.interaction.director import build_interaction_motion_plan, finalize_interaction_motion_plan
     from hexa_v31.layout.reference_quality_finalizer import finalize_reference_density_topology
+    from hexa_v31.layout.reference_geometry_finalizer import finalize_reference_geometry
     from hexa_v31.layout.perceptual_finalizer import finalize_perceptual_composition
 
     plan = build_interaction_motion_plan(*args, **kwargs)
@@ -12,17 +13,19 @@ def _build_final_motion_plan(*args, **kwargs):
     topology_stats = finalize_reference_density_topology(plan, fps=fps)
     plan['reference_density_topology_finalizer'] = topology_stats
 
+    geometry_stats = finalize_reference_geometry(plan, fps=fps)
+    plan['reference_geometry_finalizer'] = geometry_stats
+
     perceptual_stats = finalize_perceptual_composition(plan, fps=fps)
     plan['perceptual_composition_finalizer'] = perceptual_stats
 
-    if topology_stats.get('changed') or perceptual_stats.get('changed'):
-        # Both final passes mutate only already-certified source-backed state:
-        # topology rescue may extend an existing carrier inside its card while
-        # perceptual composition may strengthen geometry or semantic state
-        # amplitude. Re-run the same lifetime/physical authority once so the
-        # finalization barrier describes the exact pixels the renderer consumes.
+    if topology_stats.get('changed') or geometry_stats.get('changed') or perceptual_stats.get('changed'):
+        # Final reference passes mutate only already-certified source-backed
+        # state. Re-run the same lifetime/physical authority once so the final
+        # immutable barrier describes the exact pixels consumed by the renderer.
         plan = finalize_interaction_motion_plan(plan, fps=fps)
         plan['reference_density_topology_finalizer'] = topology_stats
+        plan['reference_geometry_finalizer'] = geometry_stats
         plan['perceptual_composition_finalizer'] = perceptual_stats
     return plan
 
