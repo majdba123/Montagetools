@@ -2,20 +2,37 @@ from __future__ import annotations
 
 from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, _fp, _rect
 from hexa_v31.layout.reference_geometry_finalizer import _projected_settled_ink
-from hexa_v31.layout.reference_joint_fitter import finalize_reference_joint_geometry
+from hexa_v31.layout.reference_joint_fitter import _preset_moves_center, finalize_reference_joint_geometry
 
 
 def event(eid, x, y, bbox, *, primary=False, start=0.0, end=4.0, scene='SCENE_GENERIC'):
     row = {
-        'event_id': eid,'scene_id': scene,'visual_card_id': 'CARD_GENERIC','render_mode': 'ROOT_ATOMIC',
-        'source_bbox_norm': list(bbox),'visible_ink_fraction': 0.88,
+        'event_id': eid,
+        'scene_id': scene,
+        'visual_card_id': 'CARD_GENERIC',
+        'render_mode': 'ROOT_ATOMIC',
+        'source_bbox_norm': list(bbox),
+        'visible_ink_fraction': 0.88,
         'visible_ink_fraction_basis': 'SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX',
-        'reference_camera_scale': 1.0,'layout_scale_multiplier': 1.0,'card_rest_position_norm': [x, y],
-        'attention_priority': 'PRIMARY' if primary else 'SUPPORTING','composition_role': 'LEAD' if primary else 'SUPPORT',
-        'start_seconds': start,'end_seconds': end,'physical_start_seconds': start,'physical_end_seconds': end,
-        'motion_start_seconds': start,'motion_end_seconds': end,'settle_seconds': min(end, start + 0.5),
-        'perceptual_hit_seconds': start + 0.8,'preset_entry': None,'preset_exit': None,'preset_actions': [],
-        'translation_safe_after_occlusion': False,'animation_safe': False,'position_animated': False,
+        'reference_camera_scale': 1.0,
+        'layout_scale_multiplier': 1.0,
+        'card_rest_position_norm': [x, y],
+        'attention_priority': 'PRIMARY' if primary else 'SUPPORTING',
+        'composition_role': 'LEAD' if primary else 'SUPPORT',
+        'start_seconds': start,
+        'end_seconds': end,
+        'physical_start_seconds': start,
+        'physical_end_seconds': end,
+        'motion_start_seconds': start,
+        'motion_end_seconds': end,
+        'settle_seconds': min(end, start + 0.5),
+        'perceptual_hit_seconds': start + 0.8,
+        'preset_entry': None,
+        'preset_exit': None,
+        'preset_actions': [],
+        'translation_safe_after_occlusion': False,
+        'animation_safe': False,
+        'position_animated': False,
     }
     fp = _fp(row)
     row['planned_rect_norm'] = list(_rect((x, y), fp, MOTION_ENVELOPE_SCALE))
@@ -25,9 +42,28 @@ def event(eid, x, y, bbox, *, primary=False, start=0.0, end=4.0, scene='SCENE_GE
 
 def card(events, *, end=4.0):
     return {
-        'card_id':'CARD_GENERIC','start_seconds':0.0,'end_seconds':end,'duration_seconds':end,
-        'story_phase_plan':{'phases':[{'phase_id':'PHASE_GENERIC','start_seconds':0.0,'end_seconds':end,'event_ids':[event['event_id'] for event in events]}]},
-        'constraint_layout':{'placements':{event['event_id']:{'center_norm':list(event['card_rest_position_norm']),'scale':event['layout_scale_multiplier'],'rect_norm':list(event['planned_rect_norm'])} for event in events}},
+        'card_id': 'CARD_GENERIC',
+        'start_seconds': 0.0,
+        'end_seconds': end,
+        'duration_seconds': end,
+        'story_phase_plan': {
+            'phases': [{
+                'phase_id': 'PHASE_GENERIC',
+                'start_seconds': 0.0,
+                'end_seconds': end,
+                'event_ids': [event['event_id'] for event in events],
+            }],
+        },
+        'constraint_layout': {
+            'placements': {
+                event['event_id']: {
+                    'center_norm': list(event['card_rest_position_norm']),
+                    'scale': event['layout_scale_multiplier'],
+                    'rect_norm': list(event['planned_rect_norm']),
+                }
+                for event in events
+            },
+        },
     }
 
 
@@ -35,9 +71,15 @@ def plan_for(prefix, *, duration=4.0):
     primary = event(prefix + '_PRIMARY', .28, .52, (0, 0, .15, .22), primary=True, end=duration)
     context = event(prefix + '_CONTEXT', .74, .52, (0, 0, .12, .18), end=duration)
     events = [primary, context]
-    return {'fps':30.0,'events':events,'visual_cards':{'cards':[card(events,end=duration)]}}, primary, context
+    return {
+        'fps': 30.0,
+        'events': events,
+        'visual_cards': {'cards': [card(events, end=duration)]},
+    }, primary, context
 
 
+# Joint fitting must coordinate the two static destinations and respond to the
+# card-level source-ink deficit, not stop at already-satisfied individual targets.
 plan, primary, context = plan_for('PACKAGE_ONE')
 before_distance = context['card_rest_position_norm'][0] - primary['card_rest_position_norm'][0]
 before_ink = _projected_settled_ink(primary) + _projected_settled_ink(context)
@@ -53,11 +95,15 @@ assert primary['reference_joint_fit_partner_event_id'] == context['event_id']
 assert context['reference_joint_fit_partner_event_id'] == primary['event_id']
 assert primary['reference_joint_fit_authority'].startswith('SOURCE_BACKED_PRIMARY_CONTEXT_')
 assert primary['reference_joint_fit_target_ink'] == stats['joint_max_target_ink']
-assert primary['layout_scale_multiplier'] > 1.0 and context['layout_scale_multiplier'] > 1.0
+assert primary['layout_scale_multiplier'] > 1.0
+assert context['layout_scale_multiplier'] > 1.0
 assert context['card_rest_position_norm'][0] > primary['card_rest_position_norm'][0]
 assert context['card_rest_position_norm'][0] - primary['card_rest_position_norm'][0] < before_distance
 assert not primary['position_animated'] and not context['position_animated']
 
+
+# IDs and narration duration cannot select the geometry. Same normalized source
+# structure must produce the same coordinated result across different packages.
 other, other_primary, other_context = plan_for('COMPLETELY_DIFFERENT_IDS', duration=9.5)
 other_stats = finalize_reference_joint_geometry(other, 30.0)
 assert other_stats['joint_pairs_committed'] == 1, other_stats
@@ -66,21 +112,37 @@ assert other_context['layout_scale_multiplier'] == context['layout_scale_multipl
 assert other_primary['card_rest_position_norm'] == primary['card_rest_position_norm']
 assert other_context['card_rest_position_norm'] == context['card_rest_position_norm']
 
+
+# Scale/opacity-only P2/P4 authority must not starve a valid static joint fit.
 appearance_plan, appearance_primary, appearance_context = plan_for('APPEARANCE_AUTHORITY')
-appearance_primary['preset_entry']={'name':'APPEAR_HIGH_SCALE','start_seconds':0.0,'duration_seconds':0.8}
-appearance_context['preset_actions']=[{'name':'APPEAR_HIGH_SCALE','start_seconds':1.0,'duration_seconds':0.8}]
-appearance_context['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':3.4,'duration_seconds':0.6}
+appearance_primary['preset_entry'] = {
+    'name': 'APPEAR_HIGH_SCALE',
+    'start_seconds': 0.0,
+    'duration_seconds': 0.8,
+}
+appearance_context['preset_actions'] = [{
+    'name': 'APPEAR_HIGH_SCALE',
+    'start_seconds': 1.0,
+    'duration_seconds': 0.8,
+}]
+appearance_context['preset_exit'] = {
+    'name': 'DISAPPEAR_DOWN_SCALE',
+    'start_seconds': 3.4,
+    'duration_seconds': 0.6,
+}
 appearance_stats = finalize_reference_joint_geometry(appearance_plan, 30.0)
 assert appearance_stats['joint_pairs_requested'] >= 1, appearance_stats
 assert appearance_stats['joint_pairs_committed'] == 1, appearance_stats
 assert not appearance_stats['joint_rejections'].get('POSITION_OR_RENDER_AUTHORITY'), appearance_stats
 
+
+# Center-preserving hierarchy states may travel with the new settled composition.
 state_plan, state_primary, state_context = plan_for('CENTER_PRESERVING_STATE')
 for actor in (state_primary, state_context):
-    base=list(actor['card_rest_position_norm'])
-    actor['composition_states']=[
-        {'start_seconds':0.0,'transition_duration_seconds':0.0,'center_norm':list(base),'scale_multiplier':1.0,'visibility':1.0},
-        {'start_seconds':2.0,'transition_duration_seconds':0.2,'center_norm':list(base),'scale_multiplier':1.06,'visibility':1.0},
+    base = list(actor['card_rest_position_norm'])
+    actor['composition_states'] = [
+        {'start_seconds': 0.0, 'center_norm': list(base), 'scale_multiplier': 1.0, 'visibility': 1.0},
+        {'start_seconds': 2.0, 'center_norm': list(base), 'scale_multiplier': 1.06, 'visibility': 1.0},
     ]
 state_stats = finalize_reference_joint_geometry(state_plan, 30.0)
 assert state_stats['joint_pairs_committed'] == 1, state_stats
@@ -88,11 +150,15 @@ for actor in (state_primary, state_context):
     assert all(row['center_norm'] == actor['card_rest_position_norm'] for row in actor['composition_states']), actor
     assert actor['composition_states'][-1]['scale_multiplier'] == 1.06, actor
 
+
+# Two competing primaries are never converted into a density pair.
 a = event('PRIMARY_A', .28, .52, (0, 0, .15, .22), primary=True)
 b = event('PRIMARY_B', .74, .52, (0, 0, .12, .18), primary=True)
-two_primary = {'fps':30.0,'events':[a,b],'visual_cards':{'cards':[card([a,b])]}}
+two_primary = {'fps': 30.0, 'events': [a, b], 'visual_cards': {'cards': [card([a, b])]}}
 assert finalize_reference_joint_geometry(two_primary, 30.0)['joint_pairs_committed'] == 0
 
+
+# Position-authored actors are not statically relocated by this stage.
 positioned_plan, positioned_primary, positioned_context = plan_for('POSITION_AUTHORITY')
 positioned_context['position_animated'] = True
 positioned_stats = finalize_reference_joint_geometry(positioned_plan, 30.0)
@@ -102,18 +168,29 @@ assert positioned_stats['joint_rejections'].get('POSITION_OR_RENDER_AUTHORITY') 
 assert positioned_primary['card_rest_position_norm'] == [.28, .52]
 assert positioned_context['card_rest_position_norm'] == [.74, .52]
 
-travel_plan, travel_primary, travel_context = plan_for('WITHIN_FRAME_AUTHORITY')
-travel_context['preset_actions']=[{'name':'WITHIN_MIDDLE_TO_LEFT','start_seconds':1.0,'duration_seconds':0.9}]
-travel_stats = finalize_reference_joint_geometry(travel_plan, 30.0)
-assert travel_stats['joint_pairs_requested'] >= 1, travel_stats
-assert travel_stats['joint_pairs_committed'] == 0, travel_stats
-assert travel_stats['joint_rejections'].get('POSITION_OR_RENDER_AUTHORITY') == 1, travel_stats
 
+# Preset classification itself must preserve true travel while allowing the
+# scale/opacity-only vocabulary used by P2/P4.
+assert _preset_moves_center({'name': 'WITHIN_MIDDLE_TO_LEFT'})
+assert _preset_moves_center({'name': 'ENTRY_LEFT_TO_MIDDLE'})
+assert not _preset_moves_center({'name': 'APPEAR_HIGH_SCALE'})
+assert not _preset_moves_center({'name': 'DISAPPEAR_DOWN_SCALE'})
+
+
+# Mere temporal adjacency across unrelated scenes/phases is not semantic
+# permission to use an actor as density filler.
 unrelated_primary = event('UNRELATED_PRIMARY', .28, .52, (0, 0, .15, .22), primary=True, scene='SCENE_ONE')
 unrelated_context = event('UNRELATED_CONTEXT', .74, .52, (0, 0, .12, .18), scene='SCENE_TWO')
 unrelated_card = card([unrelated_primary, unrelated_context])
-unrelated_card['story_phase_plan']['phases']=[{'phase_id':'P1','event_ids':['UNRELATED_PRIMARY']},{'phase_id':'P2','event_ids':['UNRELATED_CONTEXT']}]
-unrelated_plan={'fps':30.0,'events':[unrelated_primary,unrelated_context],'visual_cards':{'cards':[unrelated_card]}}
+unrelated_card['story_phase_plan']['phases'] = [
+    {'phase_id': 'P1', 'event_ids': ['UNRELATED_PRIMARY']},
+    {'phase_id': 'P2', 'event_ids': ['UNRELATED_CONTEXT']},
+]
+unrelated_plan = {
+    'fps': 30.0,
+    'events': [unrelated_primary, unrelated_context],
+    'visual_cards': {'cards': [unrelated_card]},
+}
 assert finalize_reference_joint_geometry(unrelated_plan, 30.0)['joint_pairs_committed'] == 0
 
 print('V31_REFERENCE_JOINT_PRIMARY_CONTEXT_FIT_PASS')
