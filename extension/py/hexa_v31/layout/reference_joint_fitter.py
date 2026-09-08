@@ -9,7 +9,6 @@ from hexa_v31.layout.reference_geometry_finalizer import (
     _candidate_safe,
     _continue_semantic_sequences,
     _density_not_worse,
-    _group_has_position_authority,
     _overlap_seconds,
     _projected_settled_ink,
     _restore_all,
@@ -18,10 +17,12 @@ from hexa_v31.layout.reference_geometry_finalizer import (
     _sync_constraint_layout,
 )
 from hexa_v31.layout.reference_quality_finalizer import _card_quality
+from hexa_v31.preset_authority import preset as _preset_def
 from hexa_v31.visual_density import build_visual_density_report
 
 
 _PAIR_TARGET_INK = 0.26
+_MAX_SEVERE_PAIR_TARGET_INK = 0.32
 _MIN_PAIR_OVERLAP_SECONDS = 0.55
 _MIN_PAIR_INK_GAIN = 0.012
 _MAX_PAIR_COMMITS = 12
@@ -44,31 +45,107 @@ def _semantic_pair_allowed(card: dict, primary: dict, context: dict) -> bool:
     return False
 
 
-def _static_root(event: dict) -> bool:
+def _source_backed_root(event: dict) -> bool:
     return (
         not event.get('suppressed_by_card_density')
         and str(event.get('render_mode') or 'ROOT_ATOMIC') == 'ROOT_ATOMIC'
         and event.get('visible_ink_fraction') is not None
         and bool(event.get('planned_rect_norm'))
-        and not _group_has_position_authority([event])
     )
 
 
-def _pair_scale_ladder(primary: dict, context: dict, events: list[dict]) -> list[tuple[float, float]]:
+def _preset_moves_center(row: dict | None) -> bool:
+    if not row:
+        return False
+    name = str(row.get('name') or '')
+    if not name:
+        return False
+    try:
+        definition = _preset_def(name)
+    except KeyError:
+        return True
+    family = str(definition.get('family') or '').upper()
+    if family in {'ENTRY_EXIT', 'WITHIN_FRAME'}:
+        return True
+    delta = definition.get('position_delta_norm') or [0.0, 0.0]
+    try:
+        return abs(float(delta[0])) > 1e-6 or abs(float(delta[1])) > 1e-6
+    except (TypeError, ValueError, IndexError):
+        return True
+
+
+def _state_moves_center(event: dict) -> bool:
+    base = event.get('card_rest_position_norm') or [0.5, 0.5]
+    for key in ('composition_states', 'composition_participant_states'):
+        for state in event.get(key) or []:
+            center = state.get('center_norm') or base
+            try:
+                if math.dist([float(center[0]), float(center[1])],
+                             [float(base[0]), float(base[1])]) > 1e-6:
+                    return True
+            except (TypeError, ValueError, IndexError):
+                return True
+    return False
+
+
+def _vector_motion_authority(event: dict) -> bool:
+    if abs(float(event.get('drift_dx_norm') or 0.0)) > 1e-6 or abs(float(event.get('drift_dy_norm') or 0.0)) > 1e-6:
+        return True
+    for key in ('focus_beats', 'story_beats', 'story_actions'):
+        for row in event.get(key) or []:
+            if (
+                abs(float(row.get('dx_norm') or 0.0)) > 1e-6
+                or abs(float(row.get('dy_norm') or 0.0)) > 1e-6
+                or abs(float(row.get('arc_norm') or 0.0)) > 1e-6
+            ):
+                return True
+    return False
+
+
+def _joint_position_authority(event: dict) -> bool:
+    """Protect actual center travel while allowing center-preserving hierarchy."""
+    if event.get('position_animated'):
+        return True
+    if _preset_moves_center(event.get('preset_entry')) or _preset_moves_center(event.get('preset_exit')):
+        return True
+    if any(_preset_moves_center(row) for row in event.get('preset_actions') or []):
+        return True
+    if _state_moves_center(event) or _vector_motion_authority(event):
+        return True
+    return False
+
+
+def _static_root(event: dict) -> bool:
+    return _source_backed_root(event) and not _joint_position_authority(event)
+
+
+def _pair_target_ink(card: dict, quality: dict) -> float:
+    duration = max(0.001, float(card.get('end_seconds', 0.0)) - float(card.get('start_seconds', 0.0)))
+    underfilled_ratio = min(1.0, max(0.0, float(quality.get('underfilled_seconds') or 0.0) / duration))
+    mean_ink = max(0.0, float(quality.get('mean_ink') or 0.0))
+    ink_deficit_ratio = min(1.0, max(0.0, (0.20 - mean_ink) / 0.20))
+    severity = max(underfilled_ratio, ink_deficit_ratio)
+    return round(_PAIR_TARGET_INK + (_MAX_SEVERE_PAIR_TARGET_INK - _PAIR_TARGET_INK) * severity, 6)
+
+
+def _pair_scale_ladder(primary: dict, context: dict, events: list[dict], pair_target_ink: float) -> list[tuple[float, float]]:
     primary_ink = _projected_settled_ink(primary)
     context_ink = _projected_settled_ink(context)
     combined = primary_ink + context_ink
-    if primary_ink <= 1e-9 or context_ink <= 1e-9 or combined >= _PAIR_TARGET_INK - 1e-6:
+    if primary_ink <= 1e-9 or context_ink <= 1e-9 or combined >= pair_target_ink - 1e-6:
         return []
     primary_target, primary_cap = _root_scale_target(primary, events)
     context_target, context_cap = _root_scale_target(context, events)
-    primary_desired = min(primary_cap, math.sqrt(primary_target / primary_ink)) if primary_ink < primary_target else 1.0
-    context_desired = min(context_cap, math.sqrt(context_target / context_ink)) if context_ink < context_target else 1.0
+    primary_individual = min(primary_cap, math.sqrt(primary_target / primary_ink)) if primary_ink < primary_target else 1.0
+    context_individual = min(context_cap, math.sqrt(context_target / context_ink)) if context_ink < context_target else 1.0
+    pair_factor = math.sqrt(pair_target_ink / max(1e-9, combined))
+    primary_desired = min(primary_cap, max(primary_individual, pair_factor))
+    context_desired = min(context_cap, max(context_individual, pair_factor))
     if primary_desired <= 1.025 and context_desired <= 1.025:
         return []
 
     out: list[tuple[float, float]] = []
-    for fraction in (1.0, 0.82, 0.64, 0.46):
+    for fraction in (1.0, 0.84, 0.68, 0.52):
         primary_factor = round(1.0 + (primary_desired - 1.0) * fraction, 6)
         context_factor = round(1.0 + (context_desired - 1.0) * fraction, 6)
         row = (primary_factor, context_factor)
@@ -76,7 +153,7 @@ def _pair_scale_ladder(primary: dict, context: dict, events: list[dict]) -> list
             continue
         out.append(row)
     if primary_desired > 1.08:
-        for context_fraction in (0.30, 0.0):
+        for context_fraction in (0.34, 0.0):
             row = (
                 round(primary_desired, 6),
                 round(1.0 + (context_desired - 1.0) * context_fraction, 6),
@@ -101,23 +178,27 @@ def _fit_common_translation(rects: list[list[float]], centers: list[list[float]]
     y0 = min(rect[1] for rect in rects)
     x1 = max(rect[0] + rect[2] for rect in rects)
     y1 = max(rect[1] + rect[3] for rect in rects)
-    if x1 - x0 > SAFE_X[1] - SAFE_X[0] + 1e-9 or y1 - y0 > SAFE_Y[1] - SAFE_Y[0] + 1e-9:
+    if x1 - x0 > SAFE_X[1] - SAFE_X[0] + 1e-9:
+        return None
+    if y1 - y0 > SAFE_Y[1] - SAFE_Y[0] + 1e-9:
         return None
     dx = max(SAFE_X[0] - x0, min(0.0, SAFE_X[1] - x1))
     dy = max(SAFE_Y[0] - y0, min(0.0, SAFE_Y[1] - y1))
     return [[round(center[0] + dx, 6), round(center[1] + dy, 6)] for center in centers]
 
 
-def _pair_layout_candidates(plan: dict, primary: dict, context: dict,
-                            primary_factor: float, context_factor: float) -> list[tuple[list[float], list[float]]]:
+def _pair_layout_candidates(plan: dict, primary: dict, context: dict, primary_factor: float, context_factor: float) -> list[tuple[list[float], list[float]]]:
     primary_scale = float(primary.get('layout_scale_multiplier') or 1.0) * primary_factor
     context_scale = float(context.get('layout_scale_multiplier') or 1.0) * context_factor
-    primary_fp, context_fp = _fp(primary), _fp(context)
+    primary_fp = _fp(primary)
+    context_fp = _fp(context)
     primary_width = primary_fp.w * primary_scale * MOTION_ENVELOPE_SCALE
     primary_height = primary_fp.h * primary_scale * MOTION_ENVELOPE_SCALE
     context_width = context_fp.w * context_scale * MOTION_ENVELOPE_SCALE
     context_height = context_fp.h * context_scale * MOTION_ENVELOPE_SCALE
-    if max(primary_width, context_width) > SAFE_X[1] - SAFE_X[0] or max(primary_height, context_height) > SAFE_Y[1] - SAFE_Y[0]:
+    if max(primary_width, context_width) > SAFE_X[1] - SAFE_X[0]:
+        return []
+    if max(primary_height, context_height) > SAFE_Y[1] - SAFE_Y[0]:
         return []
 
     axis, sign = _pair_axis(primary, context)
@@ -160,6 +241,7 @@ def _pair_layout_candidates(plan: dict, primary: dict, context: dict,
 
 
 def _apply_static_transform(event: dict, center: list[float], factor: float) -> None:
+    old_center = list(event.get('card_rest_position_norm') or [0.5, 0.5])
     new_scale = float(event.get('layout_scale_multiplier') or 1.0) * factor
     rect = list(_rect(center, _fp(event), new_scale * MOTION_ENVELOPE_SCALE))
     event['card_rest_position_norm'] = [round(float(center[0]), 6), round(float(center[1]), 6)]
@@ -168,42 +250,48 @@ def _apply_static_transform(event: dict, center: list[float], factor: float) -> 
     event['collision_envelope_rect_norm'] = list(event['planned_rect_norm'])
     for key in ('composition_states', 'composition_participant_states'):
         for state in event.get(key) or []:
-            state['center_norm'] = list(event['card_rest_position_norm'])
+            state_center = state.get('center_norm') or old_center
+            if math.dist([float(state_center[0]), float(state_center[1])], [float(old_center[0]), float(old_center[1])]) <= 1e-6:
+                state['center_norm'] = list(event['card_rest_position_norm'])
 
 
 def _restore_pair(primary: dict, context: dict, snapshots: dict[str, dict]) -> None:
     for event in (primary, context):
         event_id = str(event.get('event_id') or '')
+        snapshot = snapshots[event_id]
         event.clear()
-        event.update(copy.deepcopy(snapshots[event_id]))
+        event.update(copy.deepcopy(snapshot))
 
 
-def _candidate_pairs(plan: dict, fps: float) -> list[tuple[dict, dict, dict]]:
+def _candidate_pairs(plan: dict, fps: float) -> list[tuple[dict, dict, dict, float]]:
     events = plan.get('events') or []
     cards = (plan.get('visual_cards') or {}).get('cards') or []
-    pairs: list[tuple[float, str, str, dict, dict, dict]] = []
+    pairs: list[tuple[float, str, str, dict, dict, dict, float]] = []
     step = max(0.08, min(0.12, 3.0 / max(1.0, float(fps))))
     for card in cards:
         card_id = str(card.get('card_id') or '')
         quality = _card_quality(plan, card, step)
         if float(quality.get('underfilled_seconds') or 0.0) < 0.55 and float(quality.get('mean_ink') or 0.0) >= 0.20:
             continue
-        local = [event for event in events if str(event.get('visual_card_id') or '') == card_id and _static_root(event)]
+        local = [event for event in events if str(event.get('visual_card_id') or '') == card_id and _source_backed_root(event)]
         primaries = [event for event in local if str(event.get('attention_priority') or '').upper() == 'PRIMARY']
         contexts = [event for event in local if str(event.get('attention_priority') or '').upper() != 'PRIMARY']
+        target_ink = _pair_target_ink(card, quality)
+        duration = max(0.001, float(card.get('end_seconds', 0.0)) - float(card.get('start_seconds', 0.0)))
+        underfilled_ratio = min(1.0, float(quality.get('underfilled_seconds') or 0.0) / duration)
         for primary in primaries:
             for context in contexts:
                 overlap = _overlap_seconds(primary, context)
                 if overlap < _MIN_PAIR_OVERLAP_SECONDS or not _semantic_pair_allowed(card, primary, context):
                     continue
                 combined = _projected_settled_ink(primary) + _projected_settled_ink(context)
-                deficit = max(0.0, _PAIR_TARGET_INK - combined)
-                if deficit <= 0.006:
+                deficit = max(0.0, target_ink - combined)
+                if deficit <= 0.004:
                     continue
-                pairs.append((-deficit * min(3.0, overlap), str(primary.get('event_id') or ''),
-                              str(context.get('event_id') or ''), card, primary, context))
+                score = deficit * min(3.0, overlap) * (1.0 + 0.35 * underfilled_ratio)
+                pairs.append((-score, str(primary.get('event_id') or ''), str(context.get('event_id') or ''), card, primary, context, target_ink))
     pairs.sort(key=lambda row: row[:3])
-    return [(card, primary, context) for _, _, _, card, primary, context in pairs]
+    return [(card, primary, context, target_ink) for _, _, _, card, primary, context, target_ink in pairs]
 
 
 def _retry_semantic_after_joint_fit(plan: dict, fps: float, stats: dict) -> None:
@@ -239,12 +327,13 @@ def finalize_reference_joint_geometry(plan: dict, fps: float = 30.0) -> dict:
     step = max(0.08, min(0.12, 3.0 / max(1.0, float(fps))))
     before = build_visual_density_report(plan)
     stats = {
-        'authority': 'REFERENCE_COORDINATED_PRIMARY_CONTEXT_FIT_V1',
+        'authority': 'REFERENCE_COORDINATED_PRIMARY_CONTEXT_FIT_V2',
         'joint_pairs_requested': 0,
         'joint_candidates_evaluated': 0,
         'joint_pairs_committed': 0,
         'joint_event_ids': [],
         'joint_rejections': {},
+        'joint_max_target_ink': 0.0,
         'post_joint_semantic_candidates_evaluated': 0,
         'post_joint_semantic_committed': 0,
         'post_joint_semantic_event_ids': [],
@@ -253,7 +342,7 @@ def finalize_reference_joint_geometry(plan: dict, fps: float = 30.0) -> dict:
     }
     committed_ids: set[str] = set()
 
-    for card, primary, context in _candidate_pairs(plan, fps):
+    for card, primary, context, target_ink in _candidate_pairs(plan, fps):
         if stats['joint_pairs_committed'] >= _MAX_PAIR_COMMITS:
             break
         primary_id = str(primary.get('event_id') or '')
@@ -261,7 +350,11 @@ def finalize_reference_joint_geometry(plan: dict, fps: float = 30.0) -> dict:
         if primary_id in committed_ids or context_id in committed_ids:
             continue
         stats['joint_pairs_requested'] += 1
-        scales = _pair_scale_ladder(primary, context, events)
+        stats['joint_max_target_ink'] = max(float(stats['joint_max_target_ink']), float(target_ink))
+        if not _static_root(primary) or not _static_root(context):
+            stats['joint_rejections']['POSITION_OR_RENDER_AUTHORITY'] = stats['joint_rejections'].get('POSITION_OR_RENDER_AUTHORITY', 0) + 1
+            continue
+        scales = _pair_scale_ladder(primary, context, events, target_ink)
         if not scales:
             stats['joint_rejections']['NO_SOURCE_INK_DEFICIT'] = stats['joint_rejections'].get('NO_SOURCE_INK_DEFICIT', 0) + 1
             continue
@@ -289,14 +382,19 @@ def finalize_reference_joint_geometry(plan: dict, fps: float = 30.0) -> dict:
                     or float(post_quality.get('mean_ink') or 0.0) >= float(pre_quality.get('mean_ink') or 0.0) + 0.010
                 )
                 if new_pair_ink < old_pair_ink + _MIN_PAIR_INK_GAIN or not material_card_gain or not _density_not_worse(pre_density, post_density):
-                    reason = ('NO_MATERIAL_PAIR_INK_GAIN' if new_pair_ink < old_pair_ink + _MIN_PAIR_INK_GAIN
-                              else 'NO_MATERIAL_CARD_GAIN' if not material_card_gain else 'DENSITY_MONOTONICITY')
+                    reason = (
+                        'NO_MATERIAL_PAIR_INK_GAIN' if new_pair_ink < old_pair_ink + _MIN_PAIR_INK_GAIN
+                        else 'NO_MATERIAL_CARD_GAIN' if not material_card_gain
+                        else 'DENSITY_MONOTONICITY'
+                    )
                     stats['joint_rejections'][reason] = stats['joint_rejections'].get(reason, 0) + 1
                     continue
+
                 for event, partner, factor in ((primary, context, primary_factor), (context, primary, context_factor)):
                     event['reference_joint_fit_authority'] = 'SOURCE_BACKED_PRIMARY_CONTEXT_COORDINATED_STATIC_FIT_FULL_LIFETIME_CERTIFIED'
                     event['reference_joint_fit_partner_event_id'] = str(partner.get('event_id') or '')
                     event['reference_joint_fit_scale_factor'] = round(float(factor), 6)
+                    event['reference_joint_fit_target_ink'] = round(float(target_ink), 6)
                     _sync_constraint_layout(plan, event)
                 stats['joint_pairs_committed'] += 1
                 stats['joint_event_ids'].extend([primary_id, context_id])
@@ -311,6 +409,7 @@ def finalize_reference_joint_geometry(plan: dict, fps: float = 30.0) -> dict:
     _retry_semantic_after_joint_fit(plan, fps, stats)
     after = build_visual_density_report(plan)
     stats['joint_event_ids'] = sorted(set(stats['joint_event_ids']))
+    stats['joint_max_target_ink'] = round(float(stats['joint_max_target_ink']), 6)
     stats['after_underfilled_seconds'] = round(sum(float(_card_quality(plan, card, step).get('underfilled_seconds') or 0.0) for card in cards), 6)
     stats['changed'] = bool(stats['joint_pairs_committed'] or stats['post_joint_semantic_committed'])
     stats['pass'] = _density_not_worse(before, after) and bool(composition_plan_qa(plan).get('pass'))

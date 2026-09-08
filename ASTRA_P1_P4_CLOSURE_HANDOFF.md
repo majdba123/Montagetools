@@ -3,98 +3,82 @@
 Only branch: `chatgpt/p0-visual-lifetime-partition-fix`.
 Never reset or use `old-final-package`.
 
-## Frozen base before this continuation
+## Current continuation — byte-identical canonical evidence
 
-Base commit: `365f17f85d7ec10fdd6d5608dd9790f0bc6d066c`.
-Exact-head CI #186 / run `34267560460`: fully green, including deterministic suite,
-shipping build/install, Foundation smoke, interaction production certification, and
-Premiere host contract.
+Starting HEAD: `91a8fc23f70a0878bdfea2e06e48b1d3a1b5ffd5`.
+Exact-head CI #192 / run `34277783670` was fully green.
 
-Astra's base work remains protected:
-- readable retained context (no ghost tails)
-- semantic-slot root fitting
-- geometry/role/source-ink hierarchy amplitude
-- card-clock + physical-clock collision certification
-- P1/P2, partition atomicity, translation safety, renderer and seal unchanged
+The user installed/built that exact HEAD and produced the canonical BALANCE_LIMIT replay.
+The encoded MP4 was byte-identical to the last evaluated `365f17f8` baseline:
 
-## Latest encoded evidence on base 365f17f8
+`SHA256 c79dbb9989f04512f4cdc091c21e8657bafe8d4be73f60ecbaa488e9115c0479`
 
-Canonical run:
-`HEXA_INSUFFICIENT_BALANCE_AR_V31_0_25_20260908-223607-deb486aa.mp4`
+Therefore the `91a8fc23` joint-fitter batch produced no material encoded-pixel change.
+Treat this as engineering evidence, not a file-selection issue.
 
-Normalized comparison remains `4 Hz / 320x180`.
+Frozen `4 Hz / 320x180` measurements remain approximately:
+- occupancy mean: 19.6-19.7%
+- occupancy median: 20.16-20.17%
+- frames <10%: ~10.6-10.8%
+- frames <15%: ~34.3-34.5%
+- motion mean: ~10.2%
+- motion median: ~7.6%
+- near-static: ~32.6%
 
-Measured approximately:
-- occupancy mean: 19.72%
-- occupancy median: 20.17%
-- frames <10%: 10.58%
-- frames <15%: 34.26%
-- motion mean: 10.27%
-- motion median: 7.65%
-- near-static: 32.58%
-
-The commit cleaned false/ghost density but did not produce the required global jump.
 P1 CLOSED / protected.
 P2 CLOSED / protected.
 P3 OPEN.
 P4 OPEN.
+Do not open P5/P6/P7.
 
-Persistent sparse evidence remains around 73.5-78.25s and several shorter blocks.
-These timestamps are diagnostics only and MUST NOT become implementation special cases.
+## Root cause after byte-identical replay
 
-## ChatGPT continuation after Astra limit
+Production inspection established:
+1. `motion/__init__.py` calls `finalize_reference_joint_geometry()` in the canonical path.
+2. The final seal includes settled geometry and composition-state fields.
+3. Production scene-media cache signatures hash the complete render-map event list.
+4. `prepare_composition_actor()` consumes `layout_scale_multiplier` and `card_rest_position_norm`.
 
-The next root cause was the one Astra already identified:
-independent fitting cannot use layouts that require moving focal + context together.
+Stale cache alone therefore does not explain the byte identity. The dominant defect was
+opportunity starvation: Joint V1 reused the independent-fit position-authority guard,
+which treats any `preset_actions` as position authority. P2/P4 actors with legitimate
+scale/opacity-only authority were excluded even though a static card-level relocation is
+legal. V1 also stopped at a fixed pair target of 0.26 even when a card remained severely
+underfilled after independent fitting.
 
-New production stage:
-`extension/py/hexa_v31/layout/reference_joint_fitter.py`
+A second render-consumption gap was found: pure-static events with no preset or composition
+state follow the legacy `_event_state()` branch, which used neutral `end_position_px`
+instead of the final `card_rest_position_norm`. This could discard the center component
+of a late certified static fit.
 
-Architecture:
-- only already-source-backed unsuppressed `ROOT_ATOMIC` actors
-- exactly a semantic PRIMARY + SUPPORTING context pair
-- same visual card and either same source scene or shared authored story phase
-- requires sustained underfill / source-ink deficit
-- requires >=0.55s physical coexistence
-- no position-authored actors
-- no partition children/residuals
-- no new pixels, IDs, timestamps, narration-specific rules, or package-specific logic
-- preserves the pair's existing horizontal/vertical ordering
-- uses existing semantic layout destinations plus a bounded two-actor coordinated fit
-- pair scale ladder is derived from the existing source-ink role targets/caps
-- static settled destination only; never camera drift or position animation
-- every candidate passes existing card-clock + physical-clock collision/composition QA
-- commit requires material pair-ink gain AND material card underfill/mean-ink gain
-- full density monotonicity remains mandatory
-- on any failure the pair is atomically rolled back
+## Current engineering change
 
-After a successful joint fit, the stage gives existing later-source semantic reveals one
-bounded re-evaluation through the existing semantic continuation compiler. This is not
-idle motion; it only creates a state if the real authored reveal and full QA allow it.
+`reference_joint_fitter.py` is upgraded to
+`REFERENCE_COORDINATED_PRIMARY_CONTEXT_FIT_V2`.
 
-Pipeline order is now:
-interaction
--> source-backed density topology
--> reference geometry
--> coordinated primary/context joint geometry
--> stable perceptual seal
--> final interaction/lifetime certification if any stage changed
+V2:
+- keeps source-backed `ROOT_ATOMIC` and semantic PRIMARY+context requirements;
+- keeps same-card and same-scene/shared-story-phase evidence;
+- keeps >=0.55s physical overlap and partitions excluded;
+- distinguishes actual center travel from scale/opacity-only authority;
+- rejects position animation, ENTRY/EXIT travel, WITHIN_FRAME travel, translated states,
+  drift and vector motion;
+- permits APPEARANCE/DISAPPEARANCE presets and center-preserving hierarchy states;
+- derives a bounded pair target from card underfill severity, 0.26 through 0.32;
+- adds pair-level scale pressure when individual actor targets are already satisfied;
+- remains bounded by existing role/source caps and semantic destinations;
+- preserves pair order;
+- requires pair ink gain >=0.012 plus material card gain;
+- retains full card-clock + physical-clock collision/composition QA;
+- retains density monotonicity and atomic rollback;
+- records structural pair requests before authority rejection for useful production stats.
 
-Stats are stored as:
-`reference_joint_geometry_finalizer`
+The preview facade now bridges `card_rest_position_norm` into the pure-static evaluator
+only when there is no preset/state/position authority. Dynamic P2 paths are untouched.
 
-## Generalization regression
-
-`tests/test_v31_reference_joint_fitter.py` verifies:
-- coordinated focal/context fitting materially reduces sparse-card underfill
-- actor order remains preserved
-- static destinations are not marked position-animated
-- different IDs and narration durations produce the same normalized geometry
-- two competing primaries are rejected
-- position-authored actors are rejected
-- unrelated scenes in separate story phases are rejected
-
-The regression is included in `tests/run_v31_test_suite.py`.
+Regressions cover severe-card pressure above 0.26, generalized IDs/durations,
+scale/opacity-only authority, center-preserving hierarchy, protected real travel,
+unrelated phases, and pure-static final planner center consumption by `_event_state()`.
 
 ## Acceptance remains unchanged
 
@@ -108,21 +92,45 @@ P3 closure requires canonical encoded evidence:
 P4 closure requires a material encoded motion/recomposition jump toward the
 14.5-17.9% reference regime, with semantic attribution and no drift/jitter cheat.
 
-This batch is an architectural candidate, NOT encoded closure proof.
+No planner/proxy/test result closes P3/P4. A new exact-head canonical encoded replay is
+required after CI.
 
-## Resume / next action
+## Next replay diagnostics
 
-1. Verify exact-head CI for the commit containing this handoff.
-2. If CI fails, fix the owning production cause; never weaken guards.
-3. If CI is fully green, install that exact HEAD and run the canonical BALANCE_LIMIT replay.
-4. Measure encoded pixels at `4 Hz / 320x180`.
-5. If P3/P4 still miss floors, inspect `reference_joint_geometry_finalizer` stats first:
-   requested/evaluated/committed pairs, rejection reasons, underfill before/after,
-   and post-joint semantic commits.
-6. Continue generalized engineering only. Do not open P5/P6/P7.
+Inspect `reference_joint_geometry_finalizer` first:
+- `joint_pairs_requested`
+- `joint_candidates_evaluated`
+- `joint_pairs_committed`
+- `joint_event_ids`
+- `joint_rejections`
+- `joint_max_target_ink`
+- `before_underfilled_seconds`
+- `after_underfilled_seconds`
+- post-joint semantic candidates/commits/rejections
+
+If requested=0, the next owner is semantic cohort/card-level topology. If collision
+dominates, improve bounded negative-space allocation without weakening collision. If
+commits are nonzero but encoded bytes stay unchanged, reopen integration/cache/render
+authority immediately. If P3 rises but P4 remains near 10%, continue authored semantic
+progression rather than static density.
+
+Diagnostic intervals are evidence only, NEVER implementation conditions:
+32.75-36.75, 48-51, 61.5-63.75, 73.5-78.5, 80.5-82.75.
+Static diagnostics: 89.5-91.5, 96-98.75.
 
 Canonical package SHA256:
 `6abda3a85214305e37ab4b533cdb23b522607e631c68e70d54438ca8cb145535`
 
 Canonical audio SHA256:
 `6332a4da17261e4a05ca7f5206370f372f31c72764cbc531e972d8c985d7a030`
+
+## Protected invariants
+
+- P1/P2 remain closed/protected absent new encoded evidence in their ownership.
+- Final Motion Plan remains render authority.
+- canonical coordinates remain 1920x1080 with one output transform.
+- partition child + residual remain atomic; never independently density-scale a child.
+- unsafe actors never receive new position travel.
+- collision/safe-frame/lifetime certification thresholds are not weakened.
+- no package IDs, timestamps, narration-specific rules or BALANCE_LIMIT branches.
+- no opacity ghosts, filler, camera zoom, drift, jitter or periodic pulses.
