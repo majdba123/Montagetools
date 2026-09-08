@@ -46,17 +46,9 @@ def _card_neighbors(events: list[dict], card: dict) -> list[dict]:
 
 
 def _candidate_safe(plan: dict, event: dict, fps: float) -> bool:
-    events = plan.get('events') or []
-    cards = (plan.get('visual_cards') or {}).get('cards') or []
-    for card in _affected_cards(event, cards):
-        if card_motion_conflicts(
-            _card_neighbors(events, card),
-            float(card.get('start_seconds', 0.0)),
-            float(card.get('end_seconds', 0.0)),
-            fps,
-        ):
-            return False
-    return bool(composition_plan_qa(plan).get('pass'))
+    from hexa_v31.layout.reference_geometry_finalizer import _candidate_safe as geometry_safe
+
+    return geometry_safe(plan, [event], fps)
 
 
 def _density_not_worse(before: dict, after: dict) -> bool:

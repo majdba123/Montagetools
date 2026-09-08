@@ -240,6 +240,14 @@ _FINAL_TIMING_FIELDS=(
     'start_seconds','end_seconds','physical_start_seconds','physical_end_seconds',
     'motion_start_seconds','motion_end_seconds','preset_entry','preset_actions',
     'preset_exit','story_actions','focus_beats','composition_states','composition_participant_states','motion_intervals',
+    # Final certification covers settled geometry as well as animation timing.
+    # A downstream scale/placement mutation must not retain a valid seal.
+    'settle_seconds','perceptual_hit_seconds','visibility_interval_seconds',
+    'partition_carrier_start_seconds','partition_carrier_end_seconds',
+    'card_rest_position_norm','layout_scale_multiplier','planned_rect_norm',
+    'collision_envelope_rect_norm','reference_camera_scale','source_bbox_norm',
+    'visible_ink_fraction','visible_ink_fraction_basis','render_mode',
+    'suppressed_by_card_density','composition_role','attention_priority',
 )
 
 

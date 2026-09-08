@@ -49,7 +49,9 @@ def _projected_ink_at(event: dict, t: float) -> float:
             SAFE_Y[1] - SAFE_Y[0],
         ),
     )
-    return max(0.0, float(value) / max(1e-9, _SAFE_AREA))
+    # Match encoded occupancy's full-frame denominator. Safe-frame-normalized
+    # ink previously called a ~13.4%-occupied frame "20% populated".
+    return max(0.0, float(value))
 
 
 def _card_samples(plan: dict, card: dict, step: float) -> list[tuple[float, float, int]]:
@@ -155,14 +157,12 @@ def _cohort_rest_ink(cohort: list[dict]) -> float:
             area = 0.09
         camera = max(0.0, float(event.get('reference_camera_scale') or 1.0))
         scale = max(0.0, float(event.get('layout_scale_multiplier') or 1.0))
-        visible = event.get('visible_ink_fraction')
-        if visible is None:
-            visible = (event.get('matting') or {}).get('opaque_foreground_fraction', 0.62)
-        total += area * camera * camera * scale * scale * max(0.02, min(1.0, float(visible or 0.62)))
+        visible = _INK_MODEL.visible_fraction(event)
+        total += area * camera * camera * scale * scale * max(0.0, min(1.0, float(visible)))
     return total
 
 
-def _candidate_predecessor_cohorts(plan: dict, card: dict, gap_start: float, step: float) -> list[list[dict]]:
+def _candidate_predecessor_cohorts(plan: dict, card: dict, gap_start: float, step: float, gap_end: float | None = None) -> list[list[dict]]:
     candidates = []
     for cohort in _cohorts(_card_events(plan, card)):
         starts = [float(event.get('start_seconds', 0.0)) for event in cohort]
@@ -170,11 +170,26 @@ def _candidate_predecessor_cohorts(plan: dict, card: dict, gap_start: float, ste
         if not starts or not ends:
             continue
         cohort_end = max(ends)
-        if cohort_end > gap_start + step:
+        # A continuously sparse interval may start while its predecessor is
+        # still visible. Consider its retirement inside that interval too.
+        if cohort_end >= float(gap_end if gap_end is not None else gap_start + step) - step * .5:
             continue
         if gap_start - cohort_end > 1.60:
             continue
         if any(end <= start + step * 0.5 for start, end in zip(starts, ends)):
+            continue
+        ids={str(event.get('event_id')) for event in cohort}
+        phases=(card.get('story_phase_plan') or {}).get('phases') or []
+        successors=[event for event in _card_events(plan,card)
+                    if str(event.get('event_id')) not in ids
+                    and float(event.get('perceptual_hit_seconds',event.get('start_seconds',0))) >= max(float(x.get('perceptual_hit_seconds',x.get('start_seconds',0))) for x in cohort)
+                    and float(event.get('end_seconds',0))>cohort_end+step
+                    and float(event.get('start_seconds',0))<=cohort_end+1.60]
+        # Source-scene continuity or an already-authored shared semantic phase
+        # is required; mere temporal adjacency cannot retain an obsolete actor.
+        if not any(any(str(next_event.get('scene_id'))==str(prior.get('scene_id')) for prior in cohort)
+                   or any(str(next_event.get('event_id')) in phase.get('event_ids',[]) and ids.intersection(map(str,phase.get('event_ids',[]))) for phase in phases)
+                   for next_event in successors):
             continue
         candidates.append(cohort)
     candidates.sort(key=lambda cohort: (
@@ -240,8 +255,17 @@ def _density_monotonic(before: dict, after: dict) -> bool:
 def _plan_safe(plan: dict, card: dict, fps: float) -> bool:
     cs = float(card.get('start_seconds', 0.0))
     ce = float(card.get('end_seconds', cs))
-    if card_motion_conflicts(_card_events(plan, card), cs, ce, fps):
+    neighbors=[e for e in plan.get('events') or [] if not e.get('suppressed_by_card_density') and _physical_interval(e)[0]<ce and _physical_interval(e)[1]>cs]
+    if card_motion_conflicts(neighbors, cs, ce, fps):
         return False
+    # Count simultaneously readable semantic primaries, not just event count.
+    t=cs
+    while t<ce-1e-6:
+        visible=[e for e in neighbors if (s:=_state(e,t)) and s[2]>.22]
+        units=_cohorts(visible)
+        primaries=sum(any(str(e.get('attention_priority')).upper()=='PRIMARY' for e in unit) for unit in units)
+        if primaries>2 or len(units)-primaries>3:return False
+        t+=1/max(12.,min(20.,fps))
     return bool(composition_plan_qa(plan).get('pass'))
 
 
@@ -296,7 +320,7 @@ def finalize_reference_density_topology(plan: dict, fps: float = 30.0) -> dict:
             pre_density = build_visual_density_report(plan)
             gap_start = float(interval['start_seconds'])
             gap_end = min(float(card.get('end_seconds', interval['end_seconds'])), float(interval['end_seconds']))
-            for cohort in _candidate_predecessor_cohorts(plan, card, gap_start, step):
+            for cohort in _candidate_predecessor_cohorts(plan, card, gap_start, step, gap_end):
                 stats['candidate_cohorts_evaluated'] += 1
                 cohort_ids = {str(event.get('event_id') or '') for event in cohort}
                 snapshots = {str(event.get('event_id') or ''): copy.deepcopy(event) for event in events}
@@ -310,7 +334,6 @@ def finalize_reference_density_topology(plan: dict, fps: float = 30.0) -> dict:
                 material = (
                     float(post_quality['underfilled_seconds']) <= float(pre_quality['underfilled_seconds']) - min(0.20, step * 2.0)
                     or float(post_quality['mean_ink']) >= float(pre_quality['mean_ink']) + 0.012
-                    or float(post_quality['mean_population']) >= float(pre_quality['mean_population']) + 0.10
                 )
                 if not material or not _density_monotonic(pre_density, post_density):
                     _restore_events(events, snapshots)

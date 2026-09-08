@@ -74,4 +74,31 @@ except ValueError as exc:
 event['preset_actions']=snapshot
 assert_final_motion_plan_immutable(plan)
 
+# J: geometry and visibility are part of the same certified final state, not
+# editable metadata outside the timing seal. Each mutation must invalidate it.
+for key, value in {
+    'card_rest_position_norm': [.1, .1],
+    'layout_scale_multiplier': 7.,
+    'planned_rect_norm': [0., 0., 1., 1.],
+    'collision_envelope_rect_norm': [0., 0., 1., 1.],
+    'reference_camera_scale': 7.,
+    'source_bbox_norm': [0., 0., .01, .01],
+    'visible_ink_fraction': .001,
+    'visibility_interval_seconds': [0., 99.],
+    'partition_carrier_end_seconds': 99.,
+    'suppressed_by_card_density': True,
+    'settle_seconds': 99.,
+    'perceptual_hit_seconds': 99.,
+    'composition_states': [{'state_id': 'UNAUTHORIZED', 'scale_multiplier': 7.}],
+    'composition_participant_states': [{'state_id': 'UNAUTHORIZED_PARTICIPANT', 'visibility': 0.}],
+}.items():
+    candidate = copy.deepcopy(plan)
+    candidate['events'][0][key] = value
+    try:
+        assert_final_motion_plan_immutable(candidate)
+    except ValueError as exc:
+        assert 'FINAL_MOTION_PLAN_MUTATED_AFTER_CERTIFICATION' in str(exc)
+    else:
+        raise AssertionError('post-certification field mutation accepted: ' + key)
+
 print('V31_POST_INTERACTION_FINALIZATION_BARRIER_PASS')

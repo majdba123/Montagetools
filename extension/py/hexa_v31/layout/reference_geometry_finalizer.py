@@ -4,7 +4,7 @@ import copy
 import math
 
 from hexa_v31.composition_qa import card_motion_conflicts, composition_plan_qa
-from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, _fp, _in_safe, _rect
+from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, SAFE_X, SAFE_Y, _fp, _in_safe, _rect
 from hexa_v31.visual_density import build_visual_density_report
 
 
@@ -64,6 +64,17 @@ def _candidate_safe(plan: dict, group: list[dict], fps: float) -> bool:
             fps,
         ):
             return False
+    # Card and actor clocks need not share the same sampling origin. Certify
+    # the changed actor's physical interval too, including cross-card neighbors.
+    # Otherwise a short hierarchy/exit overlap can fall between card samples.
+    for event in group:
+        start, end = _physical_interval(event)
+        neighbors = [other for other in events
+                     if not other.get('suppressed_by_card_density')
+                     and _physical_interval(other)[0] < end
+                     and _physical_interval(other)[1] > start]
+        if card_motion_conflicts(neighbors, start, end, fps):
+            return False
     return bool(composition_plan_qa(plan).get('pass'))
 
 
@@ -122,7 +133,10 @@ def _group_has_position_authority(group: list[dict]) -> bool:
     for event in group:
         if event.get('position_animated') or event.get('preset_actions'):
             return True
-        if event.get('composition_states') or event.get('composition_participant_states'):
+        base = event.get('card_rest_position_norm') or [.5, .5]
+        if any(math.dist(state.get('center_norm') or base, base) > 1e-6
+               for key in ('composition_states', 'composition_participant_states')
+               for state in event.get(key) or []):
             return True
         entry = str((event.get('preset_entry') or {}).get('name') or '')
         exit_ = str((event.get('preset_exit') or {}).get('name') or '')
@@ -142,12 +156,11 @@ def _partition_key(event: dict) -> tuple[str, str, str]:
 def _partition_groups(events: list[dict]) -> list[list[dict]]:
     grouped: dict[tuple[str, str, str], list[dict]] = {}
     for event in events:
-        if event.get('suppressed_by_card_density'):
-            continue
         if str(event.get('render_mode') or '') not in _PARTITION_MODES:
             continue
         grouped.setdefault(_partition_key(event), []).append(event)
-    return [grouped[key] for key in sorted(grouped) if len(grouped[key]) >= 2]
+    return [grouped[key] for key in sorted(grouped) if len(grouped[key]) >= 2
+            and not any(e.get('suppressed_by_card_density') for e in grouped[key])]
 
 
 def _group_center(group: list[dict]) -> tuple[float, float]:
@@ -211,13 +224,30 @@ def _scale_partition_groups(plan: dict, fps: float, stats: dict) -> None:
                 ]
                 new_scale = float(original.get('layout_scale_multiplier') or 1.0) * factor
                 rect = list(_rect((new_center[0], new_center[1]), _fp(event), new_scale * MOTION_ENVELOPE_SCALE))
-                if not _in_safe(rect):
-                    safe = False
-                    break
                 event['card_rest_position_norm'] = [round(new_center[0], 6), round(new_center[1], 6)]
                 event['layout_scale_multiplier'] = round(new_scale, 6)
                 event['planned_rect_norm'] = [round(value, 6) for value in rect]
                 event['collision_envelope_rect_norm'] = list(event['planned_rect_norm'])
+            # Fit the complete partition with one common static translation,
+            # never by relocating or shrinking individual members.
+            rects = [e['planned_rect_norm'] for e in group]
+            x0 = min(r[0] for r in rects)
+            y0 = min(r[1] for r in rects)
+            x1 = max(r[0] + r[2] for r in rects)
+            y1 = max(r[1] + r[3] for r in rects)
+            safe = x1 - x0 <= SAFE_X[1] - SAFE_X[0] and y1 - y0 <= SAFE_Y[1] - SAFE_Y[0]
+            dx = max(SAFE_X[0] - x0, min(0., SAFE_X[1] - x1))
+            dy = max(SAFE_Y[0] - y0, min(0., SAFE_Y[1] - y1))
+            if safe:
+                for event in group:
+                    event['card_rest_position_norm'] = [event['card_rest_position_norm'][0] + dx,
+                                                        event['card_rest_position_norm'][1] + dy]
+                    event['planned_rect_norm'][0] += dx
+                    event['planned_rect_norm'][1] += dy
+                    event['collision_envelope_rect_norm'] = list(event['planned_rect_norm'])
+                    for key in ('composition_states', 'composition_participant_states'):
+                        for state in event.get(key) or []:
+                            state['center_norm'] = list(event['card_rest_position_norm'])
             if not safe:
                 _restore_group(group, snapshots)
                 stats['partition_rejections']['SAFE_FRAME'] = stats['partition_rejections'].get('SAFE_FRAME', 0) + 1
@@ -294,13 +324,30 @@ def _scale_root_actors(plan: dict, fps: float, stats: dict) -> None:
         old_density = density
         old_scale = float(event.get('layout_scale_multiplier') or 1.0)
         center = event.get('card_rest_position_norm') or [0.5, 0.5]
+        static_destination = not _group_has_position_authority([snapshot])
         for factor in factors:
             stats['root_candidates_evaluated'] += 1
             new_scale = old_scale * factor
+            candidate_center = list(center)
             rect = list(_rect((float(center[0]), float(center[1])), _fp(event), new_scale * MOTION_ENVELOPE_SCALE))
+            # Static placement is distinct from position travel. A scale/fade
+            # actor may use the available safe frame from its first appearance,
+            # provided every absolute state shares that same settled center.
+            if not _in_safe(rect) and static_destination:
+                if rect[2] <= SAFE_X[1] - SAFE_X[0] and rect[3] <= SAFE_Y[1] - SAFE_Y[0]:
+                    dx = max(SAFE_X[0] - rect[0], min(0.0, SAFE_X[1] - rect[0] - rect[2]))
+                    dy = max(SAFE_Y[0] - rect[1], min(0.0, SAFE_Y[1] - rect[1] - rect[3]))
+                    candidate_center = [float(center[0]) + dx, float(center[1]) + dy]
+                    rect[0] += dx
+                    rect[1] += dy
             if not _in_safe(rect):
                 stats['root_rejections']['SAFE_FRAME'] = stats['root_rejections'].get('SAFE_FRAME', 0) + 1
                 continue
+            event['card_rest_position_norm'] = candidate_center
+            for key in ('composition_states', 'composition_participant_states'):
+                for state in event.get(key) or []:
+                    if static_destination:
+                        state['center_norm'] = list(candidate_center)
             event['layout_scale_multiplier'] = round(new_scale, 6)
             event['planned_rect_norm'] = [round(value, 6) for value in rect]
             event['collision_envelope_rect_norm'] = list(event['planned_rect_norm'])
@@ -339,6 +386,7 @@ def _semantic_focus_cascade(plan: dict, fps: float, stats: dict) -> None:
     stats['semantic_cascade_committed'] = int(result.get('candidates_committed') or 0)
     stats['semantic_cascade_event_ids'] = list(result.get('event_ids') or [])
     stats['semantic_cascade_rejections'] = dict(result.get('rejections') or {})
+    _continue_semantic_sequences(plan, fps, stats)
     if not stats['semantic_cascade_committed']:
         return
     after = build_visual_density_report(plan)
@@ -351,6 +399,86 @@ def _semantic_focus_cascade(plan: dict, fps: float, stats: dict) -> None:
     for event in events:
         if str(event.get('event_id') or '') in stats['semantic_cascade_event_ids']:
             event['reference_semantic_cascade_authority'] = 'SOURCE_REVEAL_FOCUS_TRANSFER_FULL_LIFETIME_CERTIFIED'
+
+
+def _continue_semantic_sequences(plan: dict, fps: float, stats: dict) -> None:
+    """Use later authored reveals, not elapsed time, to continue a focal state.
+
+    The pair compiler establishes the first relationship. A long-lived focal
+    actor can then establish a larger relationship hierarchy on a later reveal.
+    The target must already have a renderable reveal/handoff at this trigger;
+    this avoids competing participant tracks and invented idle movement.
+    """
+    from hexa_v31.composition_solver import composition_state_at
+    from hexa_v31.composition_qa import _state
+
+    events = plan.get('events') or []
+    for card in (plan.get('visual_cards') or {}).get('cards') or []:
+        card_id = str(card.get('card_id') or '')
+        local = sorted([e for e in events if str(e.get('visual_card_id') or '') == card_id
+                        and not e.get('suppressed_by_card_density')],
+                       key=lambda e: (float(e.get('perceptual_hit_seconds', 0.)), str(e.get('event_id'))))
+        for owner in local:
+            states = owner.get('composition_states') or []
+            if len(states) < 2 or owner.get('preset_actions'):
+                continue
+            # Partition hierarchy is owned by the complete group, not a lone
+            # child. Existing authored states are preserved, never multiplied.
+            if str(owner.get('render_mode') or 'ROOT_ATOMIC') != 'ROOT_ATOMIC':
+                continue
+            last_end = max(float(s.get('start_seconds', 0.)) + float(s.get('transition_duration_seconds') or 0.) for s in states)
+            used = {str(eid) for state in states for eid in state.get('participating_event_ids') or []}
+            for target in local:
+                if str(target.get('event_id')) in used:
+                    continue
+                hit = float(target.get('perceptual_hit_seconds', target.get('start_seconds', 0.)))
+                start, duration = hit - .64, .64
+                if start < last_end + .40 or hit + .20 > min(_physical_interval(owner)[1], _physical_interval(target)[1]):
+                    continue
+                # A visible new source must actually establish itself during
+                # this beat. An old held actor is not a fresh semantic trigger.
+                reveal_tracks = (target.get('composition_participant_states') or []) + (target.get('composition_states') or [])
+                entry = target.get('preset_entry') or {}
+                revealing = any(start - .12 <= float(s.get('start_seconds', 0.)) <= hit
+                                and float(s.get('transition_duration_seconds') or 0.) > .10 for s in reveal_tracks)
+                revealing = revealing or (bool(entry) and float(entry.get('start_seconds', 0.)) <= hit
+                                           and float(entry.get('start_seconds', 0.)) + float(entry.get('duration_seconds') or 0.) >= start)
+                if not revealing:
+                    continue
+                if any((sample := _state(owner, t)) is None or sample[2] <= .22
+                       for t in (start, hit, hit + .12)):
+                    continue
+                center, scale, visibility = composition_state_at(owner, start)
+                # One additional relationship establishment, bounded by a real
+                # later reveal. Never oscillate or add repeating scale pulses.
+                destination_scale = 1.30
+                if destination_scale - scale < .12:
+                    continue
+                stats['semantic_cascade_candidates_evaluated'] += 1
+                snapshot = copy.deepcopy(owner)
+                density_before = build_visual_density_report(plan)
+                state_id = card_id + '::' + str(owner.get('event_id')) + '::REVEAL::' + str(target.get('event_id'))
+                owner['composition_states'].append({
+                    'state_id': state_id, 'scene_id': owner.get('scene_id'), 'card_id': card_id,
+                    'semantic_beat': 'LATER_SOURCE_RELATIONSHIP_ESTABLISHMENT',
+                    'start_seconds': round(start, 6), 'transition_duration_seconds': duration,
+                    'participating_event_ids': [str(owner.get('event_id')), str(target.get('event_id'))],
+                    'center_norm': center, 'scale_multiplier': destination_scale, 'visibility': visibility,
+                    'translation_safe': bool(owner.get('translation_safe_after_occlusion', owner.get('animation_safe', False))),
+                    'role': owner.get('composition_role'),
+                    'state_reason': 'EXISTING_FOCAL_CONTEXT_FOR_LATER_SOURCE_REVEAL',
+                    'previous_state_id': owner['composition_states'][-1].get('state_id'),
+                })
+                density_after = build_visual_density_report(plan)
+                effective_delta = abs(composition_state_at(owner, hit)[1] - scale)
+                if effective_delta < .12 or not _candidate_safe(plan, [owner, target], fps) or not _density_not_worse(density_before, density_after):
+                    owner.clear(); owner.update(snapshot)
+                    reasons = stats['semantic_cascade_rejections']
+                    reasons['LATER_REVEAL_GEOMETRY_OR_DENSITY'] = reasons.get('LATER_REVEAL_GEOMETRY_OR_DENSITY', 0) + 1
+                    continue
+                stats['semantic_cascade_committed'] += 1
+                stats['semantic_cascade_event_ids'].append(str(owner.get('event_id')))
+                break  # bounded to one additional, non-repeating relationship
 
 
 def finalize_reference_geometry(plan: dict, fps: float = 30.0) -> dict:
