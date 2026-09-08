@@ -258,3 +258,48 @@ budget_plan = {'events': [outgoing, incoming, continuing], 'visual_cards': {'car
 assert finalize_reference_density_topology(budget_plan)['holds_committed'] == 0
 assert outgoing['physical_end_seconds'] == 2.
 print('V31_REFERENCE_PRIMARY_POPULATION_LIMIT_PASS')
+
+# A retained source must hold a readable pose, then use its unmodified exit
+# duration at the new retirement. Do not carry an already-faded tail forward.
+from hexa_v31.composition_qa import _state
+held = event('READABLE_CONTEXT', .28, .52, (0, 0, .18, .25), end=2., hit=.5)
+held['preset_exit'] = dict(name='DISAPPEAR_DOWN_SCALE', start_seconds=1.1, duration_seconds=.6)
+revealed = event('NEW_CONTEXT', .72, .52, (0, 0, .18, .25), start=1., hit=1.8, primary=True)
+readable_plan = {'events': [held, revealed], 'visual_cards': {'cards': [card([held, revealed])]}}
+readable_result = finalize_reference_density_topology(readable_plan)
+assert readable_result['holds_committed'] == 1, readable_result
+assert abs(held['preset_exit']['start_seconds'] + .6 - held['physical_end_seconds']) < 1e-6
+assert _state(held, 2.5)[2] >= .85 and _state(held, 3.2)[2] >= .85
+assert _state(held, 3.8)[2] < _state(held, 3.2)[2]  # intentional exit is preserved
+
+# The same hierarchy decision is independent of IDs, absolute narration time,
+# and duration; amplitude changes with ink/role/available geometric headroom.
+from hexa_v31.layout.reference_geometry_finalizer import _hierarchy_scale_candidates
+focal = event('PACKAGE_X_FOCAL', .5, .52, (0, 0, .18, .24), primary=True, ink=.4)
+reveal = event('PACKAGE_X_RESULT', .8, .52, (0, 0, .1, .12), hit=2.8)
+reveal['composition_role'] = 'RESULT'
+base_candidates = _hierarchy_scale_candidates(focal, reveal, [focal, reveal], [.5, .52], 1.14)
+assert base_candidates and len(base_candidates) <= 4
+renamed = copy.deepcopy(focal)
+renamed.update(event_id='OTHER_FOCAL', scene_id='OTHER_SCENE', visual_card_id='OTHER_CARD',
+               start_seconds=21., end_seconds=38., perceptual_hit_seconds=24.)
+assert _hierarchy_scale_candidates(renamed, reveal, [renamed, reveal], [.5, .52], 1.14) == base_candidates
+support_role = dict(focal, attention_priority='SUPPORTING')
+assert _hierarchy_scale_candidates(support_role, reveal, [support_role, reveal], [.5, .52], 1.14)[0] < base_candidates[0]
+assert _hierarchy_scale_candidates(focal, reveal, [focal, reveal], [.20, .52], 1.14)[0] < base_candidates[0]
+dense = dict(focal, source_bbox_norm=[0, 0, .5, .6], visible_ink_fraction=1.)
+assert not _hierarchy_scale_candidates(dense, reveal, [dense, reveal], [.5, .52], 1.14)
+print('V31_REFERENCE_READABLE_RETENTION_AND_NORMALIZED_HIERARCHY_PASS')
+
+# Static scale search must try another existing semantic slot before shrinking
+# a focal subject beside a blocker. Names/durations do not select the result.
+for prefix, duration in [('SHORT_PACKAGE', 1.6), ('DIFFERENT_SCRIPT', 2.)]:
+    subject = event(prefix + '_SUBJECT', .5, .52, (0, 0, .2, .26), end=duration, primary=True)
+    blocker = event(prefix + '_CONTEXT', .70, .52, (0, 0, .1, .16), end=duration)
+    slot_card = card([subject, blocker], end=duration)
+    slot_plan = {'events': [subject, blocker], 'visual_cards': {'cards': [slot_card]}}
+    result = finalize_reference_geometry(slot_plan)
+    assert result['pass'] and subject['reference_root_scale_factor'] >= 1.7, result
+    assert subject['card_rest_position_norm'][0] < .4, subject
+    assert not subject['position_animated'] and not subject['translation_safe_after_occlusion']
+print('V31_REFERENCE_SEMANTIC_NEGATIVE_SPACE_FIT_PASS')

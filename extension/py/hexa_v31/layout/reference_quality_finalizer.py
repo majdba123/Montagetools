@@ -224,7 +224,11 @@ def _extend_cohort(cohort: list[dict], new_end: float, gap_start: float) -> None
             event['partition_carrier_end_seconds'] = round(new_end, 6)
         exit_row = event.get('preset_exit')
         if exit_row:
-            exit_row['start_seconds'] = round(float(exit_row.get('start_seconds', old_end)) + extension, 6)
+            # Retention extends a readable pose, not the old post-exit tail.
+            # Preserve the authored exit shape/duration and retire it exactly
+            # at the newly committed physical boundary.
+            duration = max(0.0, float(exit_row.get('duration_seconds') or .6))
+            exit_row['start_seconds'] = round(new_end - duration, 6)
         event['reference_density_hold_authority'] = 'SOURCE_BACKED_PREDECESSOR_STATE_CONTINUITY'
         event['reference_density_hold_from_seconds'] = round(gap_start, 6)
         event['reference_density_hold_to_seconds'] = round(new_end, 6)
@@ -267,6 +271,33 @@ def _plan_safe(plan: dict, card: dict, fps: float) -> bool:
         if primaries>2 or len(units)-primaries>3:return False
         t+=1/max(12.,min(20.,fps))
     return bool(composition_plan_qa(plan).get('pass'))
+
+
+def _fit_readable_context(plan: dict, card: dict, cohort: list[dict], fps: float) -> bool:
+    """Fit a retained root in a semantic slot without creating position travel."""
+    from hexa_v31.layout.reference_geometry_finalizer import (
+        _candidate_safe, _group_has_position_authority, _root_fit_destinations,
+    )
+    from hexa_v31.composition_solver import _fp, _rect, MOTION_ENVELOPE_SCALE
+
+    if len(cohort) != 1 or str(cohort[0].get('render_mode') or 'ROOT_ATOMIC') != 'ROOT_ATOMIC':
+        return False  # partitions retain their complete-group geometry owner
+    event = cohort[0]
+    if _group_has_position_authority(cohort):
+        return False
+    snapshot = copy.deepcopy(event)
+    scale = float(event.get('layout_scale_multiplier') or 1.0)
+    for center in _root_fit_destinations(plan, event, scale):
+        event['card_rest_position_norm'] = list(center)
+        event['planned_rect_norm'] = list(_rect(center, _fp(event), scale * MOTION_ENVELOPE_SCALE))
+        event['collision_envelope_rect_norm'] = list(event['planned_rect_norm'])
+        for key in ('composition_states', 'composition_participant_states'):
+            for state in event.get(key) or []:
+                state['center_norm'] = list(center)
+        if _candidate_safe(plan, cohort, fps) and _plan_safe(plan, card, fps):
+            return True
+    event.clear(); event.update(snapshot)
+    return False
 
 
 def finalize_reference_density_topology(plan: dict, fps: float = 30.0) -> dict:
@@ -325,9 +356,27 @@ def finalize_reference_density_topology(plan: dict, fps: float = 30.0) -> dict:
                 cohort_ids = {str(event.get('event_id') or '') for event in cohort}
                 snapshots = {str(event.get('event_id') or ''): copy.deepcopy(event) for event in events}
                 _extend_cohort(cohort, gap_end, gap_start)
-                if not _plan_safe(plan, card, fps):
+                from hexa_v31.layout.reference_geometry_finalizer import _candidate_safe
+                safe = _plan_safe(plan, card, fps) and _candidate_safe(plan, cohort, fps)
+                if not safe and not _fit_readable_context(plan, card, cohort, fps):
                     _restore_events(events, snapshots)
                     stats['rejections']['COLLISION_OR_COMPOSITION_QA'] = stats['rejections'].get('COLLISION_OR_COMPOSITION_QA', 0) + 1
+                    continue
+                readable = True
+                for event in cohort:
+                    original = snapshots[str(event.get('event_id') or '')]
+                    start = max(float(original.get('end_seconds', 0.)),
+                                float(event.get('settle_seconds', event.get('start_seconds', 0.))))
+                    end = float((event.get('preset_exit') or {}).get('start_seconds', gap_end))
+                    while start < end - 1e-6:
+                        state = _state(event, start)
+                        if state is None or state[2] < .85:
+                            readable = False
+                            break
+                        start += step
+                if not readable:
+                    _restore_events(events, snapshots)
+                    stats['rejections']['UNREADABLE_RETAINED_CONTEXT'] = stats['rejections'].get('UNREADABLE_RETAINED_CONTEXT', 0) + 1
                     continue
                 post_quality = _card_quality(plan, card, step)
                 post_density = build_visual_density_report(plan)
@@ -344,6 +393,9 @@ def finalize_reference_density_topology(plan: dict, fps: float = 30.0) -> dict:
                 if str(cohort[0].get('render_mode') or '') in _PARTITION_MODES:
                     stats['partition_cohort_holds_committed'] += 1
                 stats['held_event_ids'].extend(sorted(cohort_ids))
+                from hexa_v31.layout.reference_geometry_finalizer import _sync_constraint_layout
+                for event in cohort:
+                    _sync_constraint_layout(plan, event)
                 commits += 1
                 committed = True
                 break

@@ -288,6 +288,30 @@ def _root_scale_target(event: dict, events: list[dict]) -> tuple[float, float]:
     return (0.11 if simultaneous else 0.15, 1.60)
 
 
+def _root_fit_destinations(plan: dict, event: dict, scale: float) -> list[list[float]]:
+    """Bounded semantic slots for static fitting; never a motion trajectory."""
+    from hexa_v31.composition_solver import _slots
+
+    base = list(event.get('card_rest_position_norm') or [.5, .5])
+    if _group_has_position_authority([event]):
+        return [base]
+    fp = _fp(event)
+    width, height = fp.w * scale * MOTION_ENVELOPE_SCALE, fp.h * scale * MOTION_ENVELOPE_SCALE
+    if width > SAFE_X[1] - SAFE_X[0] or height > SAFE_Y[1] - SAFE_Y[0]:
+        return []
+    card = next((c for c in (plan.get('visual_cards') or {}).get('cards') or []
+                 if str(c.get('card_id')) == str(event.get('visual_card_id'))), {})
+    archetype = str((card.get('universal_scene_grammar') or {}).get('archetype') or 'GENERIC')
+    role = str(event.get('composition_role') or 'SUPPORT')
+    destinations = []
+    for cx, cy in [base, *_slots(archetype, role)]:
+        fitted = [min(SAFE_X[1] - width / 2, max(SAFE_X[0] + width / 2, float(cx))),
+                  min(SAFE_Y[1] - height / 2, max(SAFE_Y[0] + height / 2, float(cy)))]
+        if not any(math.dist(fitted, existing) < 1e-6 for existing in destinations):
+            destinations.append(fitted)
+    return destinations[:6]
+
+
 def _scale_root_actors(plan: dict, fps: float, stats: dict) -> None:
     events = plan.get('events') or []
     density = build_visual_density_report(plan)
@@ -325,21 +349,14 @@ def _scale_root_actors(plan: dict, fps: float, stats: dict) -> None:
         old_scale = float(event.get('layout_scale_multiplier') or 1.0)
         center = event.get('card_rest_position_norm') or [0.5, 0.5]
         static_destination = not _group_has_position_authority([snapshot])
-        for factor in factors:
+        # Keep factor ranking dominant: try the available semantic negative
+        # space before giving up on a meaningful source-backed subject size.
+        candidates = [(factor, destination) for factor in factors
+                      for destination in _root_fit_destinations(plan, snapshot, old_scale * factor)]
+        for factor, candidate_center in candidates:
             stats['root_candidates_evaluated'] += 1
             new_scale = old_scale * factor
-            candidate_center = list(center)
-            rect = list(_rect((float(center[0]), float(center[1])), _fp(event), new_scale * MOTION_ENVELOPE_SCALE))
-            # Static placement is distinct from position travel. A scale/fade
-            # actor may use the available safe frame from its first appearance,
-            # provided every absolute state shares that same settled center.
-            if not _in_safe(rect) and static_destination:
-                if rect[2] <= SAFE_X[1] - SAFE_X[0] and rect[3] <= SAFE_Y[1] - SAFE_Y[0]:
-                    dx = max(SAFE_X[0] - rect[0], min(0.0, SAFE_X[1] - rect[0] - rect[2]))
-                    dy = max(SAFE_Y[0] - rect[1], min(0.0, SAFE_Y[1] - rect[1] - rect[3]))
-                    candidate_center = [float(center[0]) + dx, float(center[1]) + dy]
-                    rect[0] += dx
-                    rect[1] += dy
+            rect = list(_rect(candidate_center, _fp(event), new_scale * MOTION_ENVELOPE_SCALE))
             if not _in_safe(rect):
                 stats['root_rejections']['SAFE_FRAME'] = stats['root_rejections'].get('SAFE_FRAME', 0) + 1
                 continue
@@ -401,6 +418,33 @@ def _semantic_focus_cascade(plan: dict, fps: float, stats: dict) -> None:
             event['reference_semantic_cascade_authority'] = 'SOURCE_REVEAL_FOCUS_TRANSFER_FULL_LIFETIME_CERTIFIED'
 
 
+def _hierarchy_scale_candidates(owner: dict, target: dict, events: list[dict],
+                                center: list[float], current: float) -> list[float]:
+    """Source-ink deficit and role-weighted safe headroom set beat amplitude."""
+    footprint = _fp(owner)
+    layout_scale = max(1e-9, float(owner.get('layout_scale_multiplier') or 1.0))
+    half_width = footprint.w * layout_scale / 2.0
+    half_height = footprint.h * layout_scale / 2.0
+    safe_scale = min((center[0] - SAFE_X[0]) / max(half_width, 1e-9),
+                     (SAFE_X[1] - center[0]) / max(half_width, 1e-9),
+                     (center[1] - SAFE_Y[0]) / max(half_height, 1e-9),
+                     (SAFE_Y[1] - center[1]) / max(half_height, 1e-9))
+    target_ink, _ = _root_scale_target(owner, events)
+    ink = _projected_settled_ink(owner)
+    if ink <= 1e-9 or ink * current * current >= target_ink:
+        return []
+    primary = str(owner.get('attention_priority') or '').upper() == 'PRIMARY'
+    importance = 1.0 if primary else .65
+    relationship = str(target.get('composition_role') or '').upper()
+    if relationship in {'RESULT', 'TARGET', 'BLOCKER'}:
+        importance = min(1.0, importance + .15)
+    ink_destination = math.sqrt(target_ink / ink)
+    desired = min(safe_scale, ink_destination, current * (1.0 + .45 * importance))
+    delta = desired - current
+    return [round(current + delta * fraction, 6) for fraction in (1., .8, .6, .4)
+            if delta * fraction >= .12]
+
+
 def _continue_semantic_sequences(plan: dict, fps: float, stats: dict) -> None:
     """Use later authored reveals, not elapsed time, to continue a focal state.
 
@@ -451,34 +495,40 @@ def _continue_semantic_sequences(plan: dict, fps: float, stats: dict) -> None:
                 center, scale, visibility = composition_state_at(owner, start)
                 # One additional relationship establishment, bounded by a real
                 # later reveal. Never oscillate or add repeating scale pulses.
-                destination_scale = 1.30
-                if destination_scale - scale < .12:
+                destinations = _hierarchy_scale_candidates(owner, target, events, center, scale)
+                if not destinations:
                     continue
-                stats['semantic_cascade_candidates_evaluated'] += 1
                 snapshot = copy.deepcopy(owner)
                 density_before = build_visual_density_report(plan)
                 state_id = card_id + '::' + str(owner.get('event_id')) + '::REVEAL::' + str(target.get('event_id'))
-                owner['composition_states'].append({
+                candidate_state = {
                     'state_id': state_id, 'scene_id': owner.get('scene_id'), 'card_id': card_id,
                     'semantic_beat': 'LATER_SOURCE_RELATIONSHIP_ESTABLISHMENT',
                     'start_seconds': round(start, 6), 'transition_duration_seconds': duration,
                     'participating_event_ids': [str(owner.get('event_id')), str(target.get('event_id'))],
-                    'center_norm': center, 'scale_multiplier': destination_scale, 'visibility': visibility,
+                    'center_norm': center, 'visibility': visibility,
                     'translation_safe': bool(owner.get('translation_safe_after_occlusion', owner.get('animation_safe', False))),
                     'role': owner.get('composition_role'),
                     'state_reason': 'EXISTING_FOCAL_CONTEXT_FOR_LATER_SOURCE_REVEAL',
                     'previous_state_id': owner['composition_states'][-1].get('state_id'),
-                })
-                density_after = build_visual_density_report(plan)
-                effective_delta = abs(composition_state_at(owner, hit)[1] - scale)
-                if effective_delta < .12 or not _candidate_safe(plan, [owner, target], fps) or not _density_not_worse(density_before, density_after):
-                    owner.clear(); owner.update(snapshot)
+                }
+                committed = False
+                for destination_scale in destinations:
+                    stats['semantic_cascade_candidates_evaluated'] += 1
+                    owner['composition_states'].append(dict(candidate_state, scale_multiplier=destination_scale))
+                    effective_delta = abs(composition_state_at(owner, hit)[1] - scale)
+                    if effective_delta >= .12 and _candidate_safe(plan, [owner, target], fps):
+                        density_after = build_visual_density_report(plan)
+                        if _density_not_worse(density_before, density_after):
+                            committed = True
+                            break
+                    owner.clear(); owner.update(copy.deepcopy(snapshot))
                     reasons = stats['semantic_cascade_rejections']
                     reasons['LATER_REVEAL_GEOMETRY_OR_DENSITY'] = reasons.get('LATER_REVEAL_GEOMETRY_OR_DENSITY', 0) + 1
-                    continue
-                stats['semantic_cascade_committed'] += 1
-                stats['semantic_cascade_event_ids'].append(str(owner.get('event_id')))
-                break  # bounded to one additional, non-repeating relationship
+                if committed:
+                    stats['semantic_cascade_committed'] += 1
+                    stats['semantic_cascade_event_ids'].append(str(owner.get('event_id')))
+                    break  # bounded to one additional, non-repeating relationship
 
 
 def finalize_reference_geometry(plan: dict, fps: float = 30.0) -> dict:
