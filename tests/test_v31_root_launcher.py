@@ -103,6 +103,16 @@ Write-Output 'HEXA_DIST_LATEST_BUILD_PASS'
     return repo
 
 
+def _assert_release_fixture_complete(repo: Path) -> None:
+    latest = repo / 'dist' / 'latest'
+    installer_path = latest / 'INSTALL_HEXA_V31.bat'
+    helper_path = latest / 'tools' / 'fixture_install_identity.py'
+    assert installer_path.is_file(), f'fixture installer missing: {installer_path}'
+    assert helper_path.is_file(), f'fixture install helper missing: {helper_path}'
+    installer_text = installer_path.read_text(encoding='utf-8-sig')
+    assert 'fixture_install_identity.py' in installer_text, installer_text
+
+
 def run_launcher(repo: Path, cwd: Path, *, code: int = 0):
     marker = repo / 'latest installer marker.txt'
     localapp = repo / '.test-localappdata'
@@ -111,8 +121,10 @@ def run_launcher(repo: Path, cwd: Path, *, code: int = 0):
     env = os.environ.copy()
     env['LOCALAPPDATA'] = str(localapp)
     env['HEXA_TEST_INSTALL_MARKER'] = str(marker)
-    env['HEXA_TEST_INSTALL_EXIT'] = str(code)
     env['HEXA_TEST_SOURCE_COMMIT'] = expected
+    env.pop('HEXA_TEST_INSTALL_EXIT', None)
+    if code:
+        env['HEXA_TEST_INSTALL_EXIT'] = str(code)
     command = f'cmd.exe /d /s /c call "{repo / "bayer.bat"}"'
     cp = subprocess.run(
         command,
@@ -141,6 +153,7 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
     missing_latest = make_fixture(base / 'missing latest', latest=False)
     cp, marker, localapp = run_launcher(missing_latest, base)
     assert cp.returncode == 0, cp.stdout
+    _assert_release_fixture_complete(missing_latest)
     assert marker.is_file(), cp.stdout
     assert 'Rebuilding a validated release payload' in cp.stdout, cp.stdout
     assert 'HEXA INSTALL COMPLETE' in cp.stdout, cp.stdout
@@ -149,6 +162,7 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
     no_project_package = make_fixture(base / 'no project package', latest=False, validation_package=False)
     cp, marker, localapp = run_launcher(no_project_package, base)
     assert cp.returncode == 0, cp.stdout
+    _assert_release_fixture_complete(no_project_package)
     assert marker.is_file(), cp.stdout
     assert 'Project package selection remains inside Premiere' in cp.stdout, cp.stdout
     assert_installed_identity(no_project_package, localapp)
@@ -156,11 +170,13 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
     missing_installer = make_fixture(base / 'missing installer', installer=False)
     cp, marker, localapp = run_launcher(missing_installer, base)
     assert cp.returncode == 0, cp.stdout
+    _assert_release_fixture_complete(missing_installer)
     assert marker.is_file(), cp.stdout
     assert 'Rebuilding a validated release payload' in cp.stdout, cp.stdout
     assert_installed_identity(missing_installer, localapp)
 
     repo = make_fixture(base / 'success')
+    _assert_release_fixture_complete(repo)
     protected = {
         repo / 'extension' / 'source.py': 'source',
         repo / 'tests' / 'test.txt': 'tests',
@@ -215,6 +231,7 @@ with tempfile.TemporaryDirectory(prefix='.hexa_launcher_test_', dir=ROOT) as raw
     )
     cp, marker, localapp = run_launcher(repo, other_cwd)
     assert cp.returncode == 0, cp.stdout
+    _assert_release_fixture_complete(repo)
     assert marker.is_file(), cp.stdout
     assert 'Rebuilding a validated release payload' in cp.stdout, cp.stdout
     rebuilt = json.loads((repo / 'dist' / 'latest' / 'release_identity.json').read_text(encoding='utf-8-sig'))
