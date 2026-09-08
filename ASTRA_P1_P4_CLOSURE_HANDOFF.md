@@ -1,69 +1,128 @@
 # P1-P4 closure checkpoint
 
-Only branch: chatgpt/p0-visual-lifetime-partition-fix.
-Sprint base: 729515bd81ee66d653af1f4c77bc6615ee2f2d50; remote equality verified.
-Exact-head CI 185 / 34230379438 passed. Never reset or use old-final-package.
+Only branch: `chatgpt/p0-visual-lifetime-partition-fix`.
+Never reset or use `old-final-package`.
 
-## Latest batch
+## Frozen base before this continuation
 
-Retained exits now end at the committed retirement, not before a faded tail.
-Retained context must remain >=0.85 effective opacity before its intentional
-exit; otherwise reject the candidate, never globally clamp opacity.
-Static retained roots may use an existing semantic layout slot.
-Root enlargement tries up to six existing semantic destinations before reducing
-scale. Every mutation passes card-clock and physical-clock collision checks.
-Later-reveal amplitude now uses a four-step deterministic ladder derived from
-source ink, role, population and safe-frame headroom instead of fixed 1.30.
-P1/P2, translation capability, partitions, renderer, QA thresholds and seal remain
-unchanged from the sprint base.
+Base commit: `365f17f85d7ec10fdd6d5608dd9790f0bc6d066c`.
+Exact-head CI #186 / run `34267560460`: fully green, including deterministic suite,
+shipping build/install, Foundation smoke, interaction production certification, and
+Premiere host contract.
 
-Production files: layout/reference_quality_finalizer.py,
-layout/reference_geometry_finalizer.py. Tests: test_v31_reference_quality_finalizers.py.
+Astra's base work remains protected:
+- readable retained context (no ghost tails)
+- semantic-slot root fitting
+- geometry/role/source-ink hierarchy amplitude
+- card-clock + physical-clock collision certification
+- P1/P2, partition atomicity, translation safety, renderer and seal unchanged
 
-## Verification
+## Latest encoded evidence on base 365f17f8
 
-Focused P1/P2/P3/P4, source ink, participant concurrency, cross-card geometry,
-reconstruction, lifetime/barrier, absolute coordinates, Sprint1: PASS.
-Readability, normalized hierarchy and semantic-slot regressions: PASS.
-Frozen-source full suite exited 0 on 2026-09-08 around 22:08 local, with suite
-PASS marker. Media-probe fixture skipped for no PATH ffmpeg; encoded P3/P4
-fixtures used configured ffmpeg. Independent placement audit: 46/46 PASS.
-New exact-commit CI remains pending at this writing.
+Canonical run:
+`HEXA_INSUFFICIENT_BALANCE_AR_V31_0_25_20260908-223607-deb486aa.mp4`
 
-## Product evidence and next issue
+Normalized comparison remains `4 Hz / 320x180`.
 
-Existing encoded run 20260908-163240-89a165fb belongs to base 729515bd.
-User-reported 4 Hz / 320x180 metrics: occupancy mean19.35/median18.89%;
-below10 12.59%; below15 33.75%; motion mean10.26/median7.66%; static~32.3%.
-Actual encoded QA: 27/28 attributable. Later reveal owned by SCENE_014_PHYS_01
-had owner delta0.001849. This ID is diagnostic, never an implementation branch.
+Measured approximately:
+- occupancy mean: 19.72%
+- occupancy median: 20.17%
+- frames <10%: 10.58%
+- frames <15%: 34.26%
+- motion mean: 10.27%
+- motion median: 7.65%
+- near-static: 32.58%
 
-Current cached candidate: 24 planned transitions, 31 root enlargements from
-797 trials, 2 partition enlargements, 1 readable retained partition cohort,
-2 later-reveal continuations. Geometry projected median alpha0.243087;
-full-frame ink proxy mean0.168840, NOT encoded occupancy.
-Two formerly ghost-like root holds now reject on collisions.
-These projections do NOT establish P3/P4 closure or predict the 24-26% floor.
+The commit cleaned false/ghost density but did not produce the required global jump.
+P1 CLOSED / protected.
+P2 CLOSED / protected.
+P3 OPEN.
+P4 OPEN.
 
-Next: bounded order-preserving joint fitting of a focal root and its context.
-Independent fitting cannot use space that requires moving both actors.
-Also inspect fixed root/group enlargement caps against source-ink requirements.
-Do not weaken collision or independently transform partition children.
+Persistent sparse evidence remains around 73.5-78.25s and several shorter blocks.
+These timestamps are diagnostics only and MUST NOT become implementation special cases.
 
-Ignored diagnostics only: establishment_probe.py improved ink proxy by merely
-0.0022 on one focal phase; continuity_probe.py found only3 safe short cross-card
-continuations from authored CONTINUES_CANONICAL_EXPLANATION links. Most collide.
-Neither probe changed production. Do not present them as completed fixes.
+## ChatGPT continuation after Astra limit
 
-## Resume
+The next root cause was the one Astra already identified:
+independent fitting cannot use layouts that require moving focal + context together.
 
-Configured Python311 plus repo extension/py and runtime python_import_roots.
-Reuse .hexa_tmp_inspect/focused_candidate_checks.py,
-acceptance_baseline.py plans --control current, placement_safety.py.
-canonical_replay.py invokes production CLI with original verified inputs.
-Package SHA256: 6abda3a85214305e37ab4b533cdb23b522607e631c68e70d54438ca8cb145535
-Audio SHA256: 6332a4da17261e4a05ca7f5206370f372f31c72764cbc531e972d8c985d7a030
-Original media available in Desktop/content/VideoFolder/BALANCE_LIMIT.
-No new replay or local installation in this batch.
+New production stage:
+`extension/py/hexa_v31/layout/reference_joint_fitter.py`
 
-P3/P4 OPEN. Continue engineering after CI. No P5/P6/P7.
+Architecture:
+- only already-source-backed unsuppressed `ROOT_ATOMIC` actors
+- exactly a semantic PRIMARY + SUPPORTING context pair
+- same visual card and either same source scene or shared authored story phase
+- requires sustained underfill / source-ink deficit
+- requires >=0.55s physical coexistence
+- no position-authored actors
+- no partition children/residuals
+- no new pixels, IDs, timestamps, narration-specific rules, or package-specific logic
+- preserves the pair's existing horizontal/vertical ordering
+- uses existing semantic layout destinations plus a bounded two-actor coordinated fit
+- pair scale ladder is derived from the existing source-ink role targets/caps
+- static settled destination only; never camera drift or position animation
+- every candidate passes existing card-clock + physical-clock collision/composition QA
+- commit requires material pair-ink gain AND material card underfill/mean-ink gain
+- full density monotonicity remains mandatory
+- on any failure the pair is atomically rolled back
+
+After a successful joint fit, the stage gives existing later-source semantic reveals one
+bounded re-evaluation through the existing semantic continuation compiler. This is not
+idle motion; it only creates a state if the real authored reveal and full QA allow it.
+
+Pipeline order is now:
+interaction
+-> source-backed density topology
+-> reference geometry
+-> coordinated primary/context joint geometry
+-> stable perceptual seal
+-> final interaction/lifetime certification if any stage changed
+
+Stats are stored as:
+`reference_joint_geometry_finalizer`
+
+## Generalization regression
+
+`tests/test_v31_reference_joint_fitter.py` verifies:
+- coordinated focal/context fitting materially reduces sparse-card underfill
+- actor order remains preserved
+- static destinations are not marked position-animated
+- different IDs and narration durations produce the same normalized geometry
+- two competing primaries are rejected
+- position-authored actors are rejected
+- unrelated scenes in separate story phases are rejected
+
+The regression is included in `tests/run_v31_test_suite.py`.
+
+## Acceptance remains unchanged
+
+P3 closure requires canonical encoded evidence:
+- occupancy mean >=24-26%
+- median >=20%
+- <10% <=8%
+- <15% <=25%
+- zero illegal sustained viewport clipping
+
+P4 closure requires a material encoded motion/recomposition jump toward the
+14.5-17.9% reference regime, with semantic attribution and no drift/jitter cheat.
+
+This batch is an architectural candidate, NOT encoded closure proof.
+
+## Resume / next action
+
+1. Verify exact-head CI for the commit containing this handoff.
+2. If CI fails, fix the owning production cause; never weaken guards.
+3. If CI is fully green, install that exact HEAD and run the canonical BALANCE_LIMIT replay.
+4. Measure encoded pixels at `4 Hz / 320x180`.
+5. If P3/P4 still miss floors, inspect `reference_joint_geometry_finalizer` stats first:
+   requested/evaluated/committed pairs, rejection reasons, underfill before/after,
+   and post-joint semantic commits.
+6. Continue generalized engineering only. Do not open P5/P6/P7.
+
+Canonical package SHA256:
+`6abda3a85214305e37ab4b533cdb23b522607e631c68e70d54438ca8cb145535`
+
+Canonical audio SHA256:
+`6332a4da17261e4a05ca7f5206370f372f31c72764cbc531e972d8c985d7a030`
