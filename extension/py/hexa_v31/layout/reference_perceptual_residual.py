@@ -103,6 +103,33 @@ def _semantic_cohort(card: dict, roots: list[dict]) -> bool:
     )
 
 
+def _residual_interval(plan: dict, card: dict, step: float, quality: dict) -> dict | None:
+    """Return the worst sparse interval using this stage's own 24% authority.
+
+    The older residual pass falls back to a whole-card interval only below 22%.
+    Reusing that fallback directly would create a blind 22-24% band: a card
+    could be classified residual here but have no candidate interval. Preserve
+    the older pass unchanged and close that band locally.
+    """
+    interval = _worst_interval(plan, card, step, quality)
+    if interval is not None:
+        return interval
+    if float(quality.get('mean_ink') or 0.0) >= _RESIDUAL_MEAN_INK_FLOOR:
+        return None
+    start = float(card.get('start_seconds', 0.0))
+    end = float(card.get('end_seconds', start))
+    if end - start < _MIN_SETTLED_INTERVAL:
+        return None
+    return {
+        'card_id': _card_id(card),
+        'start_seconds': start,
+        'end_seconds': end,
+        'duration_seconds': end - start,
+        'mean_projected_ink': float(quality.get('mean_ink') or 0.0),
+        'authority': 'REFERENCE_PERCEPTUAL_RESIDUAL_WHOLE_CARD_FALLBACK',
+    }
+
+
 def _material_gain(before: dict, after: dict, *, group: bool) -> bool:
     mean_gain = float(after.get('mean_ink') or 0.0) - float(before.get('mean_ink') or 0.0)
     under_gain = float(before.get('underfilled_seconds') or 0.0) - float(after.get('underfilled_seconds') or 0.0)
@@ -185,7 +212,8 @@ def _commit_single(plan: dict, card: dict, event: dict, quality: dict, fps: floa
                 'after_quality': copy.deepcopy(after_quality),
             })
             return True
-    event.clear(); event.update(snapshot)
+    event.clear()
+    event.update(snapshot)
     return False
 
 
@@ -216,8 +244,10 @@ def _fit_group_translation(roots: list[dict]) -> tuple[bool, float, float]:
     rects = [list(map(float, event.get('planned_rect_norm') or [])) for event in roots]
     if any(len(rect) != 4 for rect in rects):
         return False, 0.0, 0.0
-    x0 = min(rect[0] for rect in rects); y0 = min(rect[1] for rect in rects)
-    x1 = max(rect[0] + rect[2] for rect in rects); y1 = max(rect[1] + rect[3] for rect in rects)
+    x0 = min(rect[0] for rect in rects)
+    y0 = min(rect[1] for rect in rects)
+    x1 = max(rect[0] + rect[2] for rect in rects)
+    y1 = max(rect[1] + rect[3] for rect in rects)
     if x1 - x0 > SAFE_X[1] - SAFE_X[0] or y1 - y0 > SAFE_Y[1] - SAFE_Y[0]:
         return False, 0.0, 0.0
     dx = max(SAFE_X[0] - x0, min(0.0, SAFE_X[1] - x1))
@@ -238,7 +268,8 @@ def _commit_group(plan: dict, card: dict, roots: list[dict], quality: dict, fps:
         spread = min(1.14, max(1.0, math.sqrt(factor)))
         for event in roots:
             snapshot = snapshots[_event_id(event)]
-            event.clear(); event.update(copy.deepcopy(snapshot))
+            event.clear()
+            event.update(copy.deepcopy(snapshot))
             old_center = snapshot.get('card_rest_position_norm') or [0.5, 0.5]
             center = [
                 centroid[0] + (float(old_center[0]) - centroid[0]) * spread,
@@ -259,7 +290,8 @@ def _commit_group(plan: dict, card: dict, roots: list[dict], quality: dict, fps:
             }
             for event in roots:
                 snapshot = snapshots[_event_id(event)]
-                event.clear(); event.update(copy.deepcopy(snapshot))
+                event.clear()
+                event.update(copy.deepcopy(snapshot))
                 _apply_geometry(event, translated_centers[_event_id(event)], factor)
         if any(not _in_safe(event.get('planned_rect_norm') or []) for event in roots):
             stats['rejections']['SAFE_FRAME'] = stats['rejections'].get('SAFE_FRAME', 0) + 1
@@ -293,7 +325,8 @@ def _commit_group(plan: dict, card: dict, roots: list[dict], quality: dict, fps:
         })
         return True
     for event in roots:
-        event.clear(); event.update(snapshots[_event_id(event)])
+        event.clear()
+        event.update(snapshots[_event_id(event)])
     return False
 
 
@@ -338,7 +371,7 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
             if not _residual(card, quality):
                 exhausted_cards.add(cid)
                 continue
-            interval = _worst_interval(plan, card, step, quality)
+            interval = _residual_interval(plan, card, step, quality)
             if interval is None:
                 exhausted_cards.add(cid)
                 continue
@@ -390,6 +423,7 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
     stats['changed'] = bool(stats['commits'])
     stats['pass'] = _density_not_worse(before_density, after_density) and bool(composition_plan_qa(plan).get('pass'))
     if not stats['pass']:
-        plan.clear(); plan.update(original)
+        plan.clear()
+        plan.update(original)
         raise ValueError('REFERENCE_PERCEPTUAL_RESIDUAL_CARD_CLOSURE_FAILED')
     return stats
