@@ -1,5 +1,8 @@
 import copy
 import json
+import os
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -75,8 +78,9 @@ with tempfile.TemporaryDirectory() as raw:
         # Final plan -> renderer -> short encoded MP4, using the real source.
         manifest=render_scene_media({'events':signed['events']},signed,[],{'events':[]},{'events':[]},
             root/f'out{count}',root/f'cache{count}',width=320,height=180,fps=30)
-        import subprocess,os
-        encoded=subprocess.check_output([os.environ['HEXA_FFMPEG'],'-v','error','-i',manifest['clips'][0]['source_path'],
+        ffmpeg=os.environ.get('HEXA_FFMPEG') or shutil.which('ffmpeg')
+        assert ffmpeg, 'FFmpeg executable is required for staggered encoded attribution test'
+        encoded=subprocess.check_output([ffmpeg,'-v','error','-i',manifest['clips'][0]['source_path'],
             '-vf','fps=4,scale=320:180:flags=area','-f','rawvideo','-pix_fmt','rgb24','pipe:1'])
         frames=np.frombuffer(encoded,np.uint8).reshape(-1,180,320,3)
         motion=(np.abs(np.diff(frames.astype(np.int16),axis=0)).max(axis=3)>13).mean(axis=(1,2))
