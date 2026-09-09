@@ -142,6 +142,13 @@ assert len(owner.get('composition_states') or []) == 1, owner
 state = owner['composition_states'][0]
 assert state['semantic_beat'] == 'SOURCE_REVEAL_FOCUS_TRANSFER', state
 assert set(state['participating_event_ids']) == {'FOCUS_OWNER', 'FOCUS_TARGET'}
+# The transfer must extend motion into the old hold after the appearance has
+# finished, not merely stack another curve on the reveal itself.
+assert float(state['start_seconds']) >= 1.35 + .8 + .04 - 1e-6, state
+assert (
+    float(focus_stats['after_static_hold_ratio'])
+    <= float(focus_stats['before_static_hold_ratio']) - .04
+), focus_stats
 participants = target.get('composition_participant_states') or []
 assert len(participants) == 2, participants
 assert participants[0]['scale_multiplier'] < participants[1]['scale_multiplier']
