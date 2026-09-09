@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 from unittest.mock import patch
 
+from hexa_v31.composition_qa import composition_plan_qa
 from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, _fp, _rect
 from hexa_v31.layout.reference_residual_closure import (
     finalize_reference_residual_closure,
@@ -149,19 +150,25 @@ assert participants[0]['center_norm'] == participants[1]['center_norm'] == [.72,
 assert not owner.get('position_animated') and not target.get('position_animated')
 
 
-# Actual center travel remains protected from the residual focus author.
-travel_owner = event('TRAVEL_OWNER', .30, .52, (0, 0, .38, .62), primary=True, hit=.55)
-travel_target = event('TRAVEL_TARGET', .72, .52, (0, 0, .22, .26), hit=2.0)
+# Actual center travel remains protected from the residual focus author. The
+# fixture itself must already satisfy the production collision/viewport gate;
+# otherwise a failing baseline would falsely look like a residual-closure bug.
+travel_owner = event('TRAVEL_OWNER', .20, .52, (0, 0, .14, .22), primary=True, hit=.55)
+travel_target = event('TRAVEL_TARGET', .50, .52, (0, 0, .10, .14), hit=2.0)
 travel_target['preset_entry'] = {
-    'name': 'ENTRY_LEFT_TO_MIDDLE',
+    'name': 'ENTRY_RIGHT_TO_MIDDLE',
     'start_seconds': 1.2,
     'duration_seconds': .8,
 }
 travel_plan = plan([travel_owner, travel_target])
+assert composition_plan_qa(travel_plan)['pass'], composition_plan_qa(travel_plan)
+travel_before = copy.deepcopy(travel_plan)
 travel_stats = finalize_reference_residual_closure(travel_plan)
+assert travel_stats['pass'], travel_stats
 assert travel_stats['focus_candidates_committed'] == 0, travel_stats
 assert not travel_owner.get('composition_states')
 assert not travel_target.get('composition_participant_states')
+assert travel_plan == travel_before, (travel_before, travel_plan)
 
 
 # Temporal adjacency across unrelated semantic phases/scenes cannot authorize
@@ -194,34 +201,36 @@ with patch(
 ):
     rejected_stats = finalize_reference_residual_closure(rejected_plan)
 assert rejected_stats['density_candidates_committed'] == 0, rejected_stats
-assert rejected_plan == original, (rejected_plan, original)
+assert rejected_plan == original, (original, rejected_plan)
 
 
-# A partition child is never independently scaled or used as a focus actor.
-partition = event('PARTITION_CHILD', .50, .52, (0, 0, .13, .18), primary=True)
-partition['render_mode'] = 'CHILD_PARTITION'
-partition['partition_group_id'] = 'GROUP_X'
-partition_plan = plan([partition])
+# Partition children remain completely outside independent residual geometry.
+partition_child = event('PARTITION_CHILD', .44, .52, (0, 0, .09, .14), primary=True)
+partition_child['render_mode'] = 'CHILD_PARTITION'
+partition_child['partition_group_id'] = 'PARTITION_GENERIC'
+partition_residual = event('PARTITION_RESIDUAL', .62, .52, (0, 0, .09, .14))
+partition_residual['render_mode'] = 'RESIDUAL_SUPPORT'
+partition_residual['partition_group_id'] = 'PARTITION_GENERIC'
+partition_plan = plan([partition_child, partition_residual])
 partition_before = copy.deepcopy(partition_plan)
 partition_stats = finalize_reference_residual_closure(partition_plan)
 assert partition_stats['density_candidates_committed'] == 0, partition_stats
 assert partition_stats['focus_candidates_committed'] == 0, partition_stats
-assert partition_plan == partition_before
+assert partition_plan == partition_before, (partition_before, partition_plan)
 
 
-# Generic structure, not IDs or narration duration, determines the transform.
-def generic(prefix, duration):
-    row = event(prefix + '_ROOT', .50, .52, (0, 0, .13, .18), primary=True, end=duration)
-    row['perceptual_hit_seconds'] = min(.8, duration * .25)
-    return plan([row], end=duration), row
+# Determinism and package/event naming cannot change the selected result.
+repeat_owner = event('OTHER_OWNER', .30, .52, (0, 0, .38, .62), primary=True, hit=.55)
+repeat_target = event('OTHER_TARGET', .72, .52, (0, 0, .22, .26), hit=2.0)
+repeat_target['preset_entry'] = {
+    'name': 'APPEAR_HIGH_SCALE',
+    'start_seconds': 1.35,
+    'duration_seconds': .8,
+}
+repeat_plan = plan([repeat_owner, repeat_target])
+repeat_stats = finalize_reference_residual_closure(repeat_plan)
+assert repeat_stats['focus_candidates_committed'] == 1, repeat_stats
+assert repeat_owner['composition_states'][0]['scale_multiplier'] == owner['composition_states'][0]['scale_multiplier']
+assert repeat_target['composition_participant_states'][-1]['scale_multiplier'] == participants[-1]['scale_multiplier']
 
-
-plan_a, actor_a = generic('A', 4.0)
-plan_b, actor_b = generic('COMPLETELY_DIFFERENT_IDENTIFIER', 8.0)
-stats_a = finalize_reference_residual_closure(plan_a)
-stats_b = finalize_reference_residual_closure(plan_b)
-assert stats_a['density_candidates_committed'] == stats_b['density_candidates_committed'] == 1
-assert actor_a['layout_scale_multiplier'] == actor_b['layout_scale_multiplier']
-assert actor_a['card_rest_position_norm'] == actor_b['card_rest_position_norm']
-
-print('V31_REFERENCE_RESIDUAL_CARD_AND_FOCUS_CLOSURE_PASS')
+print('V31_REFERENCE_RESIDUAL_P3_P4_CLOSURE_PASS')
