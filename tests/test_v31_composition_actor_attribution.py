@@ -71,4 +71,27 @@ with tempfile.TemporaryDirectory() as raw:
     qa=verify_encoded_composition(manifest['clips'][0]['source_path'],motion,render_edit_map=edit)
     assert qa['pass'] and qa['actor_attributable_verified_count']==1,qa
     assert qa['rows'][0]['attribution_sample_authority']=='AUTHORED_TRANSITION_MIDPOINT',qa
+    # A very thin owner cannot certify a later large source reveal through
+    # its own scale change. The source needs a linked, material focus state.
+    from hexa_v31.layout.reference_geometry_finalizer import _author_reveal_participant
+    thin_path=root/'thin.png'
+    Image.new('RGBA',(24,400),(35,70,140,255)).save(thin_path)
+    thin=actor('THIN_CONTEXT',.2)
+    thin.update(source_path=str(thin_path),source_bbox_norm=[0,0,24/1920,400/1080],
+                visible_ink_fraction=1.,visual_card_id='SEMANTIC_CARD')
+    thin['composition_states'][1].update(center_norm=[.2,.5],scale_multiplier=1.14,
+        participating_event_ids=['THIN_CONTEXT','REVEALED_SOURCE'],card_id='SEMANTIC_CARD')
+    revealed=actor('REVEALED_SOURCE',.65)
+    revealed.update(composition_states=[],visible_ink_fraction=1.,
+        start_seconds=.9,physical_start_seconds=.9,motion_start_seconds=.9,
+        preset_entry=dict(name='APPEAR_HIGH_SCALE',start_seconds=.9,duration_seconds=.5))
+    weak=check([thin,revealed],thin)
+    assert not weak['actor_attributable_pass'],weak
+    assert _author_reveal_participant(thin,revealed,thin['composition_states'][1])
+    linked=check([thin,revealed],thin)
+    assert linked['actor_attributable_pass'] and linked['participant_delta'] > .003,linked
+    assert not _author_reveal_participant(thin,revealed,thin['composition_states'][1])
+    assert revealed['composition_participant_states'][1]['scale_multiplier']==1.
+    assert all(s['center_norm']==[.65,.5] for s in revealed['composition_participant_states'])
+    print('V31_THIN_OWNER_LINKED_REVEAL_ATTRIBUTION_PASS')
 print('V31_COMPOSITION_ACTOR_ATTRIBUTION_PASS')

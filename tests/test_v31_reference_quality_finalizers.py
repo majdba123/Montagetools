@@ -303,3 +303,45 @@ for prefix, duration in [('SHORT_PACKAGE', 1.6), ('DIFFERENT_SCRIPT', 2.)]:
     assert subject['card_rest_position_norm'][0] < .4, subject
     assert not subject['position_animated'] and not subject['translation_safe_after_occlusion']
 print('V31_REFERENCE_SEMANTIC_NEGATIVE_SPACE_FIT_PASS')
+
+# Actual center authority is shared by cohort fitting and semantic continuation.
+from hexa_v31.layout.position_authority import has_actual_center_travel
+for name, travel in [('APPEAR_HIGH_SCALE',False), ('DISAPPEAR_DOWN_SCALE',False),
+                     ('WITHIN_MIDDLE_TO_LEFT',True), ('ENTRY_LEFT_TO_MIDDLE',True)]:
+    a = event('AUTHORITY_OWNER', .25,.52,(0,0,.12,.16),end=6.,hit=.5,primary=True)
+    b = event('AUTHORITY_FIRST',.72,.28,(0,0,.12,.16),start=1.4,end=6.,hit=2.4)
+    c = event('AUTHORITY_LATER',.72,.74,(0,0,.12,.16),start=3.8,end=6.,hit=4.8)
+    p = {'events':[a,b,c], 'visual_cards':{'cards':[card([a,b,c],end=6.)]}}
+    # Establish the existing two-state relationship, then exercise only the
+    # continuation guard with an authored action that has already finished.
+    finalize_reference_geometry(p)
+    a['composition_states'] = a['composition_states'][:2]
+    a['layout_scale_multiplier'] = 1.
+    a['preset_actions'] = [dict(name=name,start_seconds=2.7,duration_seconds=.6)]
+    assert has_actual_center_travel(a) is travel
+    stats = dict(semantic_cascade_candidates_evaluated=0,semantic_cascade_committed=0,
+                 semantic_cascade_event_ids=[],semantic_cascade_rejections={})
+    _continue_semantic_sequences(p,30.,stats)
+    assert bool(stats['semantic_cascade_committed']) is (not travel), (name,stats)
+    a['position_animated'] = True
+    assert has_actual_center_travel(a)
+print('V31_SHARED_CENTER_AUTHORITY_SEMANTIC_CONTINUATION_PASS')
+
+# Exhausted owner headroom is a focus-transfer opportunity, not permission to
+# erase the semantic beat or manufacture an owner motion delta.
+a=event('SATURATED_OWNER',.192,.52,(0,0,.2,.2),end=6.,hit=.5,primary=True)
+a['composition_states']=[dict(state_id='A',start_seconds=.5,center_norm=[.192,.52],scale_multiplier=1.12),
+                         dict(state_id='B',start_seconds=2.,transition_duration_seconds=.48,
+                              center_norm=[.192,.52],scale_multiplier=1.12)]
+b=event('NEW_SOURCE',.72,.52,(0,0,.32,.4),start=4.,end=6.,hit=4.8)
+b['preset_entry']=dict(name='APPEAR_HIGH_SCALE',start_seconds=4.,duration_seconds=.8)
+p={'events':[a,b],'visual_cards':{'cards':[card([a,b],end=6.)]}}
+s=dict(semantic_cascade_candidates_evaluated=0,semantic_cascade_committed=0,
+       semantic_cascade_event_ids=[],semantic_cascade_rejections={})
+_continue_semantic_sequences(p,30.,s)
+assert s['semantic_cascade_committed']==1,s
+assert len(a['composition_states'])==3
+assert a['composition_states'][-1]['scale_multiplier']==1.12
+assert b['composition_participant_states'][-1]['owner_state_id']==a['composition_states'][-1]['state_id']
+assert b['composition_participant_states'][0]['start_seconds']==4.
+print('V31_SATURATED_OWNER_PARTICIPANT_FOCUS_TRANSFER_PASS')

@@ -6,6 +6,7 @@ import math
 from hexa_v31.composition_qa import card_motion_conflicts, composition_plan_qa
 from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, SAFE_X, SAFE_Y, _fp, _in_safe, _rect
 from hexa_v31.visual_density import build_visual_density_report
+from hexa_v31.layout.position_authority import has_actual_center_travel
 
 
 _PARTITION_MODES = {'CHILD_PARTITION', 'RESIDUAL_SUPPORT'}
@@ -130,19 +131,7 @@ def _restore_all(events: list[dict], snapshots: dict[str, dict]) -> None:
 
 
 def _group_has_position_authority(group: list[dict]) -> bool:
-    for event in group:
-        if event.get('position_animated') or event.get('preset_actions'):
-            return True
-        base = event.get('card_rest_position_norm') or [.5, .5]
-        if any(math.dist(state.get('center_norm') or base, base) > 1e-6
-               for key in ('composition_states', 'composition_participant_states')
-               for state in event.get(key) or []):
-            return True
-        entry = str((event.get('preset_entry') or {}).get('name') or '')
-        exit_ = str((event.get('preset_exit') or {}).get('name') or '')
-        if entry.startswith('ENTRY_') or exit_.startswith('EXIT_'):
-            return True
-    return False
+    return any(has_actual_center_travel(event) for event in group)
 
 
 def _partition_key(event: dict) -> tuple[str, str, str]:
@@ -445,6 +434,45 @@ def _hierarchy_scale_candidates(owner: dict, target: dict, events: list[dict],
             if delta * fraction >= .12]
 
 
+def _author_reveal_participant(owner: dict, target: dict, state: dict) -> bool:
+    """Give the new source a bounded focus establishment, owned by this beat.
+
+    An ordinary preset reveal cannot certify an unrelated hierarchy change on
+    a tiny owner. The participant starts at a subordinate source-backed scale
+    and establishes its existing solved destination, without new travel.
+    """
+    if (str(target.get('render_mode') or 'ROOT_ATOMIC') != 'ROOT_ATOMIC'
+            or has_actual_center_travel(target)
+            or target.get('composition_states') or target.get('composition_participant_states')):
+        return False
+    entry = target.get('preset_entry') or {}
+    reveal_start = float(entry.get('start_seconds', target.get('motion_start_seconds', target.get('start_seconds', 0.))))
+    initial_start = max(reveal_start, _physical_interval(target)[0])
+    start = max(float(state['start_seconds']), initial_start)
+    end = float(state['start_seconds']) + float(state['transition_duration_seconds'])
+    if end - start < .24 or end + .12 > _physical_interval(target)[1]:
+        return False
+    # Require material source-ink participation; tiny sources must not create
+    # metadata-only recompositions. This is geometry, never planner rendering.
+    ink = _projected_settled_ink(target)
+    if ink * (1.0 - .88**2) < .012:
+        return False
+    sid = str(state['state_id'])
+    base = dict(owner_state_id=sid, card_id=state['card_id'],
+                scene_id=target.get('scene_id'), center_norm=list(target.get('card_rest_position_norm') or [.5,.5]),
+                visibility=1.0, translation_safe=False,
+                participating_event_ids=list(state['participating_event_ids']))
+    target['composition_participant_states'] = [
+        dict(base, state_id=sid+'::PARTICIPANT_A', start_seconds=round(initial_start,6),
+             transition_duration_seconds=0., scale_multiplier=.88,
+             semantic_beat='SOURCE_REVEAL_SUBORDINATE_HIERARCHY'),
+        dict(base, state_id=sid+'::PARTICIPANT_B', previous_state_id=sid+'::PARTICIPANT_A',
+             start_seconds=round(start,6), transition_duration_seconds=round(end-start,6),
+             scale_multiplier=1., semantic_beat='SOURCE_REVEAL_FOCUS_ESTABLISHMENT'),
+    ]
+    return True
+
+
 def _continue_semantic_sequences(plan: dict, fps: float, stats: dict) -> None:
     """Use later authored reveals, not elapsed time, to continue a focal state.
 
@@ -464,7 +492,7 @@ def _continue_semantic_sequences(plan: dict, fps: float, stats: dict) -> None:
                        key=lambda e: (float(e.get('perceptual_hit_seconds', 0.)), str(e.get('event_id'))))
         for owner in local:
             states = owner.get('composition_states') or []
-            if len(states) < 2 or owner.get('preset_actions'):
+            if len(states) < 2 or has_actual_center_travel(owner):
                 continue
             # Partition hierarchy is owned by the complete group, not a lone
             # child. Existing authored states are preserved, never multiplied.
@@ -497,8 +525,12 @@ def _continue_semantic_sequences(plan: dict, fps: float, stats: dict) -> None:
                 # later reveal. Never oscillate or add repeating scale pulses.
                 destinations = _hierarchy_scale_candidates(owner, target, events, center, scale)
                 if not destinations:
-                    continue
+                    # A focal actor at its safe size can still hand focus to
+                    # a later source. The participant must supply the entire
+                    # material change; a no-op owner alone never commits.
+                    destinations = [scale]
                 snapshot = copy.deepcopy(owner)
+                target_snapshot = copy.deepcopy(target)
                 density_before = build_visual_density_report(plan)
                 state_id = card_id + '::' + str(owner.get('event_id')) + '::REVEAL::' + str(target.get('event_id'))
                 candidate_state = {
@@ -516,13 +548,18 @@ def _continue_semantic_sequences(plan: dict, fps: float, stats: dict) -> None:
                 for destination_scale in destinations:
                     stats['semantic_cascade_candidates_evaluated'] += 1
                     owner['composition_states'].append(dict(candidate_state, scale_multiplier=destination_scale))
+                    owner_ink_gain = _projected_settled_ink(owner) * (destination_scale**2 - scale**2)
+                    participant_authored = False
+                    if owner_ink_gain < .012:
+                        participant_authored = _author_reveal_participant(owner, target, candidate_state)
                     effective_delta = abs(composition_state_at(owner, hit)[1] - scale)
-                    if effective_delta >= .12 and _candidate_safe(plan, [owner, target], fps):
+                    if ((effective_delta >= .12 and owner_ink_gain >= .012) or participant_authored) and _candidate_safe(plan, [owner, target], fps):
                         density_after = build_visual_density_report(plan)
                         if _density_not_worse(density_before, density_after):
                             committed = True
                             break
                     owner.clear(); owner.update(copy.deepcopy(snapshot))
+                    target.clear(); target.update(copy.deepcopy(target_snapshot))
                     reasons = stats['semantic_cascade_rejections']
                     reasons['LATER_REVEAL_GEOMETRY_OR_DENSITY'] = reasons.get('LATER_REVEAL_GEOMETRY_OR_DENSITY', 0) + 1
                 if committed:

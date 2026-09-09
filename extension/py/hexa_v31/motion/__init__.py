@@ -14,10 +14,16 @@ def _build_final_motion_plan(*args, **kwargs):
     topology_stats = finalize_reference_density_topology(plan, fps=fps)
     plan['reference_density_topology_finalizer'] = topology_stats
 
+    # Reserve semantic cohort space before independent actors consume all
+    # available slots. Every later stage retains the same full-plan QA.
+    card_allocation = finalize_reference_joint_geometry(plan, fps=fps)
+
     geometry_stats = finalize_reference_geometry(plan, fps=fps)
     plan['reference_geometry_finalizer'] = geometry_stats
 
     joint_stats = finalize_reference_joint_geometry(plan, fps=fps)
+    joint_stats['initial_card_allocation'] = card_allocation
+    joint_stats['changed'] = bool(joint_stats['changed'] or card_allocation['changed'])
     plan['reference_joint_geometry_finalizer'] = joint_stats
 
     perceptual_stats = finalize_perceptual_composition(plan, fps=fps)

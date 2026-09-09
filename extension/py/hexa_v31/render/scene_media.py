@@ -343,6 +343,17 @@ def assemble_final_mp4(scene_media:dict,audio_path,output_path,work_dir,logger=N
 # scene boundaries remain timing/semantic metadata only; they are not full-frame
 # transition operators.  Every visible change is an object preset event.
 # ---------------------------------------------------------------------------
+def _composition_cache_signature(payload):
+    """Bind cached pixels to final destinations and their actual evaluators."""
+    from hexa_v31.layout.composition_solver import composition_state_at
+    from hexa_v31 import preset_authority
+    dependencies = (_event_state, _apply, composition_state_at)
+    sources = [pathlib.Path(fn.__code__.co_filename).read_bytes() for fn in dependencies]
+    sources.append(pathlib.Path(preset_authority.__file__).read_bytes())
+    signed = dict(payload, runtime_state_source_sha256=hashlib.sha256(b"\0".join(sources)).hexdigest())
+    return hashlib.sha256(json.dumps(signed,sort_keys=True,ensure_ascii=False,default=str).encode('utf-8')).hexdigest()
+
+
 def prepare_composition_actor(event,width,height):
     """Prepare identical source geometry for rendering and attribution probes."""
     full=_prescale(_load_rgba(event['source_path']),float(event.get('base_fit_scale_percent',100.0))*float(event.get('layout_scale_multiplier',1.0)),width)
@@ -408,7 +419,7 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
         'preset_authority':motion_plan.get('preset_authority'),
         'hard_invariants':motion_plan.get('hard_invariants'),
     }
-    sig=hashlib.sha256(json.dumps(sig_payload,sort_keys=True,ensure_ascii=False,default=str).encode('utf-8')).hexdigest()
+    sig=_composition_cache_signature(sig_payload)
     media=pathlib.Path(cache)/'V31_0_26_FOUNDATION_PARTITION_STORY.mp4';meta=pathlib.Path(cache)/'V31_0_26_FOUNDATION_PARTITION_STORY.json'
     hit=False;cache_meta={}
     if media.is_file() and media.stat().st_size>4096 and meta.is_file():

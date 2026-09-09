@@ -86,7 +86,7 @@ before_ink = _projected_settled_ink(primary) + _projected_settled_ink(context)
 stats = finalize_reference_joint_geometry(plan, 30.0)
 after_ink = _projected_settled_ink(primary) + _projected_settled_ink(context)
 assert stats['pass'], stats
-assert stats['authority'] == 'REFERENCE_COORDINATED_PRIMARY_CONTEXT_FIT_V2', stats
+assert stats['authority'] == 'REFERENCE_SEMANTIC_CARD_COHORT_FIT_V3', stats
 assert stats['joint_pairs_committed'] == 1, stats
 assert stats['after_underfilled_seconds'] <= stats['before_underfilled_seconds'], stats
 assert stats['joint_max_target_ink'] > .26, stats
@@ -194,3 +194,56 @@ unrelated_plan = {
 assert finalize_reference_joint_geometry(unrelated_plan, 30.0)['joint_pairs_committed'] == 0
 
 print('V31_REFERENCE_JOINT_PRIMARY_CONTEXT_FIT_PASS')
+
+# Presentation promotion must not erase explicit semantic context ownership.
+promoted, focal, support = plan_for('PROMOTED_CONTEXT')
+support.update(attention_priority='PRIMARY', semantic_role='SUPPORTING', relationship='CONTEXT_FOR')
+assert finalize_reference_joint_geometry(promoted)['joint_pairs_committed'] == 1
+
+# A bounded third support is fitted and rolled back with the entire cohort.
+import copy
+triple, focal, support = plan_for('COHORT')
+third = event('COHORT_SECOND_SUPPORT', .74, .78, (0,0,.08,.10))
+triple['events'].append(third)
+triple['visual_cards']['cards'] = [card(triple['events'])]
+triple_before = copy.deepcopy(triple)
+triple_stats = finalize_reference_joint_geometry(triple)
+assert triple_stats['joint_cohorts_committed'] == 1, triple_stats
+assert len(triple_stats['joint_mutations'][0]['actors']) == 3
+assert all(e['layout_scale_multiplier'] > 1 for e in triple['events'])
+repeat = copy.deepcopy(triple_before)
+assert finalize_reference_joint_geometry(repeat) == triple_stats
+assert repeat == triple
+
+# Material gain and viewport/collision failure restore every field atomically.
+from unittest.mock import patch
+for denied in ('_candidate_safe', '_density_not_worse'):
+    rejected = copy.deepcopy(triple_before)
+    with patch('hexa_v31.layout.reference_joint_fitter.'+denied, return_value=False):
+        try:
+            finalize_reference_joint_geometry(rejected)
+        except ValueError:
+            pass
+    assert rejected == triple_before, denied
+assert _projected_settled_ink(focal) >= max(_projected_settled_ink(e) for e in (support, third))
+print('V31_SEMANTIC_CONTEXT_COHORT_ATOMICITY_PASS')
+
+# Whole-card sparsity still requests a fit after both individual ink targets
+# have been satisfied. Temporal card quality, not a fixed pair sum, owns it.
+from hexa_v31.layout.reference_joint_fitter import _candidate_pairs
+filled, a, b = plan_for('INDIVIDUAL_TARGETS')
+a['source_bbox_norm']=[0,0,.50,.54]
+b['source_bbox_norm']=[0,0,.32,.40]
+assert _projected_settled_ink(a)>=.23 and _projected_settled_ink(b)>=.11
+with patch('hexa_v31.layout.reference_joint_fitter._card_quality',
+           return_value={'mean_ink':.15,'underfilled_seconds':2.}):
+    assert _candidate_pairs(filled,30.)
+
+material, _, _ = plan_for('NO_MATERIAL_CARD_GAIN')
+original = copy.deepcopy(material)
+with patch('hexa_v31.layout.reference_joint_fitter._card_quality',
+           return_value={'mean_ink':.15,'underfilled_seconds':2.}):
+    result=finalize_reference_joint_geometry(material)
+assert result['joint_pairs_committed']==0 and material==original
+assert result['joint_rejections'].get('NO_MATERIAL_CARD_GAIN'),result
+print('V31_CARD_OWNED_DEFICIT_AND_MATERIAL_GAIN_PASS')

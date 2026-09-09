@@ -48,6 +48,48 @@ with tempfile.TemporaryDirectory(prefix='hexa_render_map_flat_scene_') as raw:
     output=pathlib.Path(manifest['clips'][0]['source_path']);assert output.is_file() and output.stat().st_size>4096,output
     cap=cv2.VideoCapture(str(output));ok,first=cap.read();cap.release();assert ok and first is not None
     foreground=np.max(255-first.astype(np.int16),axis=2)>15;assert np.count_nonzero(foreground)>250,(np.count_nonzero(foreground),first.shape)
+    # End-to-end authority: stale legacy pixels cannot hide final normalized
+    # destinations in any renderer branch. No video encode is needed here.
+    from hexa_v31.render.scene_media import prepare_composition_actor, _composition_cache_signature
+    from hexa_v31.layout.composition_attribution import _gray_actor
+    from hexa_v31.interaction.director import _final_timing_sha256
+    for kind in ('STATIC','PRESET','OWNER','PARTICIPANT','COHORT'):
+        variants=[]
+        for mutated in (False,True):
+            p=copy.deepcopy(motion)
+            for e in p['events']:
+                e.update(start_x_norm=.5,start_y_norm=.5,end_x_norm=.5,end_y_norm=.5,
+                         start_position_px=[960,540],end_position_px=[960,540])
+            active=p['events'][:2] if kind=='COHORT' else p['events'][:1]
+            for e in active:
+                e['motion_end_seconds']=e['physical_end_seconds']
+                if kind=='PRESET':
+                    e['motion_end_seconds']=e['physical_end_seconds']
+                    e['preset_entry']=dict(name='APPEAR_HIGH_SCALE',start_seconds=0.,duration_seconds=.5)
+                if kind in ('OWNER','PARTICIPANT'):
+                    key='composition_states' if kind=='OWNER' else 'composition_participant_states'
+                    e[key]=[dict(state_id='ESTABLISHED',start_seconds=.1,center_norm=[.27,.52],scale_multiplier=1.),
+                            dict(state_id='DESTINATION',start_seconds=.5,transition_duration_seconds=.3,
+                                 center_norm=[.36 if mutated else .27,.52],scale_multiplier=1.12 if mutated else 1.)]
+                elif mutated:
+                    e['card_rest_position_norm']=[.36 if e is active[0] else .68,.55]
+                    e['layout_scale_multiplier']=1.12
+            r=build_layer_render_map(package,wav,{},vision,p,root/('authority_'+kind+str(mutated)),width=640,height=360,fps=30.)
+            mapped_edit=json.loads(pathlib.Path(r['edit_map']).read_text(encoding='utf-8'))
+            canvas=np.full((360,640),255,dtype=np.uint8)
+            runtime_states=[]
+            for e in mapped_edit['events'][:len(active)]:
+                runtime,img=prepare_composition_actor(e,640,360)
+                from hexa_v31.preview import _event_state
+                runtime_states.append((_event_state(runtime,1.),img.shape))
+                np.minimum(canvas,_gray_actor(runtime,img,1.,640,360),out=canvas)
+            variants.append((_final_timing_sha256(p),mapped_edit['events'],
+                _composition_cache_signature({'events':mapped_edit['events']}),runtime_states,canvas))
+        before,after=variants
+        for index in range(4):
+            assert before[index]!=after[index],(kind,index)
+        assert np.count_nonzero(before[4]!=after[4])>100,(kind,'NO_PIXEL_MUTATION')
+    print('V31_FINAL_PLANNER_MAP_SEAL_CACHE_RUNTIME_PIXELS_PASS')
     broken=copy.deepcopy(motion);broken['events'][0]['physical_id']='PHYS_DOES_NOT_EXIST';broken['events'][0]['source_layer_path']=str(root/'does-not-exist.png')
     try:
         build_layer_render_map(package,wav,{},vision,broken,root/'broken_map',width=640,height=360,fps=30.0);raise AssertionError('unresolved planner event was silently accepted')

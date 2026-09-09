@@ -41,8 +41,14 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
                 attribution=middle
                 attribution['attribution_sample_times']=list(middle_times)
                 attribution['attribution_sample_authority']='AUTHORED_TRANSITION_MIDPOINT'
+                # Both gates must describe the same actual encoded frames.
+                # Retirement may erase the full destination after the beat.
+                diff=cv2.absdiff(before,frames[midpoint])
+                delta=float(np.mean(diff)/255.0)
+                changed=float(np.mean(diff>=10))
+                meaningful=delta>=.003 and changed>=.012
         verified+=int(meaningful);attributed+=int(meaningful and attribution['actor_attributable_pass'])
-        rows.append({'event_id':event.get('event_id'),'state_id':state.get('state_id'),'transition_seconds':t,'encoded_pixel_delta':round(delta,6),'full_frame_delta':round(delta,6),'encoded_changed_pixel_ratio':round(changed,6),**attribution,'pass':meaningful and attribution['actor_attributable_pass']})
+        rows.append({'event_id':event.get('event_id'),'card_id':state.get('card_id',event.get('visual_card_id')),'state_id':state.get('state_id'),'transition_seconds':t,'encoded_pixel_delta':round(delta,6),'full_frame_delta':round(delta,6),'encoded_changed_pixel_ratio':round(changed,6),**attribution,'pass':meaningful and attribution['actor_attributable_pass']})
     encoded_mean=float(np.mean(occupancies)) if occupancies else 0.0;encoded_median=float(np.median(occupancies)) if occupancies else 0.0
     planned=float((projected_density or {}).get('median_estimated_alpha_coverage') or 0.0);divergence=abs(planned-encoded_median)
     failures=[]
