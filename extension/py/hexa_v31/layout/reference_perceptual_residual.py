@@ -30,13 +30,15 @@ _MAX_EVALUATIONS = 144
 _SINGLE_PRIMARY_ABSOLUTE_SCALE_CAP = 4.0
 _SINGLE_SUPPORT_ABSOLUTE_SCALE_CAP = 3.2
 _GROUP_RELATIVE_SCALE_CAP = 1.55
-# Canonical replay shows projected alpha runs about 20% above encoded non-white
-# occupancy. Residual cards therefore need ~30% projected support to land near
-# the 24-26% encoded P3 engineering floor instead of merely looking improved in
-# planner metrics.
-_RESIDUAL_MEAN_INK_FLOOR = 0.28
-_TARGET_SEVERE_INK = 0.32
-_TARGET_MODERATE_INK = 0.30
+# _card_quality uses a full-frame denominator, matching the encoded occupancy
+# measurement. build_visual_density_report's logged estimated-alpha metric is
+# safe-frame-normalized and MUST NOT be compared numerically to this value.
+# Residual closure therefore targets 24%+ full-frame projected ink directly,
+# with extra headroom on severe cards, instead of deriving a false calibration
+# from the safe-frame-normalized global proxy.
+_RESIDUAL_MEAN_INK_FLOOR = 0.24
+_TARGET_SEVERE_INK = 0.28
+_TARGET_MODERATE_INK = 0.26
 _MIN_SETTLED_INTERVAL = 0.45
 _MIN_SINGLE_MEAN_GAIN = 0.030
 _MIN_GROUP_MEAN_GAIN = 0.025
@@ -63,7 +65,7 @@ def _severity(card: dict, quality: dict) -> float:
 
 
 def _target_ink(quality: dict) -> float:
-    return _TARGET_SEVERE_INK if float(quality.get('mean_ink') or 0.0) < 0.18 else _TARGET_MODERATE_INK
+    return _TARGET_SEVERE_INK if float(quality.get('mean_ink') or 0.0) < 0.16 else _TARGET_MODERATE_INK
 
 
 def _eligible_static_root(event: dict) -> bool:
@@ -157,7 +159,7 @@ def _commit_single(plan: dict, card: dict, event: dict, quality: dict, fps: floa
                 stats['rejections']['DENSITY_MONOTONICITY'] = stats['rejections'].get('DENSITY_MONOTONICITY', 0) + 1
                 continue
             target = _target_ink(quality)
-            target_progress = float(after_quality.get('mean_ink') or 0.0) >= min(target, float(quality.get('mean_ink') or 0.0) + 0.06)
+            target_progress = float(after_quality.get('mean_ink') or 0.0) >= min(target, float(quality.get('mean_ink') or 0.0) + 0.05)
             if not target_progress or not _material_gain(quality, after_quality, group=False):
                 stats['rejections']['NO_MATERIAL_PERCEPTUAL_GAIN'] = stats['rejections'].get('NO_MATERIAL_PERCEPTUAL_GAIN', 0) + 1
                 continue
@@ -321,7 +323,7 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
         'event_ids': [],
         'mutations': [],
         'rejections': {},
-        'projected_to_encoded_calibration_note': 'CANONICAL_REPLAY_PROJECTED_ALPHA_APPROX_1P25X_ENCODED_NONWHITE',
+        'ink_denominator_authority': 'FULL_FRAME_PROJECTED_SOURCE_INK__MATCHES_ENCODED_OCCUPANCY_DENOMINATOR',
         'before_residual_card_ids': sorted(_card_id(card) for card in cards if _residual(card, before_quality[_card_id(card)])),
     }
     exhausted_cards: set[str] = set()
