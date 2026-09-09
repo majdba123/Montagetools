@@ -25,6 +25,7 @@ from hexa_v31.visual_density import build_visual_density_report
 
 _AUTHORITY = 'REFERENCE_PERCEPTUAL_RESIDUAL_CARD_CLOSURE_V1'
 _MAX_CARD_COMMITS = 12
+_MAX_COMMITS_PER_CARD = 2
 _MAX_EVALUATIONS = 144
 _SINGLE_PRIMARY_ABSOLUTE_SCALE_CAP = 4.0
 _SINGLE_SUPPORT_ABSOLUTE_SCALE_CAP = 3.2
@@ -243,11 +244,17 @@ def _commit_group(plan: dict, card: dict, roots: list[dict], quality: dict, fps:
             stats['rejections']['SAFE_FRAME'] = stats['rejections'].get('SAFE_FRAME', 0) + 1
             continue
         if abs(dx) > 1e-9 or abs(dy) > 1e-9:
+            translated_centers = {
+                _event_id(event): [
+                    float((event.get('card_rest_position_norm') or [0.5, 0.5])[0]) + dx,
+                    float((event.get('card_rest_position_norm') or [0.5, 0.5])[1]) + dy,
+                ]
+                for event in roots
+            }
             for event in roots:
-                current = event.get('card_rest_position_norm') or [0.5, 0.5]
-                shifted = [float(current[0]) + dx, float(current[1]) + dy]
                 snapshot = snapshots[_event_id(event)]
-                _apply_geometry(event, shifted, float(event.get('layout_scale_multiplier') or 1.0) / max(1e-6, float(snapshot.get('layout_scale_multiplier') or 1.0)))
+                event.clear(); event.update(copy.deepcopy(snapshot))
+                _apply_geometry(event, translated_centers[_event_id(event)], factor)
         if any(not _in_safe(event.get('planned_rect_norm') or []) for event in roots):
             stats['rejections']['SAFE_FRAME'] = stats['rejections'].get('SAFE_FRAME', 0) + 1
             continue
@@ -290,9 +297,10 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
     The stage is deliberately narrow: it acts only on sustained residual cards,
     never on partitions or center-travel actors. Single visible roots may use
     additional safe-frame headroom because pair/cohort fitters cannot help them.
-    Small static semantic cohorts may receive one uniform, hierarchy-preserving
-    card transform. Every commit remains deterministic, source-backed, atomic,
-    full-lifetime collision certified, and density monotonic.
+    Small static semantic cohorts may receive at most two uniform,
+    hierarchy-preserving card transforms. Every commit remains deterministic,
+    source-backed, atomic, full-lifetime collision certified, and density
+    monotonic.
     """
     original = copy.deepcopy(plan)
     before_density = build_visual_density_report(plan)
@@ -311,18 +319,21 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
         'rejections': {},
         'before_residual_card_ids': sorted(_card_id(card) for card in cards if _residual(card, before_quality[_card_id(card)])),
     }
-    committed_cards: set[str] = set()
+    exhausted_cards: set[str] = set()
+    per_card_commits: dict[str, int] = {}
     while stats['commits'] < _MAX_CARD_COMMITS and stats['candidates_evaluated'] < _MAX_EVALUATIONS:
         ranked = []
         for card in cards:
             cid = _card_id(card)
-            if cid in committed_cards:
+            if cid in exhausted_cards or per_card_commits.get(cid, 0) >= _MAX_COMMITS_PER_CARD:
                 continue
             quality = _card_quality(plan, card, step)
             if not _residual(card, quality):
+                exhausted_cards.add(cid)
                 continue
             interval = _worst_interval(plan, card, step, quality)
             if interval is None:
+                exhausted_cards.add(cid)
                 continue
             roots = [
                 event for event in _active_roots(plan, card, interval)
@@ -334,7 +345,7 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
         for _, cid, card, quality, interval, roots in ranked:
             if not roots:
                 stats['rejections']['NO_STATIC_SOURCE_ROOT'] = stats['rejections'].get('NO_STATIC_SOURCE_ROOT', 0) + 1
-                committed_cards.add(cid)
+                exhausted_cards.add(cid)
                 continue
             strategy_committed = False
             if len(roots) == 1:
@@ -347,10 +358,13 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
                             strategy_committed = True
                             break
             if strategy_committed:
-                committed_cards.add(cid)
+                per_card_commits[cid] = per_card_commits.get(cid, 0) + 1
+                post_quality = _card_quality(plan, card, step)
+                if not _residual(card, post_quality) or per_card_commits[cid] >= _MAX_COMMITS_PER_CARD:
+                    exhausted_cards.add(cid)
                 changed = True
                 break
-            committed_cards.add(cid)
+            exhausted_cards.add(cid)
         if not changed:
             break
 
@@ -360,6 +374,7 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
     stats['event_ids'] = sorted(set(stats['event_ids']))
     stats['after_residual_card_ids'] = unresolved
     stats['resolved_card_ids'] = sorted(set(stats['before_residual_card_ids']) - set(unresolved))
+    stats['per_card_commit_counts'] = dict(sorted(per_card_commits.items()))
     stats['closure_satisfied'] = not unresolved
     stats['before_mean_projected_ink'] = round(sum(float(row.get('mean_ink') or 0.0) for row in before_quality.values()) / max(1, len(before_quality)), 6)
     stats['after_mean_projected_ink'] = round(sum(float(row.get('mean_ink') or 0.0) for row in after_quality.values()) / max(1, len(after_quality)), 6)
