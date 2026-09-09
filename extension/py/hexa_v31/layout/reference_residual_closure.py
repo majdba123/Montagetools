@@ -427,11 +427,14 @@ def _focus_candidates(plan: dict, stats: dict) -> list[tuple]:
                 reveal = _reveal_entry(target)
                 if reveal is None:
                     continue
-                entry_start, _, hit = reveal
+                entry_start, entry_duration, hit = reveal
                 if hit <= owner_hit + 0.42 or not _semantic_pair_allowed(card, owner, target):
                     continue
-                transfer_start = max(entry_start + 0.08, hit - 0.52)
-                transfer_duration = max(0.32, min(0.64, hit + 0.08 - transfer_start))
+                # Establish focus after the authored appearance has landed.
+                # This deliberately extends semantic motion into the old hold
+                # instead of stacking another scale curve on top of the reveal.
+                transfer_start = max(hit + 0.08, entry_start + entry_duration + 0.04)
+                transfer_duration = 0.56
                 transfer_end = transfer_start + transfer_duration
                 if transfer_start < last_owner_state_end + 0.20:
                     continue
@@ -474,12 +477,11 @@ def _focus_candidates(plan: dict, stats: dict) -> list[tuple]:
 
 def _focus_variants(owner_scale: float) -> list[tuple[float, float, float]]:
     return [
-        (round(owner_scale * 0.84, 6), 0.82, 1.12),
-        (round(owner_scale * 0.88, 6), 0.86, 1.10),
-        (round(owner_scale * 0.92, 6), 0.88, 1.08),
-        (round(owner_scale, 6), 0.84, 1.12),
-        (round(owner_scale, 6), 0.88, 1.10),
-        (round(owner_scale, 6), 1.00, 1.16),
+        (round(owner_scale * 0.86, 6), 1.00, 1.16),
+        (round(owner_scale * 0.90, 6), 0.96, 1.16),
+        (round(owner_scale * 0.94, 6), 1.00, 1.14),
+        (round(owner_scale, 6), 1.00, 1.18),
+        (round(owner_scale * 0.88, 6), 0.88, 1.12),
     ]
 
 
@@ -701,6 +703,7 @@ def finalize_reference_residual_closure(
             / max(1, len(before_quality)),
             6,
         ),
+        'before_static_hold_ratio': before_density.get('static_hold_ratio'),
     }
 
     _close_residual_density(plan, fps, stats)
@@ -725,6 +728,7 @@ def finalize_reference_residual_closure(
         / max(1, len(after_quality)),
         6,
     )
+    stats['after_static_hold_ratio'] = after_density.get('static_hold_ratio')
     stats['changed'] = bool(
         stats['density_candidates_committed']
         or stats['focus_candidates_committed']
