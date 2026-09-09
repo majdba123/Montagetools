@@ -94,4 +94,51 @@ with tempfile.TemporaryDirectory() as raw:
     assert revealed['composition_participant_states'][1]['scale_multiplier']==1.
     assert all(s['center_norm']==[.65,.5] for s in revealed['composition_participant_states'])
     print('V31_THIN_OWNER_LINKED_REVEAL_ATTRIBUTION_PASS')
+
+    # The residual P4 author must itself create an actor-attributable pixel
+    # change. A planner-only focus beat or a preset reveal earning accidental
+    # credit is not sufficient.
+    from hexa_v31.layout.reference_residual_closure import finalize_reference_residual_closure
+    residual_owner=actor('RESIDUAL_FOCUS_OWNER',.30)
+    residual_owner.update(
+        visual_card_id='RESIDUAL_FOCUS_CARD',semantic_role='LEAD',composition_role='LEAD',
+        visible_ink_fraction=1.,visible_ink_fraction_basis='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX',
+        layout_scale_multiplier=1.6,composition_states=[],perceptual_hit_seconds=.55,
+        planned_rect_norm=[.10,.204,.40,.592],collision_envelope_rect_norm=[.10,.204,.40,.592],
+    )
+    residual_target=actor('RESIDUAL_FOCUS_TARGET',.74)
+    residual_target.update(
+        visual_card_id='RESIDUAL_FOCUS_CARD',attention_priority='SUPPORTING',semantic_role='SUPPORTING',composition_role='SUPPORT',
+        visible_ink_fraction=1.,visible_ink_fraction_basis='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX',
+        composition_states=[],perceptual_hit_seconds=2.0,
+        preset_entry={'name':'APPEAR_HIGH_SCALE','start_seconds':1.35,'duration_seconds':.8},
+    )
+    residual_card={
+        'card_id':'RESIDUAL_FOCUS_CARD','start_seconds':0.,'end_seconds':3.,'duration_seconds':3.,
+        'story_phase_plan':{'phases':[{'phase_id':'FOCUS_PHASE','start_seconds':0.,'end_seconds':3.,
+            'event_ids':['RESIDUAL_FOCUS_OWNER','RESIDUAL_FOCUS_TARGET']}]},
+        'constraint_layout':{'placements':{
+            'RESIDUAL_FOCUS_OWNER':{'center_norm':[.30,.5],'scale':1.6,'rect_norm':[.10,.204,.40,.592]},
+            'RESIDUAL_FOCUS_TARGET':{'center_norm':[.74,.5],'scale':1.,'rect_norm':list(residual_target['planned_rect_norm'])},
+        }},
+    }
+    residual_plan={'fps':30.,'events':[residual_owner,residual_target],
+        'visual_cards':{'cards':[residual_card]}}
+    residual_stats=finalize_reference_residual_closure(residual_plan)
+    assert residual_stats['focus_candidates_committed']==1,residual_stats
+    residual_state=residual_owner['composition_states'][-1]
+    times=(float(residual_state['start_seconds'])-.12,
+           float(residual_state['start_seconds'])+float(residual_state['transition_duration_seconds'])+.12)
+    residual_frames=[np.full((360,640),255,dtype=np.uint8) for _ in range(2)]
+    for e in (residual_owner,residual_target):
+        runtime,image=prepare_composition_actor(e,640,360)
+        for i,t in enumerate(times):
+            np.minimum(residual_frames[i],_gray_actor(runtime,image,t,640,360),out=residual_frames[i])
+    residual_attribution=attribute_composition(
+        residual_owner,residual_state,residual_frames[0],residual_frames[1],times,
+        {'events':[residual_owner,residual_target]})
+    assert residual_attribution['actor_attributable_pass'],residual_attribution
+    assert residual_attribution['participant_delta']>=.003,residual_attribution
+    assert residual_attribution['attributed_changed_pixel_ratio']>=.012,residual_attribution
+    print('V31_RESIDUAL_FOCUS_ACTOR_ATTRIBUTION_PASS')
 print('V31_COMPOSITION_ACTOR_ATTRIBUTION_PASS')
