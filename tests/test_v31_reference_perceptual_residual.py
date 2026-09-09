@@ -4,6 +4,7 @@ import copy
 
 from hexa_v31.composition_qa import composition_plan_qa
 from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, _fp, _rect
+from hexa_v31.layout.position_authority import has_actual_center_travel
 from hexa_v31.layout.reference_perceptual_residual import finalize_reference_perceptual_residual
 
 
@@ -62,16 +63,31 @@ assert moderate_stats['single_root_commits']==1,moderate_stats
 assert moderate_stats['closure_satisfied'],moderate_stats
 assert moderate_stats['after_mean_projected_ink']>=.24,moderate_stats
 
-# True center travel must remain a no-op, and the synthetic baseline must be
-# valid itself: physical lifetime begins exactly when the ENTRY begins.
+# True center travel protection is actor-scoped. The travelling actor must stay
+# byte-for-byte unchanged, but a different static actor in the same sparse card
+# may still receive a certified density-only improvement. The synthetic baseline
+# is valid itself: physical lifetime begins exactly when the ENTRY begins.
 travel_owner=event('TRAVEL_OWNER',.20,.52,(0,0,.14,.22),primary=True)
 travel_target=event('TRAVEL_TARGET',.50,.52,(0,0,.10,.14),start=1.2)
 travel_target['preset_entry']={'name':'ENTRY_RIGHT_TO_MIDDLE','start_seconds':1.2,'duration_seconds':.8}
 travel_plan=plan([travel_owner,travel_target]);assert composition_plan_qa(travel_plan)['pass'],composition_plan_qa(travel_plan)
-travel_before=copy.deepcopy(travel_plan);travel_stats=finalize_reference_perceptual_residual(travel_plan)
+assert has_actual_center_travel(travel_target),travel_target
+travel_owner_before=copy.deepcopy(travel_owner)
+travel_target_before=copy.deepcopy(travel_target)
+travel_stats=finalize_reference_perceptual_residual(travel_plan)
 assert travel_stats['pass'],travel_stats
-assert travel_stats['commits']==0,travel_stats
-assert travel_plan==travel_before,(travel_before,travel_plan)
+assert travel_target==travel_target_before,(travel_target_before,travel_target)
+assert has_actual_center_travel(travel_target),travel_target
+assert travel_target['preset_entry']==travel_target_before['preset_entry']
+assert (
+    travel_target['physical_start_seconds'],travel_target['physical_end_seconds'],
+    travel_target['motion_start_seconds'],travel_target['motion_end_seconds']
+)==(
+    travel_target_before['physical_start_seconds'],travel_target_before['physical_end_seconds'],
+    travel_target_before['motion_start_seconds'],travel_target_before['motion_end_seconds']
+)
+assert float(travel_owner['layout_scale_multiplier'])>=float(travel_owner_before['layout_scale_multiplier'])
+assert composition_plan_qa(travel_plan)['pass'],composition_plan_qa(travel_plan)
 
 child=event('PARTITION_CHILD',.42,.52,(0,0,.10,.15),primary=True);child['render_mode']='CHILD_PARTITION';child['partition_group_id']='PG'
 residual=event('PARTITION_RESIDUAL',.62,.52,(0,0,.10,.15));residual['render_mode']='RESIDUAL_SUPPORT';residual['partition_group_id']='PG'
