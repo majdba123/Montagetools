@@ -24,7 +24,9 @@ from hexa_v31.visual_density import build_visual_density_report
 _AUTHORITY = 'REFERENCE_RESIDUAL_CARD_AND_FOCUS_CLOSURE_V1'
 _MAX_DENSITY_COMMITS = 14
 _MAX_DENSITY_COMMITS_PER_CARD = 2
+_MAX_DENSITY_EVALUATIONS = 220
 _MAX_FOCUS_COMMITS = 12
+_MAX_FOCUS_EVALUATIONS = 80
 _MIN_INTERVAL_SECONDS = 0.55
 _MIN_MEAN_INK_GAIN = 0.015
 _MIN_UNDERFILL_GAIN_SECONDS = 0.30
@@ -242,7 +244,7 @@ def _scale_ladder(event: dict, card: dict, quality: dict) -> list[float]:
             continue
         out.append(value)
     out.sort(reverse=True)
-    return out
+    return out[:6]
 
 
 def _material_card_gain(before: dict, after: dict, card: dict) -> bool:
@@ -275,12 +277,16 @@ def _commit_density_actor(
     static_center = not has_actual_center_travel(event)
     stats['density_candidates_requested'] += 1
     for factor in _scale_ladder(event, card, pre_quality):
+        if stats['density_candidates_evaluated'] >= _MAX_DENSITY_EVALUATIONS:
+            break
         destinations = (
-            _root_fit_destinations(plan, snapshot, old_scale * factor)
+            _root_fit_destinations(plan, snapshot, old_scale * factor)[:4]
             if static_center
             else [old_center]
         )
         for center in destinations:
+            if stats['density_candidates_evaluated'] >= _MAX_DENSITY_EVALUATIONS:
+                break
             stats['density_candidates_evaluated'] += 1
             event.clear()
             event.update(copy.deepcopy(snapshot))
@@ -522,6 +528,8 @@ def _author_focus_transfer(
     )
     stats['focus_candidates_requested'] += 1
     for owner_to, target_from, target_to in _focus_variants(owner_scale):
+        if stats['focus_candidates_evaluated'] >= _MAX_FOCUS_EVALUATIONS:
+            break
         stats['focus_candidates_evaluated'] += 1
         owner.clear()
         owner.update(copy.deepcopy(owner_snapshot))
