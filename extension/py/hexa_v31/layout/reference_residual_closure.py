@@ -482,12 +482,15 @@ def _focus_candidates(plan: dict, stats: dict) -> list[tuple]:
 
 
 def _focus_variants(owner_scale: float) -> list[tuple[float, float, float]]:
+    # A focus transfer must not buy motion by making the card sparser. Promote
+    # the revealed source first; only then allow a mild focal de-emphasis. All
+    # variants remain subject to full-lifetime collision and density QA.
     return [
-        (round(owner_scale * 0.86, 6), 1.00, 1.16),
-        (round(owner_scale * 0.90, 6), 0.96, 1.16),
-        (round(owner_scale * 0.94, 6), 1.00, 1.14),
-        (round(owner_scale, 6), 1.00, 1.18),
-        (round(owner_scale * 0.88, 6), 0.88, 1.12),
+        (round(owner_scale, 6), 1.00, 1.28),
+        (round(owner_scale, 6), 1.00, 1.24),
+        (round(owner_scale * 0.96, 6), 1.00, 1.28),
+        (round(owner_scale, 6), 1.00, 1.20),
+        (round(owner_scale * 0.94, 6), 1.00, 1.24),
     ]
 
 
