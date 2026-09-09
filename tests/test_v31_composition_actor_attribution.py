@@ -97,13 +97,15 @@ with tempfile.TemporaryDirectory() as raw:
 
     # The residual P4 author must itself create an actor-attributable pixel
     # change. A planner-only focus beat or a preset reveal earning accidental
-    # credit is not sufficient.
+    # credit is not sufficient. Give the pair enough post-transfer lifetime to
+    # satisfy the same readable-overlap contract used in production.
     from hexa_v31.layout.reference_residual_closure import finalize_reference_residual_closure
     residual_owner=actor('RESIDUAL_FOCUS_OWNER',.30)
     residual_owner.update(
         visual_card_id='RESIDUAL_FOCUS_CARD',semantic_role='LEAD',composition_role='LEAD',
         visible_ink_fraction=1.,visible_ink_fraction_basis='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX',
         layout_scale_multiplier=1.6,composition_states=[],perceptual_hit_seconds=.55,
+        end_seconds=4.,physical_end_seconds=4.,motion_end_seconds=4.,
         planned_rect_norm=[.10,.204,.40,.592],collision_envelope_rect_norm=[.10,.204,.40,.592],
     )
     residual_target=actor('RESIDUAL_FOCUS_TARGET',.74)
@@ -111,11 +113,12 @@ with tempfile.TemporaryDirectory() as raw:
         visual_card_id='RESIDUAL_FOCUS_CARD',attention_priority='SUPPORTING',semantic_role='SUPPORTING',composition_role='SUPPORT',
         visible_ink_fraction=1.,visible_ink_fraction_basis='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX',
         composition_states=[],perceptual_hit_seconds=2.0,
+        end_seconds=4.,physical_end_seconds=4.,motion_end_seconds=4.,
         preset_entry={'name':'APPEAR_HIGH_SCALE','start_seconds':1.35,'duration_seconds':.8},
     )
     residual_card={
-        'card_id':'RESIDUAL_FOCUS_CARD','start_seconds':0.,'end_seconds':3.,'duration_seconds':3.,
-        'story_phase_plan':{'phases':[{'phase_id':'FOCUS_PHASE','start_seconds':0.,'end_seconds':3.,
+        'card_id':'RESIDUAL_FOCUS_CARD','start_seconds':0.,'end_seconds':4.,'duration_seconds':4.,
+        'story_phase_plan':{'phases':[{'phase_id':'FOCUS_PHASE','start_seconds':0.,'end_seconds':4.,
             'event_ids':['RESIDUAL_FOCUS_OWNER','RESIDUAL_FOCUS_TARGET']}]},
         'constraint_layout':{'placements':{
             'RESIDUAL_FOCUS_OWNER':{'center_norm':[.30,.5],'scale':1.6,'rect_norm':[.10,.204,.40,.592]},
