@@ -8,6 +8,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.layout.reference_joint_fitter import finalize_reference_joint_geometry
     from hexa_v31.layout.perceptual_finalizer import finalize_perceptual_composition
     from hexa_v31.layout.reference_residual_closure import finalize_reference_residual_closure
+    from hexa_v31.layout.reference_perceptual_residual import finalize_reference_perceptual_residual
 
     plan = build_interaction_motion_plan(*args, **kwargs)
     fps = float(plan.get('fps') or kwargs.get('fps', 30.0))
@@ -30,11 +31,19 @@ def _build_final_motion_plan(*args, **kwargs):
     perceptual_stats = finalize_perceptual_composition(plan, fps=fps)
     plan['perceptual_composition_finalizer'] = perceptual_stats
 
-    # Final residual pass is deliberately last. It only sees deficits that
-    # survived topology, geometry, cohort fitting and perceptual composition,
-    # so it cannot steal opportunities from the established P1/P2 authorities.
+    # Residual semantic/density pass is deliberately late. It only sees
+    # deficits that survived topology, geometry, cohort fitting and normal
+    # perceptual composition, so it cannot steal opportunities from P1/P2.
     residual_stats = finalize_reference_residual_closure(plan, fps=fps)
     plan['reference_residual_closure_finalizer'] = residual_stats
+
+    # Final card-level perceptual closer is narrower still: sustained sparse
+    # cards only, no partitions and no center-travel actors. This catches the
+    # single/composite-root case that pair/cohort fitting cannot solve and
+    # records any remaining residual cards explicitly instead of hiding them
+    # behind a generic changed/pass flag.
+    perceptual_residual_stats = finalize_reference_perceptual_residual(plan, fps=fps)
+    plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
 
     if (
         topology_stats.get('changed')
@@ -42,6 +51,7 @@ def _build_final_motion_plan(*args, **kwargs):
         or joint_stats.get('changed')
         or perceptual_stats.get('changed')
         or residual_stats.get('changed')
+        or perceptual_residual_stats.get('changed')
     ):
         # Final reference passes mutate only already-certified source-backed
         # state. Re-run the same lifetime/physical authority once so the final
@@ -52,6 +62,7 @@ def _build_final_motion_plan(*args, **kwargs):
         plan['reference_joint_geometry_finalizer'] = joint_stats
         plan['perceptual_composition_finalizer'] = perceptual_stats
         plan['reference_residual_closure_finalizer'] = residual_stats
+        plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
     return plan
 
 
