@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from hexa_v31.composition_qa import composition_plan_qa
 from hexa_v31.composition_solver import MOTION_ENVELOPE_SCALE, _fp, _rect
+from hexa_v31.layout.position_authority import has_actual_center_travel
 from hexa_v31.layout.reference_residual_closure import finalize_reference_residual_closure
 
 
@@ -65,18 +66,35 @@ assert participants[0]['center_norm']==participants[1]['center_norm']==[.72,.52]
 assert not owner.get('position_animated') and not target.get('position_animated')
 
 # True center travel remains protected. The physical lifetime begins with the
-# authored ENTRY so the baseline is itself valid under viewport QA.
+# authored ENTRY so the baseline is itself valid under viewport QA. Protection
+# is actor-scoped: the travelling actor must remain byte-for-byte unchanged,
+# while a different static actor in the same card may still receive a certified
+# density-only improvement.
 travel_owner=event('TRAVEL_OWNER',.20,.52,(0,0,.14,.22),primary=True,hit=.55)
 travel_target=event('TRAVEL_TARGET',.50,.52,(0,0,.10,.14),start=1.2,hit=2.0)
 travel_target['preset_entry']={'name':'ENTRY_RIGHT_TO_MIDDLE','start_seconds':1.2,'duration_seconds':.8}
 travel_plan=plan([travel_owner,travel_target])
 assert composition_plan_qa(travel_plan)['pass'],composition_plan_qa(travel_plan)
-travel_before=copy.deepcopy(travel_plan);travel_stats=finalize_reference_residual_closure(travel_plan)
+assert has_actual_center_travel(travel_target),travel_target
+travel_owner_before=copy.deepcopy(travel_owner)
+travel_target_before=copy.deepcopy(travel_target)
+travel_stats=finalize_reference_residual_closure(travel_plan)
 assert travel_stats['pass'],travel_stats
 assert travel_stats['focus_candidates_committed']==0,travel_stats
+assert travel_target==travel_target_before,(travel_target_before,travel_target)
+assert has_actual_center_travel(travel_target),travel_target
+assert travel_target['preset_entry']==travel_target_before['preset_entry']
+assert (
+    travel_target['physical_start_seconds'],travel_target['physical_end_seconds'],
+    travel_target['motion_start_seconds'],travel_target['motion_end_seconds']
+)==(
+    travel_target_before['physical_start_seconds'],travel_target_before['physical_end_seconds'],
+    travel_target_before['motion_start_seconds'],travel_target_before['motion_end_seconds']
+)
 assert not travel_owner.get('composition_states')
 assert not travel_target.get('composition_participant_states')
-assert travel_plan==travel_before,(travel_before,travel_plan)
+assert float(travel_owner['layout_scale_multiplier'])>=float(travel_owner_before['layout_scale_multiplier'])
+assert composition_plan_qa(travel_plan)['pass'],composition_plan_qa(travel_plan)
 
 unrelated_owner=event('UNRELATED_OWNER',.30,.52,(0,0,.38,.62),primary=True,hit=.55,scene='SCENE_A')
 unrelated_target=event('UNRELATED_TARGET',.72,.52,(0,0,.22,.26),hit=2.0,scene='SCENE_B')
