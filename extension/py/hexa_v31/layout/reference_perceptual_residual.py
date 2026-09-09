@@ -30,9 +30,13 @@ _MAX_EVALUATIONS = 144
 _SINGLE_PRIMARY_ABSOLUTE_SCALE_CAP = 4.0
 _SINGLE_SUPPORT_ABSOLUTE_SCALE_CAP = 3.2
 _GROUP_RELATIVE_SCALE_CAP = 1.55
-_RESIDUAL_MEAN_INK_FLOOR = 0.22
-_TARGET_SEVERE_INK = 0.26
-_TARGET_MODERATE_INK = 0.24
+# Canonical replay shows projected alpha runs about 20% above encoded non-white
+# occupancy. Residual cards therefore need ~30% projected support to land near
+# the 24-26% encoded P3 engineering floor instead of merely looking improved in
+# planner metrics.
+_RESIDUAL_MEAN_INK_FLOOR = 0.28
+_TARGET_SEVERE_INK = 0.32
+_TARGET_MODERATE_INK = 0.30
 _MIN_SETTLED_INTERVAL = 0.45
 _MIN_SINGLE_MEAN_GAIN = 0.030
 _MIN_GROUP_MEAN_GAIN = 0.025
@@ -59,7 +63,7 @@ def _severity(card: dict, quality: dict) -> float:
 
 
 def _target_ink(quality: dict) -> float:
-    return _TARGET_SEVERE_INK if float(quality.get('mean_ink') or 0.0) < 0.16 else _TARGET_MODERATE_INK
+    return _TARGET_SEVERE_INK if float(quality.get('mean_ink') or 0.0) < 0.18 else _TARGET_MODERATE_INK
 
 
 def _eligible_static_root(event: dict) -> bool:
@@ -112,9 +116,9 @@ def _single_absolute_scales(event: dict, quality: dict) -> list[float]:
     mean = max(0.01, float(quality.get('mean_ink') or 0.0))
     desired = min(cap, old * math.sqrt(target / mean))
     values = [
-        min(cap, desired * 1.06),
+        min(cap, desired * 1.04),
         desired,
-        min(cap, max(desired * 0.92, old * 1.55)),
+        min(cap, max(desired * 0.94, old * 1.55)),
         min(cap, old * 1.75),
         min(cap, old * 1.45),
         min(cap, old * 1.25),
@@ -153,7 +157,7 @@ def _commit_single(plan: dict, card: dict, event: dict, quality: dict, fps: floa
                 stats['rejections']['DENSITY_MONOTONICITY'] = stats['rejections'].get('DENSITY_MONOTONICITY', 0) + 1
                 continue
             target = _target_ink(quality)
-            target_progress = float(after_quality.get('mean_ink') or 0.0) >= min(target, float(quality.get('mean_ink') or 0.0) + 0.05)
+            target_progress = float(after_quality.get('mean_ink') or 0.0) >= min(target, float(quality.get('mean_ink') or 0.0) + 0.06)
             if not target_progress or not _material_gain(quality, after_quality, group=False):
                 stats['rejections']['NO_MATERIAL_PERCEPTUAL_GAIN'] = stats['rejections'].get('NO_MATERIAL_PERCEPTUAL_GAIN', 0) + 1
                 continue
@@ -187,7 +191,7 @@ def _group_factors(quality: dict) -> list[float]:
     target = _target_ink(quality)
     mean = max(0.02, float(quality.get('mean_ink') or 0.0))
     desired = min(_GROUP_RELATIVE_SCALE_CAP, math.sqrt(target / mean))
-    values = [min(_GROUP_RELATIVE_SCALE_CAP, desired * 1.06), desired, 1.42, 1.32, 1.24, 1.16, 1.10]
+    values = [min(_GROUP_RELATIVE_SCALE_CAP, desired * 1.04), desired, 1.42, 1.32, 1.24, 1.16, 1.10]
     out: list[float] = []
     for value in values:
         value = round(float(value), 6)
@@ -317,6 +321,7 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
         'event_ids': [],
         'mutations': [],
         'rejections': {},
+        'projected_to_encoded_calibration_note': 'CANONICAL_REPLAY_PROJECTED_ALPHA_APPROX_1P25X_ENCODED_NONWHITE',
         'before_residual_card_ids': sorted(_card_id(card) for card in cards if _residual(card, before_quality[_card_id(card)])),
     }
     exhausted_cards: set[str] = set()
