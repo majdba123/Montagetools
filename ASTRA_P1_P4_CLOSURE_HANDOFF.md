@@ -1,3 +1,83 @@
+# P3/P4 reference sequencing continuation
+
+Branch: `chatgpt/p0-visual-lifetime-partition-fix` only.
+Starting local and remote checkpoint: `6474dd07425879d2b9f16ec7c215390eff6bc3f7`.
+This section supersedes historical continuation notes below.
+
+## Implemented
+
+- Inspected all three local MP4 references with FFprobe and FFmpeg 4 Hz raw-frame
+  sampling, contact sheets and frame differences. Originals retain their hashes.
+  See `docs/P4_LOCAL_REFERENCE_MOTION_GRAMMAR.md` for identities and observations.
+- P3 ranking now integrates absolute sparse exposure and the severe tail rather
+  than preferring a short interval by underfilled ratio. Full-frame samples count
+  retained carriers across card ownership boundaries. Diagnostics retain low
+  percentiles, deficit integrals, before/after quality and unresolved severe cards.
+- P3 bounded retries reserve temporal-framing attempts after static fitting fails.
+  An intact static source can receive a safe rest-position fit and a temporary
+  scale envelope, returning to the support composition before the next actor's
+  actual reveal. Physical/causal timing is not extended. Existing safety and
+  density monotonicity gates remain mandatory. Exhausted group rollback restores
+  the event ID before looking up its snapshot.
+- P4 `REFERENCE_SEMANTIC_STAGGERED_SEQUENCE_V1` authors retained staggered reveals,
+  readable overlap, linked focus promotion and hierarchy rebuild. Explicit
+  composition/participant envelope states compose with existing P2 destinations;
+  causal reveals keep their original opacity timing. Actual travel and partition
+  actors remain protected. Unrelated/disjoint phases cannot create a relationship.
+- Candidates require full-plan collision and per-frame safe-frame checks, actual
+  source runtime pixels, reduced static hold, concurrent actors, and both unchanged
+  attribution thresholds: grayscale delta >=.003 and changed fraction >=.012.
+- The existing final seal covers all new states. Cache dependencies include the
+  scheduler and source-preparation implementation. No cache clearing is required.
+- Sparse high-scale RGBA sources are cropped before destination allocation on the
+  original global half-pixel grid. CPU/RAM are the bottleneck; no GPU path added.
+  The test requires <15% of the full-canvas destination allocation, identical
+  geometry, and bounded edge-only interpolation differences (remap quantization).
+
+## Validation and limits
+
+New deterministic tests:
+`test_v31_reference_staggered_sequence.py`,
+`test_v31_sparse_source_preparation.py`,
+`test_v31_sustained_sparse_severity.py`.
+They cover two/three actors, retention, causal preservation, real encoded MP4
+focus/rebuild attribution, final sealing/cache signatures, static-hold reduction,
+travel/partition/unrelated/source-limited rejection, exhausted rollback, retained
+cross-card ink, and temporary framing with exact return before incoming support.
+The tests are registered in `tests/run_v31_test_suite.py`.
+
+The preserved production-plan probe found five source-backed sequencing
+opportunities (cards 001, 002, 014, 018, 021). Its per-cohort static-hold estimates
+fell materially; these are proxy measurements, not canonical encoded closure.
+The severe P3 tail remains explicit: the bounded safe residual probe did not
+close it. Do not equate a safety PASS, a larger actor, or a green CI with P3
+visual completion. No whole card in that probe consisted of a sole eligible
+root; partition and short/unrelated semantic cohorts still limit sequencing.
+
+P1 CLOSED / PROTECTED. P2 CLOSED / PROTECTED.
+P3 ENGINEERING OPEN pending material safe production-tail closure.
+P4 engineering authority implemented; release certification must be checked on
+this commit's exact-head CI and installed identity.
+P3 ENCODED OPEN. P4 ENCODED OPEN.
+
+## Canonical replay
+
+Install through `bayer.bat` / `dist/latest/INSTALL_HEXA_V31.bat`, then use the
+HEXA V31 Premiere panel Build action with the original package and voice.
+Canonical package SHA256:
+`6abda3a85214305e37ab4b533cdb23b522607e631c68e70d54438ca8cb145535`.
+Canonical voice SHA256:
+`6332a4da17261e4a05ca7f5206370f372f31c72764cbc531e972d8c985d7a030`.
+
+CLI equivalent, from the configured installed runtime environment:
+`python -m hexa_v31.cli build --package "<canonical package.zip>" --voice "<canonical voice.mp3>" --extension-root "<installed extension>"`.
+Measure the new production MP4 with the same 4 Hz / 320x180 thresholds and
+visually review normal playback before declaring either encoded gate closed.
+Temporary inspection scripts, probes, references and generated media are excluded
+from product commits. Do not open P5/P6/P7 or alter the protected baseline branch.
+
+---
+
 # P1-P4 closure checkpoint
 
 Only branch: `chatgpt/p0-visual-lifetime-partition-fix`.

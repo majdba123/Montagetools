@@ -346,24 +346,52 @@ def assemble_final_mp4(scene_media:dict,audio_path,output_path,work_dir,logger=N
 def _composition_cache_signature(payload):
     """Bind cached pixels to final destinations and their actual evaluators."""
     from hexa_v31.layout.composition_solver import composition_state_at
+    from hexa_v31.layout.reference_staggered_sequence import finalize_reference_staggered_sequence
     from hexa_v31 import preset_authority
-    dependencies = (_event_state, _apply, composition_state_at)
+    dependencies = (_event_state, _apply, composition_state_at, _prescale_visible_source, finalize_reference_staggered_sequence)
     sources = [pathlib.Path(fn.__code__.co_filename).read_bytes() for fn in dependencies]
     sources.append(pathlib.Path(preset_authority.__file__).read_bytes())
     signed = dict(payload, runtime_state_source_sha256=hashlib.sha256(b"\0".join(sources)).hexdigest())
     return hashlib.sha256(json.dumps(signed,sort_keys=True,ensure_ascii=False,default=str).encode('utf-8')).hexdigest()
 
 
+def _prescale_visible_source(source, scale_percent, width):
+    """Upscale sparse sources on the original global pixel grid, without a
+    giant transparent destination canvas. Returns pixels, virtual size, origin.
+    Downscales and dense sources keep their existing exact resize path.
+    """
+    factor=float(scale_percent)/100.0*width/1920.0
+    h,w=source.shape[:2];nw=max(1,round(w*factor));nh=max(1,round(h*factor))
+    bounds=cv2.boundingRect((source[:,:,3]>0).astype(np.uint8))
+    x,y,bw,bh=bounds
+    if factor<=1 or bw<=0 or bh<=0 or bw*bh>=w*h*.35:
+        return _prescale(source,scale_percent,width),(nw,nh),(0,0)
+    # Cubic support plus the legacy post-scale padding. Retain transparent
+    # neighbors so crop boundaries cannot synthesize opaque edge pixels.
+    sx0=max(0,x-3);sy0=max(0,y-3);sx1=min(w,x+bw+3);sy1=min(h,y+bh+3)
+    fx=nw/w;fy=nh/h;pad=max(3,round(min(nw,nh)*.003))
+    dx0=max(0,math.floor((x-3)*fx)-pad);dy0=max(0,math.floor((y-3)*fy)-pad)
+    dx1=min(nw,math.ceil((x+bw+3)*fx)+pad);dy1=min(nh,math.ceil((y+bh+3)*fy)+pad)
+    # Same half-pixel coordinate mapping as resize; virtual full-canvas size
+    # remains authority even when source and output dimensions round unevenly.
+    mx=((np.arange(dx0,dx1,dtype=np.float32)+.5)/fx-.5-sx0)
+    my=((np.arange(dy0,dy1,dtype=np.float32)+.5)/fy-.5-sy0)
+    mapx,mapy=np.meshgrid(mx,my)
+    cropped=source[sy0:sy1,sx0:sx1]
+    pixels=cv2.remap(cropped,mapx,mapy,cv2.INTER_CUBIC,borderMode=cv2.BORDER_REPLICATE)
+    return pixels,(nw,nh),(dx0,dy0)
+
+
 def prepare_composition_actor(event,width,height):
     """Prepare identical source geometry for rendering and attribution probes."""
-    full=_prescale(_load_rgba(event['source_path']),float(event.get('base_fit_scale_percent',100.0))*float(event.get('layout_scale_multiplier',1.0)),width)
+    full,virtual_size,origin=_prescale_visible_source(_load_rgba(event['source_path']),float(event.get('base_fit_scale_percent',100.0))*float(event.get('layout_scale_multiplier',1.0)),width)
     yy,xx=np.where(full[:,:,3]>3)
     if len(xx):
-        pad=max(3,int(round(min(full.shape[0],full.shape[1])*0.003)))
+        pad=max(3,int(round(min(virtual_size)*0.003)))
         x0=max(0,int(xx.min())-pad);x1=min(full.shape[1],int(xx.max())+1+pad)
         y0=max(0,int(yy.min())-pad);y1=min(full.shape[0],int(yy.max())+1+pad)
         crop=full[y0:y1,x0:x1].copy()
-        rest=[(width-full.shape[1])/2.0+(x0+x1)/2.0,(height-full.shape[0])/2.0+(y0+y1)/2.0]
+        rest=[(width-virtual_size[0])/2.0+origin[0]+(x0+x1)/2.0,(height-virtual_size[1])/2.0+origin[1]+(y0+y1)/2.0]
     else:
         crop=full;rest=[width/2.0,height/2.0]
     er=dict(event);er['preset_coordinate_mode']='ABSOLUTE_OBJECT_CENTER'

@@ -95,8 +95,22 @@ def composition_state_at(event:dict,t:float,base_center=None)->tuple[list[float]
     for the path/easing used to arrive there.  The function is shared by QA
     and rendering so metadata cannot describe a state the pixels ignore.
     """
-    center=list(base_center or event.get('card_rest_position_norm') or [0.5,0.5]);scale=1.0;visibility=1.0
-    states=sorted((event.get('composition_states') or [])+(event.get('composition_participant_states') or []),key=lambda x:(float(x.get('start_seconds',0)),str(x.get('state_id') or '')))
+    center=list(base_center or event.get('card_rest_position_norm') or [0.5,0.5])
+    states=(event.get('composition_states') or [])+(event.get('composition_participant_states') or [])
+    ordinary=[s for s in states if not s.get('sequence_envelope')]
+    sequence=[s for s in states if s.get('sequence_envelope')]
+    center,scale,visibility=_composition_destinations_at(ordinary,t,center)
+    if sequence:
+        # An explicit planner track composes with protected P2 destinations;
+        # it cannot replace their timing, causal action, or center authority.
+        _,sequence_scale,sequence_visibility=_composition_destinations_at(sequence,t,center)
+        scale*=sequence_scale;visibility*=sequence_visibility
+    return center,scale,visibility
+
+
+def _composition_destinations_at(states,t,center):
+    scale=1.0;visibility=1.0
+    states=sorted(states,key=lambda x:(float(x.get('start_seconds',0)),str(x.get('state_id') or '')))
     previous={'center_norm':center,'scale_multiplier':scale,'visibility':visibility}
     for state in states:
         start=float(state.get('start_seconds',0));transition=max(0.0,float(state.get('transition_duration_seconds') or 0.0))

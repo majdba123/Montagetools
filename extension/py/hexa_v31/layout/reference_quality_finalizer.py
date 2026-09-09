@@ -55,9 +55,12 @@ def _projected_ink_at(event: dict, t: float) -> float:
 
 
 def _card_samples(plan: dict, card: dict, step: float) -> list[tuple[float, float, int]]:
-    events = _card_events(plan, card)
     cs = float(card.get('start_seconds', 0.0))
     ce = float(card.get('end_seconds', cs))
+    # Encoded pixels include retained carriers from neighboring cards. Card
+    # ownership limits mutation, not visibility on the full-frame sample clock.
+    events = [e for e in plan.get('events') or [] if not e.get('suppressed_by_card_density')
+              and _physical_interval(e)[0] < ce and _physical_interval(e)[1] > cs]
     rows = []
     t = cs
     while t < ce - 1e-9:
@@ -83,10 +86,18 @@ def _card_quality(plan: dict, card: dict, step: float) -> dict:
     mean_population = sum(row[2] for row in rows) / len(rows)
     underfilled_seconds = sum(step for _, ink, _ in rows if ink < _REFERENCE_PROJECTED_INK_FLOOR)
     duration = max(0.0, float(card.get('end_seconds', 0.0)) - float(card.get('start_seconds', 0.0)))
+    weights = [min(step, max(0.0, float(card.get('end_seconds', 0.0)) - t)) for t, _, _ in rows]
+    ordered = sorted(row[1] for row in rows)
+    deficit = sum(weight * max(0.0, _REFERENCE_PROJECTED_INK_FLOOR - row[1]) for row, weight in zip(rows, weights))
+    severe_seconds = sum(weight for row, weight in zip(rows, weights) if row[1] < 0.10)
     return {
         'mean_ink': round(mean_ink, 6),
         'underfilled_seconds': round(min(duration, underfilled_seconds), 6),
         'mean_population': round(mean_population, 6),
+        'underfilled_integral': round(deficit, 6),
+        'severe_underfilled_seconds': round(severe_seconds, 6),
+        'minimum_ink': round(ordered[0], 6),
+        'low_percentile_ink': round(ordered[int((len(ordered) - 1) * 0.10)], 6),
     }
 
 

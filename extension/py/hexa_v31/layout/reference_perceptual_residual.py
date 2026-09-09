@@ -4,7 +4,7 @@ import copy
 import math
 
 from hexa_v31.composition_qa import composition_plan_qa
-from hexa_v31.composition_solver import SAFE_X, SAFE_Y, _in_safe
+from hexa_v31.composition_solver import SAFE_X, SAFE_Y, _in_safe, _fp, MOTION_ENVELOPE_SCALE
 from hexa_v31.layout.position_authority import has_actual_center_travel
 from hexa_v31.layout.reference_geometry_finalizer import (
     _candidate_safe,
@@ -61,7 +61,14 @@ def _severity(card: dict, quality: dict) -> float:
     under = min(1.0, float(quality.get('underfilled_seconds') or 0.0) / duration)
     ink = float(quality.get('mean_ink') or 0.0)
     pop = float(quality.get('mean_population') or 0.0)
-    return 3.0 * under + 3.5 * max(0.0, _RESIDUAL_MEAN_INK_FLOOR - ink) + 0.4 * max(0.0, 1.5 - pop)
+    # Exposure matters: five seconds of severe sparsity must outrank a short
+    # empty reveal. Integrate the deficit on the same full-frame clock as QA.
+    integral = float(quality.get('underfilled_integral', duration * under * max(0.0, 0.20 - ink)))
+    severe = float(quality.get('severe_underfilled_seconds') or 0.0)
+    low = float(quality.get('low_percentile_ink', ink))
+    return (12.0 * integral + 2.0 * severe + duration * under
+            + max(0.0, _RESIDUAL_MEAN_INK_FLOOR - low)
+            + 0.2 * max(0.0, 1.5 - pop))
 
 
 def _target_ink(quality: dict) -> float:
@@ -134,6 +141,14 @@ def _material_gain(before: dict, after: dict, *, group: bool) -> bool:
     mean_gain = float(after.get('mean_ink') or 0.0) - float(before.get('mean_ink') or 0.0)
     under_gain = float(before.get('underfilled_seconds') or 0.0) - float(after.get('underfilled_seconds') or 0.0)
     minimum = _MIN_GROUP_MEAN_GAIN if group else _MIN_SINGLE_MEAN_GAIN
+    # Mean gain in a healthy subinterval cannot certify the untouched severe
+    # tail. Keep residual severity explicit even when geometry got larger.
+    deficit = float(before.get('underfilled_integral') or 0.0)
+    if deficit > 0.0 and float(before.get('severe_underfilled_seconds') or 0.0) >= .55:
+        if float(after.get('underfilled_integral') or 0.0) >= deficit - 1e-6:
+            return False
+        if float(after.get('severe_underfilled_seconds') or 0.0) > float(before['severe_underfilled_seconds']) + 1e-6:
+            return False
     return mean_gain >= minimum or (under_gain >= _MIN_UNDERFILL_GAIN and mean_gain >= minimum * 0.5)
 
 
@@ -141,6 +156,9 @@ def _single_absolute_scales(event: dict, quality: dict) -> list[float]:
     old = max(1e-6, float(event.get('layout_scale_multiplier') or 1.0))
     primary = str(event.get('attention_priority') or '').upper() == 'PRIMARY'
     cap = _SINGLE_PRIMARY_ABSOLUTE_SCALE_CAP if primary else _SINGLE_SUPPORT_ABSOLUTE_SCALE_CAP
+    footprint = _fp(event)
+    cap = min(cap, (SAFE_X[1]-SAFE_X[0])/(footprint.w*MOTION_ENVELOPE_SCALE),
+              (SAFE_Y[1]-SAFE_Y[0])/(footprint.h*MOTION_ENVELOPE_SCALE))
     target = _target_ink(quality)
     mean = max(0.01, float(quality.get('mean_ink') or 0.0))
     desired = min(cap, old * math.sqrt(target / mean))
@@ -161,6 +179,78 @@ def _single_absolute_scales(event: dict, quality: dict) -> list[float]:
     return out
 
 
+def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
+    """Use existing solo-actor headroom before later support needs the space.
+
+    A static whole-lifetime enlargement can collide with a later source even
+    when the sustained sparse interval has ample room. Keyframe the temporary
+    framing explicitly; the source stays intact and its center never travels.
+    A certified static rest-position fit may reserve the necessary headroom.
+    """
+    from hexa_v31.composition_qa import _state
+    snapshot=copy.deepcopy(event)
+    if not _eligible_static_root(event):
+        return False
+    if any(s.get('sequence_envelope') for key in ('composition_states','composition_participant_states') for s in event.get(key) or []):
+        return False
+    entry=event.get('preset_entry') or {}
+    start=max(float(interval['start_seconds']),float(entry.get('start_seconds',event.get('start_seconds',0)))+float(entry.get('duration_seconds') or 0))
+    end=min(float(interval['end_seconds']),float(event.get('physical_end_seconds',event.get('end_seconds',0))),
+            float(event.get('motion_end_seconds',event.get('end_seconds',0))),
+            float((event.get('preset_exit') or {}).get('start_seconds',interval['end_seconds'])))
+    # A sparse interval can remain underfilled after another actor enters.
+    # Its end is therefore not the safe return deadline. Restore the original
+    # composition by the first incoming carrier's actual reveal onset.
+    for other in plan.get('events') or []:
+        if other is event or other.get('suppressed_by_card_density'):continue
+        onset=max(float(other.get('physical_start_seconds',other.get('start_seconds',0))),
+                  float((other.get('preset_entry') or {}).get('start_seconds',other.get('start_seconds',0))))
+        if start < onset < end:
+            end=onset
+    if end-start<1.2:return False
+    transition=min(.5,(end-start)*.22)
+    before_density=build_visual_density_report(plan)
+    old=float(event.get('layout_scale_multiplier') or 1.)
+    old_center=list(snapshot.get('card_rest_position_norm') or [.5,.5])
+    candidates=[]
+    for absolute in _single_absolute_scales(event,quality):
+        destinations=[old_center,*_root_fit_destinations(plan,snapshot,absolute)[:3]]
+        for center in destinations:
+            if (absolute,center) not in candidates:candidates.append((absolute,center))
+    for absolute,center in candidates:
+        if stats['candidates_evaluated']>=min(_MAX_EVALUATIONS, stats.get('evaluation_limit', _MAX_EVALUATIONS)):break
+        stats['candidates_evaluated']+=1
+        event.clear();event.update(copy.deepcopy(snapshot))
+        _apply_geometry(event,center,1.)
+        factor=absolute/old
+        state_id=_event_id(event)+'::RESIDUAL_INTERVAL_FRAME'
+        common=dict(authority=_AUTHORITY,sequence_envelope=True,center_norm=list(event.get('card_rest_position_norm') or [.5,.5]),
+                    card_id=_card_id(card),visibility=1.)
+        event.setdefault('composition_participant_states',[]).extend([
+            dict(common,state_id=state_id,start_seconds=start,transition_duration_seconds=transition,scale_multiplier=factor,
+                 semantic_beat='SOLO_SOURCE_READABLE_FRAMING'),
+            dict(common,state_id=state_id+'::HANDOFF',previous_state_id=state_id,start_seconds=end-transition,
+                 transition_duration_seconds=transition,scale_multiplier=1.,semantic_beat='RESTORE_SUPPORT_COMPOSITION')])
+        if not _candidate_safe(plan,[event],fps):
+            stats.setdefault('rejections',{}).setdefault('INTERVAL_COLLISION_OR_COMPOSITION_QA',0)
+            stats['rejections']['INTERVAL_COLLISION_OR_COMPOSITION_QA']+=1
+            continue
+        if any((value := _state(event,frame/fps)) and value[2]>.22 and not _in_safe(value[3])
+               for frame in range(math.ceil(start*fps),math.ceil(end*fps))):continue
+        after=_card_quality(plan,card,stats['sample_step_seconds'])
+        if not _material_gain(quality,after,group=False) or not _density_not_worse(before_density,build_visual_density_report(plan)):continue
+        event['reference_perceptual_residual_authority']=_AUTHORITY
+        _sync_constraint_layout(plan,event)
+        stats['commits']+=1;stats['single_root_commits']+=1;stats['event_ids'].append(_event_id(event))
+        stats['mutations'].append(dict(card_id=_card_id(card),strategy='SOURCE_INTERVAL_FRAMING_WITH_SUPPORT_HANDOFF',
+            event_ids=[_event_id(event)],before_quality=copy.deepcopy(quality),after_quality=after,
+            interval=[start,end],before_center_norm=old_center,
+            after_center_norm=list(event.get('card_rest_position_norm') or []),before_scale=old,peak_scale=absolute,after_scale=old))
+        return True
+    event.clear();event.update(snapshot)
+    return False
+
+
 def _commit_single(plan: dict, card: dict, event: dict, quality: dict, fps: float, stats: dict) -> bool:
     snapshot = copy.deepcopy(event)
     old_density = build_visual_density_report(plan)
@@ -168,7 +258,7 @@ def _commit_single(plan: dict, card: dict, event: dict, quality: dict, fps: floa
     old_center = list(event.get('card_rest_position_norm') or [0.5, 0.5])
     for absolute_scale in _single_absolute_scales(event, quality):
         for center in _root_fit_destinations(plan, snapshot, absolute_scale)[:5]:
-            if stats['candidates_evaluated'] >= _MAX_EVALUATIONS:
+            if stats['candidates_evaluated'] >= min(_MAX_EVALUATIONS, stats.get('evaluation_limit', _MAX_EVALUATIONS)):
                 event.clear(); event.update(snapshot)
                 return False
             stats['candidates_evaluated'] += 1
@@ -262,7 +352,7 @@ def _commit_group(plan: dict, card: dict, roots: list[dict], quality: dict, fps:
     old_density = build_visual_density_report(plan)
     centroid = _group_centroid(roots)
     for factor in _group_factors(quality):
-        if stats['candidates_evaluated'] >= _MAX_EVALUATIONS:
+        if stats['candidates_evaluated'] >= min(_MAX_EVALUATIONS, stats.get('evaluation_limit', _MAX_EVALUATIONS)):
             break
         stats['candidates_evaluated'] += 1
         spread = min(1.14, max(1.0, math.sqrt(factor)))
@@ -325,8 +415,9 @@ def _commit_group(plan: dict, card: dict, roots: list[dict], quality: dict, fps:
         })
         return True
     for event in roots:
+        snapshot = snapshots[_event_id(event)]
         event.clear()
-        event.update(snapshots[_event_id(event)])
+        event.update(snapshot)
     return False
 
 
@@ -388,6 +479,8 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
                 exhausted_cards.add(cid)
                 continue
             strategy_committed = False
+            evaluation_start = stats['candidates_evaluated']
+            stats['evaluation_limit'] = min(_MAX_EVALUATIONS, evaluation_start + 18)
             if len(roots) == 1:
                 strategy_committed = _commit_single(plan, card, roots[0], quality, fps, stats)
             elif 2 <= len(roots) <= 3:
@@ -397,6 +490,12 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
                         if _commit_single(plan, card, event, quality, fps, stats):
                             strategy_committed = True
                             break
+            if not strategy_committed:
+                stats['evaluation_limit'] = min(_MAX_EVALUATIONS, evaluation_start + 30)
+                for event in roots:
+                    if _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
+                        strategy_committed = True
+                        break
             if strategy_committed:
                 per_card_commits[cid] = per_card_commits.get(cid, 0) + 1
                 post_quality = _card_quality(plan, card, step)
@@ -413,6 +512,8 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
     unresolved = sorted(_card_id(card) for card in cards if _residual(card, after_quality[_card_id(card)]))
     stats['event_ids'] = sorted(set(stats['event_ids']))
     stats['after_residual_card_ids'] = unresolved
+    stats['per_card_quality'] = {cid: {'before': before_quality[cid], 'after': after_quality[cid]} for cid in sorted(before_quality)}
+    stats['unresolved_severe_cards'] = [cid for cid in unresolved if float(after_quality[cid].get('severe_underfilled_seconds') or 0.0) >= 0.55]
     stats['resolved_card_ids'] = sorted(set(stats['before_residual_card_ids']) - set(unresolved))
     stats['per_card_commit_counts'] = dict(sorted(per_card_commits.items()))
     stats['closure_satisfied'] = not unresolved
