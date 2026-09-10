@@ -34,6 +34,7 @@ run([sys.executable,ROOT/'tests'/'test_v31_appear_high_scale_fraction_contract.p
 run([sys.executable,ROOT/'tests'/'test_v31_editorial_motion_pacing.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_semantic_visual_sentence_compiler.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_phrase_local_pacing.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_final_card_pacing_qa.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_sprint2b_editorial_intelligence.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_continuity_character_director.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_sprint1_production_integration.py'],timeout=480)
