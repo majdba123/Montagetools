@@ -107,9 +107,9 @@ def _entry_states(event: dict, origin: list[float], direction: str, fps: float) 
     base = f"{event.get('event_id')}::EDITORIAL_ENTRY"
     common = {
         'authority': _AUTHORITY,
-        # These are ordinary composition states, deliberately ordered before
-        # any later focus/rebuild states. A persistent sequence track would
-        # otherwise keep forcing the rest center and cancel later composition.
+        # Ordinary composition states intentionally yield to later focus/rebuild
+        # states. A persistent sequence track would keep forcing the rest center
+        # and cancel the later composition authority.
         'envelope_track': _ENTRY_TRACK,
         'position_envelope': True,
         'card_id': event.get('visual_card_id'),
@@ -174,10 +174,14 @@ class BeatChoreographyCompiler:
         rejection_counts: dict[str, int] = {}
         directional_count = 0
         staggered_count = 0
+        active_events = [e for e in events if not e.get('suppressed_by_card_density')]
+        by_card: dict[str, list[dict]] = {}
+        for event in active_events:
+            by_card.setdefault(str(event.get('visual_card_id') or ''), []).append(event)
 
         for sentence_id, sentence in sorted(sentence_by_id.items()):
             members = sorted(
-                (e for e in events if e.get('semantic_visual_sentence_id') == sentence_id and not e.get('suppressed_by_card_density')),
+                (e for e in active_events if e.get('semantic_visual_sentence_id') == sentence_id),
                 key=lambda e: (
                     float(e.get('physical_start_seconds', e.get('start_seconds', 0.0))),
                     float(e.get('perceptual_hit_seconds', 0.0)),
@@ -192,7 +196,12 @@ class BeatChoreographyCompiler:
 
             applied = []
             for event in members:
-                direction, reason = _try_directional_entry(event, members, fps)
+                # A sentence is semantic scope, not collision scope. Cross-scene
+                # retained actors in the same card are real physical neighbors,
+                # so every directional candidate is validated against the whole
+                # card before entering the committed plan.
+                card_scope = by_card.get(str(event.get('visual_card_id') or ''), members)
+                direction, reason = _try_directional_entry(event, card_scope, fps)
                 if direction:
                     directional_count += 1
                     direction_counts[direction] += 1
