@@ -5,7 +5,7 @@ import pathlib
 import copy
 from PIL import Image
 from hexa_v31.preset_authority import duration as preset_duration, preset as preset_def
-from hexa_v31.projected_visible_ink import ProjectedVisibleInkModel
+from hexa_v31.projected_visible_ink import ProjectedVisibleInkModel, perceptual_visible_fraction
 
 SAFE_X=(0.08,0.92)
 SAFE_Y=(0.10,0.90)
@@ -27,7 +27,7 @@ _OBJECT_INK_FRACTIONS={}
 
 
 def source_object_visible_fraction(event:dict):
-    """Alpha coverage in the same object bbox used by placement geometry.
+    """Perceptual ink coverage in the same bbox used by placement geometry.
 
     Planner layers are full-source canvases. Their whole-canvas matte fraction
     must not be multiplied by an already-tight object rectangle a second time.
@@ -45,7 +45,7 @@ def source_object_visible_fraction(event:dict):
             if bounds[2]<=bounds[0] or bounds[3]<=bounds[1]:return None
             crop=image.crop(bounds)
             crop.thumbnail((512,512))
-            value=float(sum(crop.getchannel('A').histogram()[4:]))/(crop.width*crop.height) if 'A' in crop.getbands() else 1.0
+            value=perceptual_visible_fraction(crop)
         _OBJECT_INK_FRACTIONS[key]=value
         return value
     except (OSError,ValueError,TypeError):

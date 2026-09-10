@@ -16,5 +16,8 @@ with tempfile.TemporaryDirectory() as raw:
     sparse_report=build_visual_density_report({'visual_cards':{'cards':[card]},'events':[event('S',sparse)]})
     dense_report=build_visual_density_report({'visual_cards':{'cards':[card]},'events':[event('D',dense)]})
     assert sparse_report['median_estimated_alpha_coverage'] < dense_report['median_estimated_alpha_coverage']*.05
-    assert sparse_report['visible_ink_authority']=='HEXA_PROJECTED_VISIBLE_INK_V1'
+    assert sparse_report['visible_ink_authority']=='HEXA_PROJECTED_VISIBLE_INK_V2_PERCEPTUAL_WHITE_THRESHOLD'
+    pale=root/'pale.png'
+    Image.new('RGBA',(400,400),(250,250,250,255)).save(pale)
+    assert model.visible_fraction({'source_path':str(pale)}) == 0.0
 print('V31_PROJECTED_VISIBLE_INK_PASS')

@@ -107,6 +107,16 @@ def _source_commit(extension_root:pathlib.Path,runtime_cfg:dict)->str:
     if identity.is_file():
         try:return str(read_json(identity).get('source_commit') or 'UNKNOWN')
         except Exception:pass
+    # A source-tree replay must identify the code it actually imports, rather
+    # than inherit the commit recorded by an older installed runtime config.
+    try:
+        cp=subprocess.run(['git','-C',str(extension_root),'rev-parse','HEAD'],
+                          stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
+                          text=True,timeout=5)
+        commit=(cp.stdout or '').strip()
+        if cp.returncode==0 and len(commit)==40:return commit
+    except (OSError,subprocess.SubprocessError):
+        pass
     return str(runtime_cfg.get('source_commit') or 'DEVELOPMENT_TREE')
 
 

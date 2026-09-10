@@ -395,7 +395,7 @@ def _final_physical_certification(events, cards, fps):
     cross_card_placement={'pass':True,'initial_conflict_count':0,'repairs':[]}
     # Ink-aware layouts may share a final physical interval with another card.
     # Certify static placement across that interval without changing its owner.
-    if any(e.get('visible_ink_fraction_basis')=='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX' for e in events):
+    if any(str(e.get('visible_ink_fraction_basis') or '').startswith('SOURCE_') for e in events):
         from hexa_v31.composition_solver import certify_cross_card_placements
         cross_card_placement=certify_cross_card_placements(events,cards,fps)
     def qa(): return composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
@@ -1943,7 +1943,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
             object_ink=source_object_visible_fraction(e)
             if object_ink is not None:
                 e['visible_ink_fraction']=object_ink
-                e['visible_ink_fraction_basis']='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX'
+                e['visible_ink_fraction_basis']='SOURCE_PERCEPTUAL_INK_WITHIN_DECLARED_OBJECT_BBOX'
             e['composite_atomic']=_event_is_atomic(e);events.append(e);scene_events.append(e)
         scenes_out.append({'scene_id':sid,'start_seconds':float(st['start']),'end_seconds':float(st['end']),'duration_seconds':float(st['end'])-float(st['start']),'duration_class':'CARD_MEMBER','vision_mode':vr.get('mode'),'choreography_profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','relation_to_previous':_relation(scene),'transition':{'mode':'OBJECT_PRESETS_ONLY__NO_FRAME_BLEND','duration_seconds':0.0,'white_reset':False,'relation':_relation(scene),'profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','energy_cost':0.0,'strong':False},'visual_card_id':card['card_id'],'reference_camera_fit':camera_fit,'event_ids':[e['event_id'] for e in scene_events],'internal_change_count':len(scene_events),'semantic_focus_count':0,'story_beat_count':0,'story_action_count':0,'physical_story_action_count':0,'max_story_gap_seconds':min(1.4,float(card['duration_seconds'])),'hierarchical_motion_unit_count':hierarchy_selection['hierarchical_motion_unit_count'],'hierarchy_render_selection':hierarchy_selection,'composition_slot_count':len(set(str(e.get('composition_slot_id')) for e in scene_events)),'short_beat':False,'motion_budget':{'budget_points':10.0,'duration_class':'CARD_MEMBER'},'estimated_motion_cost':sum(e['budget_cost'] for e in scene_events),'budget_utilization':0.0})
 
