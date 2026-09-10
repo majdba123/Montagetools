@@ -5,28 +5,53 @@ import copy
 
 from .story import design_director as _implementation
 from .interaction.director import assert_final_motion_plan_immutable
+from .typography.premium import _display_copy_quality
 
 # Re-export the implementation surface first, then override the public title
-# planner with a post-certification immutability guard.  The underlying title
+# planner with a post-certification immutability guard. The underlying title
 # planner has a legacy fallback that may rebalance live motion geometry when no
-# title slot is available.  That repair is valid only before Final Motion Plan
+# title slot is available. That repair is valid only before Final Motion Plan
 # certification; after the barrier, typography is a read-only consumer.
 globals().update({key: value for key, value in vars(_implementation).items() if key not in {'__name__','__package__','__loader__','__spec__','__file__','__cached__'}})
 
 
-def build_title_plan(package, alignment, vision_results, motion, alignment_report=None):
-    """Build titles without allowing post-certification motion mutation.
+def _filter_title_copy(candidate):
+    """Apply the same visual-copy quality gate to concept titles as support text.
 
-    A sealed motion plan is probed on a deep copy. If the legacy title-slot
-    fallback would move certified geometry, retry without deferred-slot
-    rebalancing so only already-safe title slots may be used. The live plan is
-    asserted immutable before returning.
+    Exact narration provenance is necessary but not sufficient for good display copy:
+    weak boundary glue and sentence-like fragments must not become large HERO text.
+    Filtering is presentation-only and never mutates the Final Motion Plan.
     """
+    if not isinstance(candidate, dict):
+        return candidate
+    kept=[];rejected=[]
+    for event in candidate.get('events') or []:
+        probe=dict(event)
+        probe['typography_role']='HERO'
+        ok,reason=_display_copy_quality(probe)
+        if ok:
+            kept.append(event)
+        else:
+            rejected.append({'scene_id':event.get('scene_id'),'visual_card_id':event.get('visual_card_id'),
+                             'text':event.get('text'),'reason':reason,'stage':'PREMIUM_HERO_COPY_GATE'})
+    out=dict(candidate)
+    out['events']=kept
+    out['text_event_count']=len(kept)
+    out['premium_title_copy_rejections']=rejected
+    out['premium_title_copy_gate']=True
+    qa=dict(out.get('title_qa') or {})
+    if 'viewer_title_count' in qa:qa['viewer_title_count']=len(kept)
+    out['title_qa']=qa
+    return out
+
+
+def build_title_plan(package, alignment, vision_results, motion, alignment_report=None):
+    """Build source-grounded titles without allowing post-certification mutation."""
     barrier = motion.get('finalization_barrier') or {}
     if not barrier.get('timing_sha256'):
-        return _implementation.build_title_plan(
+        return _filter_title_copy(_implementation.build_title_plan(
             package, alignment, vision_results, motion, alignment_report
-        )
+        ))
 
     probe_motion = copy.deepcopy(motion)
     candidate = _implementation.build_title_plan(
@@ -48,4 +73,4 @@ def build_title_plan(package, alignment, vision_results, motion, alignment_repor
         if isinstance(candidate, dict):
             candidate['post_seal_geometry_rebalance_suppressed'] = True
     assert_final_motion_plan_immutable(motion)
-    return candidate
+    return _filter_title_copy(candidate)
