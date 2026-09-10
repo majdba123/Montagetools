@@ -101,10 +101,15 @@ def composition_state_at(event:dict,t:float,base_center=None)->tuple[list[float]
     sequence=[s for s in states if s.get('sequence_envelope')]
     center,scale,visibility=_composition_destinations_at(ordinary,t,center)
     if sequence:
-        # An explicit planner track composes with protected P2 destinations;
-        # it cannot replace their timing, causal action, or center authority.
-        _,sequence_scale,sequence_visibility=_composition_destinations_at(sequence,t,center)
-        scale*=sequence_scale;visibility*=sequence_visibility
+        # Independent late planner authorities multiply as separate tracks.
+        # A density frame can therefore coexist with semantic sequencing
+        # without either track overwriting the other's return/handoff state.
+        tracks={}
+        for state in sequence:
+            tracks.setdefault(str(state.get('envelope_track') or 'SEMANTIC_SEQUENCE'),[]).append(state)
+        for track in sorted(tracks):
+            _,sequence_scale,sequence_visibility=_composition_destinations_at(tracks[track],t,center)
+            scale*=sequence_scale;visibility*=sequence_visibility
     return center,scale,visibility
 
 

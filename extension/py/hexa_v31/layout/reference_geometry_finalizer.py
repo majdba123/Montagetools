@@ -272,9 +272,13 @@ def _root_scale_target(event: dict, events: list[dict]) -> tuple[float, float]:
         and _overlap_seconds(event, other) >= 0.25
         for other in events
     )
+    # The source-alpha projector is deliberately conservative and measures
+    # about 15% above the normalized encoded occupancy on the certified 1080p
+    # path. Aim past that gap so a 24-26% encoded frame is not finalized near
+    # 20%, while retaining the existing safe-frame and collision hard gates.
     if primary:
-        return (0.23 if simultaneous else 0.30, 2.10)
-    return (0.11 if simultaneous else 0.15, 1.60)
+        return (0.30 if simultaneous else 0.36, 2.10)
+    return (0.15 if simultaneous else 0.20, 1.60)
 
 
 def _root_fit_destinations(plan: dict, event: dict, scale: float) -> list[list[float]]:
@@ -293,12 +297,21 @@ def _root_fit_destinations(plan: dict, event: dict, scale: float) -> list[list[f
     archetype = str((card.get('universal_scene_grammar') or {}).get('archetype') or 'GENERIC')
     role = str(event.get('composition_role') or 'SUPPORT')
     destinations = []
-    for cx, cy in [base, *_slots(archetype, role)]:
+    min_x,max_x=SAFE_X[0]+width/2,SAFE_X[1]-width/2
+    min_y,max_y=SAFE_Y[0]+height/2,SAFE_Y[1]-height/2
+    # Semantic slots are sparse. Add a small deterministic grid inside the
+    # exact feasible rectangle so a large static source is not rejected merely
+    # because the six named slots miss the available negative space.
+    x_values=[base[0],(min_x+max_x)/2,min_x,max_x]
+    y_values=[base[1],(min_y+max_y)/2,min_y,max_y]
+    grid=sorted(((x,y) for x in x_values for y in y_values),
+                key=lambda p:(math.dist(p,base),abs(p[0]-.5)+abs(p[1]-.52),p))
+    for cx, cy in [base, *_slots(archetype, role), *grid]:
         fitted = [min(SAFE_X[1] - width / 2, max(SAFE_X[0] + width / 2, float(cx))),
                   min(SAFE_Y[1] - height / 2, max(SAFE_Y[0] + height / 2, float(cy)))]
         if not any(math.dist(fitted, existing) < 1e-6 for existing in destinations):
             destinations.append(fitted)
-    return destinations[:6]
+    return destinations[:12]
 
 
 def _scale_root_actors(plan: dict, fps: float, stats: dict) -> None:

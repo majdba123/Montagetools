@@ -22,7 +22,7 @@ original=copy.deepcopy(roots)
 # Exhausted retry budget must restore IDs before any later single-root fallback.
 with patch('hexa_v31.layout.reference_perceptual_residual.build_visual_density_report',return_value={}), \
      patch('hexa_v31.layout.reference_perceptual_residual._group_centroid',return_value=[.5,.5]):
-    assert not _commit_group({'events':roots},{'card_id':'CARD'},roots,qlong,30.,{'candidates_evaluated':144})
+    assert not _commit_group({'events':roots},{'card_id':'CARD'},roots,qlong,30.,{'candidates_evaluated':216})
 assert roots==original
 from test_v31_reference_perceptual_residual import event,plan
 from hexa_v31.layout.reference_perceptual_residual import _commit_interval_frame
@@ -50,7 +50,7 @@ short_stats=dict(candidates_evaluated=0,sample_step_seconds=.1,commits=0,single_
 assert _commit_interval_frame(short_plan,short_plan['visual_cards']['cards'][0],early,
     dict(start_seconds=0.,end_seconds=4.),_card_quality(short_plan,short_plan['visual_cards']['cards'][0],.1),30.,short_stats)
 assert early['preset_entry']==original_entry
-assert composition_state_at(early,.8)[1]>1.2
+assert composition_state_at(early,1.1)[1]>1.2
 assert composition_state_at(early,1.8)[1]==1.
 assert composition_plan_qa(short_plan)['pass']
 from hexa_v31.layout.reference_geometry_finalizer import _candidate_safe

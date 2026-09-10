@@ -64,7 +64,7 @@ def _safe_envelope_cap(event, fps):
 
 def _state(event, owner, phase, start, duration, scale, visibility, previous=None):
     return dict(state_id=f"{owner['event_id']}::SEQUENCE::{event['event_id']}::{phase}",
-                authority=AUTHORITY, sequence_envelope=True, semantic_beat=phase,
+                authority=AUTHORITY, sequence_envelope=True,envelope_track='SEMANTIC_SEQUENCE',semantic_beat=phase,
                 start_seconds=round(start, 6), transition_duration_seconds=round(duration, 6),
                 scale_multiplier=scale, visibility=visibility,
                 center_norm=list(event.get('card_rest_position_norm') or [.5,.5]),
@@ -151,7 +151,9 @@ def finalize_reference_staggered_sequence(plan, fps=30.0):
                 reject(card,'ACTUAL_CENTER_TRAVEL',[eid]);continue
             if not (e.get('source_path') or e.get('source_layer_path')) or e.get('visible_ink_fraction') is None:
                 reject(card,'MISSING_SOURCE_EVIDENCE',[eid]);continue
-            if any(s.get('sequence_envelope') for key in ('composition_states','composition_participant_states') for s in e.get(key) or []):
+            if any(s.get('envelope_track','SEMANTIC_SEQUENCE')=='SEMANTIC_SEQUENCE'
+                   for key in ('composition_states','composition_participant_states') for s in e.get(key) or []
+                   if s.get('sequence_envelope')):
                 continue
             roots.append(e)
         if len(rows)==1 and len(roots)==1:
@@ -162,7 +164,7 @@ def finalize_reference_staggered_sequence(plan, fps=30.0):
         # adjacency alone never grants relationship authority.
         opportunities=[(a,b) for i,a in enumerate(roots) for b in roots[i+1:]
                        if _related(card,a,b)
-                       and min(_end(a),_end(b))-max(_onset(a),_onset(b))>=1.2]
+                       and min(_end(a),_end(b))-max(_onset(a),_onset(b))>=.85]
         if not opportunities:
             relationship=any(_related(card,a,b) for i,a in enumerate(roots) for b in roots[i+1:])
             reject(card,'INSUFFICIENT_LIFETIME' if relationship else 'UNRELATED_SEMANTICS',[e['event_id'] for e in roots]);continue
@@ -232,8 +234,19 @@ def finalize_reference_staggered_sequence(plan, fps=30.0):
                 # Rebuild then redistributes hierarchy toward context/handoff.
                 focus_scale=.84 if i==0 else (promotion if i==1 else .92)
                 final_scale=min(1.04,promotion) if i==0 else (.92 if i==1 else promotion)
-                a=_state(e,owner,'FOCUS_TRANSFER',focus_start,transition,focus_scale*safe_caps[i],1)
-                b=_state(e,owner,'COMPOSITION_REBUILD',rebuild_start,transition,final_scale*safe_caps[i],1,a['state_id'])
+                # safe_caps is an upper bound on the envelope multiplier, not
+                # another scale factor. Multiplying by it made a safe cap below
+                # one shrink an already-established composition twice.
+                focus_scale=min(focus_scale,safe_caps[i])
+                final_scale=min(final_scale,safe_caps[i])
+                # When safe geometry has no promotion headroom, semantic focus
+                # still needs a visible hierarchy transfer. Briefly subordinate
+                # the established owner, then restore it for the final readable
+                # composition; source identity and P2 opacity timing stay intact.
+                focus_visibility=.78 if i==0 else (1. if i==1 else .88)
+                final_visibility=1. if i!=1 else .92
+                a=_state(e,owner,'FOCUS_TRANSFER',focus_start,transition,focus_scale,focus_visibility)
+                b=_state(e,owner,'COMPOSITION_REBUILD',rebuild_start,transition,final_scale,final_visibility,a['state_id'])
                 # Attribution removes only each destination, retaining its
                 # preceding reveal/relationship state for the counterfactual.
                 earlier=[s for key in ('composition_states','composition_participant_states') for s in e.get(key) or [] if s.get('sequence_envelope')]

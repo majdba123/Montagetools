@@ -26,7 +26,7 @@ from hexa_v31.visual_density import build_visual_density_report
 _AUTHORITY = 'REFERENCE_PERCEPTUAL_RESIDUAL_CARD_CLOSURE_V1'
 _MAX_CARD_COMMITS = 12
 _MAX_COMMITS_PER_CARD = 2
-_MAX_EVALUATIONS = 144
+_MAX_EVALUATIONS = 216
 _SINGLE_PRIMARY_ABSOLUTE_SCALE_CAP = 4.0
 _SINGLE_SUPPORT_ABSOLUTE_SCALE_CAP = 3.2
 _GROUP_RELATIVE_SCALE_CAP = 1.55
@@ -169,6 +169,9 @@ def _single_absolute_scales(event: dict, quality: dict) -> list[float]:
         min(cap, old * 1.75),
         min(cap, old * 1.45),
         min(cap, old * 1.25),
+        min(cap, old * 1.16),
+        min(cap, old * 1.10),
+        min(cap, old * 1.06),
     ]
     out: list[float] = []
     for value in values:
@@ -191,13 +194,13 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
     snapshot=copy.deepcopy(event)
     if not _eligible_static_root(event):
         return False
-    if any(s.get('sequence_envelope') for key in ('composition_states','composition_participant_states') for s in event.get(key) or []):
+    if any(s.get('envelope_track')=='DENSITY_FRAME' for key in ('composition_states','composition_participant_states') for s in event.get(key) or []):
         return False
     entry=event.get('preset_entry') or {}
     # The envelope composes with the existing entry, rather than waiting out
     # most of a short spoken idea before attempting to make its source readable.
     # Preset timing, opacity and causal action remain the entry authority.
-    start=max(float(interval['start_seconds']),float(entry.get('start_seconds',event.get('start_seconds',0))),
+    start=max(float(interval['start_seconds']),float(entry.get('start_seconds',event.get('start_seconds',0)))+float(entry.get('duration_seconds') or 0),
               float(event.get('physical_start_seconds',event.get('start_seconds',0))))
     end=min(float(interval['end_seconds']),float(event.get('physical_end_seconds',event.get('end_seconds',0))),
             float(event.get('motion_end_seconds',event.get('end_seconds',0))),
@@ -211,14 +214,17 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
                   float((other.get('preset_entry') or {}).get('start_seconds',other.get('start_seconds',0))))
         if start < onset < end:
             end=onset
-    if end-start<1.2:return False
-    transition=min(.5,(end-start)*.22)
+    if end-start<.65:return False
+    transition=min(.42,(end-start)*.20)
     before_density=build_visual_density_report(plan)
     old=float(event.get('layout_scale_multiplier') or 1.)
     old_center=list(snapshot.get('card_rest_position_norm') or [.5,.5])
     candidates=[]
     for absolute in sorted(_single_absolute_scales(event,quality), reverse=True):
-        destinations=[old_center,*_root_fit_destinations(plan,snapshot,absolute)[:3]]
+        # Keep the established position. Temporary reframing is scale-only;
+        # moving the rest destination would survive the handoff and can collide
+        # with a later actor even after the envelope returns to one.
+        destinations=[old_center]
         for center in destinations:
             if (absolute,center) not in candidates:candidates.append((absolute,center))
     for absolute,center in candidates:
@@ -228,7 +234,7 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
         _apply_geometry(event,center,1.)
         factor=absolute/old
         state_id=_event_id(event)+'::RESIDUAL_INTERVAL_FRAME'
-        common=dict(authority=_AUTHORITY,sequence_envelope=True,center_norm=list(event.get('card_rest_position_norm') or [.5,.5]),
+        common=dict(authority=_AUTHORITY,sequence_envelope=True,envelope_track='DENSITY_FRAME',center_norm=list(event.get('card_rest_position_norm') or [.5,.5]),
                     card_id=_card_id(card),visibility=1.)
         event.setdefault('composition_participant_states',[]).extend([
             dict(common,state_id=state_id,start_seconds=start,transition_duration_seconds=transition,scale_multiplier=factor,
@@ -242,7 +248,9 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
         if any((value := _state(event,frame/fps)) and value[2]>.22 and not _in_safe(value[3])
                for frame in range(math.ceil(start*fps),math.ceil(end*fps))):continue
         after=_card_quality(plan,card,stats['sample_step_seconds'])
-        if not _material_gain(quality,after,group=False) or not _density_not_worse(before_density,build_visual_density_report(plan)):continue
+        deficit_gain=float(quality.get('underfilled_integral') or 0)-float(after.get('underfilled_integral') or 0)
+        severe_not_worse=float(after.get('severe_underfilled_seconds') or 0)<=float(quality.get('severe_underfilled_seconds') or 0)+1e-6
+        if (not _material_gain(quality,after,group=False) and not (deficit_gain>=.02 and severe_not_worse)) or not _density_not_worse(before_density,build_visual_density_report(plan)):continue
         event['reference_perceptual_residual_authority']=_AUTHORITY
         _sync_constraint_layout(plan,event)
         stats['commits']+=1;stats['single_root_commits']+=1;stats['event_ids'].append(_event_id(event))
@@ -496,7 +504,7 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
                 < float(interval['end_seconds'])
                 for other in plan.get('events') or [])
             if incoming_support:
-                stats['evaluation_limit'] = min(_MAX_EVALUATIONS, evaluation_start + 12)
+                stats['evaluation_limit'] = min(_MAX_EVALUATIONS, evaluation_start + 18)
                 strategy_committed = _commit_interval_frame(plan, card, roots[0], interval, quality, fps, stats)
             stats['evaluation_limit'] = min(_MAX_EVALUATIONS, evaluation_start + 18)
             if len(roots) == 1 and not strategy_committed:
