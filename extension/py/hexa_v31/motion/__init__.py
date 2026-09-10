@@ -9,6 +9,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.layout.perceptual_finalizer import finalize_perceptual_composition
     from hexa_v31.layout.reference_residual_closure import finalize_reference_residual_closure
     from hexa_v31.layout.reference_perceptual_residual import finalize_reference_perceptual_residual
+    from hexa_v31.layout.reference_joint_interval_framing import finalize_reference_joint_interval_framing
     from hexa_v31.layout.reference_staggered_sequence_v2 import finalize_reference_staggered_sequence
 
     plan = build_interaction_motion_plan(*args, **kwargs)
@@ -45,6 +46,14 @@ def _build_final_motion_plan(*args, **kwargs):
     # behind a generic changed/pass flag.
     perceptual_residual_stats = finalize_reference_perceptual_residual(plan, fps=fps)
     plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
+
+    # P3/P4 cooperation: when a legitimate simultaneous semantic cohort remains
+    # sparse, temporarily frame the already-settled roots on an independent
+    # DENSITY_FRAME track and restore before the next reveal/handoff. No permanent
+    # rest geometry, partition authority or P2 entry timing is changed.
+    joint_interval_stats = finalize_reference_joint_interval_framing(plan, fps=fps)
+    plan['reference_joint_interval_framing_finalizer'] = joint_interval_stats
+
     stagger_stats = finalize_reference_staggered_sequence(plan, fps=fps)
     plan['reference_staggered_sequence_finalizer'] = stagger_stats
 
@@ -55,6 +64,7 @@ def _build_final_motion_plan(*args, **kwargs):
         or perceptual_stats.get('changed')
         or residual_stats.get('changed')
         or perceptual_residual_stats.get('changed')
+        or joint_interval_stats.get('changed')
         or stagger_stats.get('changed')
     ):
         # Final reference passes mutate only already-certified source-backed
@@ -67,6 +77,7 @@ def _build_final_motion_plan(*args, **kwargs):
         plan['perceptual_composition_finalizer'] = perceptual_stats
         plan['reference_residual_closure_finalizer'] = residual_stats
         plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
+        plan['reference_joint_interval_framing_finalizer'] = joint_interval_stats
         plan['reference_staggered_sequence_finalizer'] = stagger_stats
     return plan
 
