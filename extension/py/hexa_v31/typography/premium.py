@@ -2,13 +2,12 @@ from __future__ import annotations
 
 """Production typography art-direction layer for V31.
 
-This module deliberately sits above the literal-copy planner.  It does not invent
-copy and it does not mutate the protected motion plan.  It only rejects weak display
+This module deliberately sits above the literal-copy planner. It does not invent
+copy and it does not mutate the protected motion plan. It only rejects weak display
 phrases, bounds their lifetime to the spoken semantic beat, and renders role-specific
 Arabic treatments that are materially distinct in pixels.
 """
 
-import math
 import re
 from PIL import Image, ImageDraw, ImageFont, features
 
@@ -17,6 +16,7 @@ from . import typography as _base
 _PREMIUM_VERSION = 'HEXA_PREMIUM_TYPOGRAPHY_V1'
 _ARABIC_RE = re.compile(r'[\u0600-\u06FF]')
 _DIGIT_RE = re.compile(r'[0-9٠-٩]')
+_TRIM = " \t\r\n،,.;:؛!?؟-–—()[]{}\"'"
 _WEAK_BOUNDARY = {
     'و','أو','او','لكن','لأن','لان','إذا','اذا','حتى','مع','من','في','على','عن','إلى','الى',
     'ثم','بعد','قبل','عند','هو','هي','هم','قد','إن','ان','إنه','انه','هذا','هذه','هذي','ذلك','تلك',
@@ -33,7 +33,7 @@ _ROLE_READ_LIMIT = {
 
 
 def _clean_words(text: str) -> list[str]:
-    return [w.strip(' \t\r\n،,.;:؛!?؟-–—()[]{}"\'') for w in str(text or '').split() if w.strip(' \t\r\n،,.;:؛!?؟-–—()[]{}"\'')]
+    return [w.strip(_TRIM) for w in str(text or '').split() if w.strip(_TRIM)]
 
 
 def _display_copy_quality(event: dict) -> tuple[bool, str]:
