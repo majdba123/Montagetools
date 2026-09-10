@@ -11,6 +11,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.layout.reference_perceptual_residual import finalize_reference_perceptual_residual
     from hexa_v31.layout.reference_joint_interval_framing import finalize_reference_joint_interval_framing
     from hexa_v31.layout.reference_staggered_sequence_v2 import finalize_reference_staggered_sequence
+    from hexa_v31.motion.pacing_qa import build_final_card_pacing_report
 
     plan = build_interaction_motion_plan(*args, **kwargs)
     fps = float(plan.get('fps') or kwargs.get('fps', 30.0))
@@ -56,6 +57,8 @@ def _build_final_motion_plan(*args, **kwargs):
 
     stagger_stats = finalize_reference_staggered_sequence(plan, fps=fps)
     plan['reference_staggered_sequence_finalizer'] = stagger_stats
+    pacing_stats = build_final_card_pacing_report(plan)
+    plan['final_card_pacing_qa'] = pacing_stats
 
     if (
         topology_stats.get('changed')
@@ -79,6 +82,7 @@ def _build_final_motion_plan(*args, **kwargs):
         plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
         plan['reference_joint_interval_framing_finalizer'] = joint_interval_stats
         plan['reference_staggered_sequence_finalizer'] = stagger_stats
+        plan['final_card_pacing_qa'] = pacing_stats
     return plan
 
 
