@@ -30,6 +30,7 @@ run([sys.executable,ROOT/'tests'/'test_v31_topological_decomposition_validator.p
 run([sys.executable,ROOT/'tests'/'test_v31_typography_director_v2.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_typography_v3_arabic_completeness.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_premium_typography_pixels.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_premium_title_copy_gate.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_appear_high_scale_fraction_contract.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_editorial_motion_pacing.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_semantic_visual_sentence_compiler.py'],timeout=480)
