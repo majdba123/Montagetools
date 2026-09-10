@@ -37,6 +37,15 @@ def _progressive_same_scene_candidates(events: list[dict]) -> list[dict]:
     scenes = {str(e.get('scene_id') or '') for e in active}
     if len(scenes) != 1:
         return []
+    # REACT is reverse-causal in the protected interaction engine: the paired
+    # object is the stimulus and the semantic subject is the reaction. P2 owns
+    # that cause-before-reaction timing and may retime the subject's existing
+    # in-place reveal to the semantic hit. Pre-layout focal-first phasing would
+    # delay the causal source and make that protected schedule impossible.
+    # Leave these scenes on the established topology so interaction authority
+    # remains earlier/harder than P4 editorial staging.
+    if any(str(e.get('semantic_intent') or '').upper() == 'REACT' for e in active):
+        return []
     return active
 
 
