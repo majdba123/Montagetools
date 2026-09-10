@@ -19,7 +19,8 @@ globals().update({
 _BASE_BUILD_STORY_PHASES = _implementation.build_story_phases
 _BASE_REPARTITION_STORY_PHASES = _implementation.repartition_story_phases
 _PROGRESSIVE_AUTHORITY = 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1'
-_MIN_BEAT_SECONDS = 0.82
+_MIN_BEAT_SECONDS = 0.72
+_MIN_FINAL_REVEAL_SECONDS = 1.28
 
 
 def _progressive_same_scene_candidates(events: list[dict]) -> list[dict]:
@@ -42,10 +43,15 @@ def _progressive_same_scene_candidates(events: list[dict]) -> list[dict]:
 def _progressive_phase_count(duration: float, event_count: int) -> int:
     if event_count <= 1:
         return 1
-    # APPEAR_HIGH_SCALE consumes 0.8s. Keep a readable beat boundary around
-    # it and reduce complexity on short cards instead of compressing reveals.
-    capacity = max(2, min(4, int((duration + 1e-9) // _MIN_BEAT_SECONDS)))
-    return min(event_count, capacity)
+    # A final support/result must have enough time to become readable and hold;
+    # earlier boundaries may be tighter because retained actors span multiple
+    # phases. Reduce beat count instead of squeezing the final reveal.
+    upper = min(event_count, 4)
+    for count in range(upper, 1, -1):
+        required = (count - 1) * _MIN_BEAT_SECONDS + _MIN_FINAL_REVEAL_SECONDS
+        if duration + 1e-9 >= required:
+            return count
+    return 1
 
 
 def _progressive_cuts(card: dict, buckets: list[list[dict]]) -> list[float]:
@@ -69,14 +75,9 @@ def _progressive_cuts(card: dict, buckets: list[list[dict]]) -> list[float]:
         # Open the beat before a trustworthy voice anchor; otherwise use an
         # even spoken-clock distribution rather than the old ~60ms burst.
         target = min(voice_hits) - 0.56 if voice_hits else uniform
-        remaining = count - index
+        future_intermediate = max(0, count - index - 1)
         lo = cuts[-1] + _MIN_BEAT_SECONDS
-        hi = ce - remaining * _MIN_BEAT_SECONDS
-        if hi < lo:
-            step = max(0.60, duration / count * 0.72)
-            target = uniform
-            lo = cuts[-1] + step
-            hi = ce - remaining * step
+        hi = ce - _MIN_FINAL_REVEAL_SECONDS - future_intermediate * _MIN_BEAT_SECONDS
         cuts.append(max(lo, min(hi, target)))
     cuts.append(ce)
     return cuts
@@ -170,6 +171,7 @@ def _progressive_plan(
         'max_simultaneous_actor_count': max(len(row['event_ids']) for row in rows),
         'audio_anchor_policy': 'VOICE_TRIGGER_WHEN_AVAILABLE__EVEN_SPOKEN_CLOCK_FALLBACK',
         'retention_policy': 'FOCAL_PLUS_TWO_MOST_RECENT_SOURCE_ACTORS',
+        'minimum_final_reveal_seconds': _MIN_FINAL_REVEAL_SECONDS,
         'atomic_asset_indivisibility': True,
     }
     if validate_layout and not _implementation.solve_card_layout(active, phase_grammar, candidate).get('pass'):
