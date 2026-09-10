@@ -3,22 +3,21 @@ from __future__ import annotations
 """Compile and physically apply bounded editorial beat choreography.
 
 V31 already had a semantic beat diagnostic, but it did not materially affect
-pixels.  This implementation keeps the semantic compiler bounded and adds one
+pixels. This implementation keeps the semantic compiler bounded and adds one
 render-authoritative operation: source-backed, translation-safe ROOT_ATOMIC
 actors that would otherwise only scale-pop may receive a deterministic
-one-shot directional entry envelope.  The envelope is validated by the same
+one-shot directional entry envelope. The envelope is validated by the same
 trajectory and viewport QA used by the final plan and therefore cannot bypass
 P1/P2 safety.
 """
 
 import copy
-import math
 
 from hexa_v31.composition_qa import card_motion_conflicts, viewport_clipping_qa
 from hexa_v31.composition_solver import SAFE_X, SAFE_Y, _fp
 
 _AUTHORITY = 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1'
-_ENTRY_TRACK = 'A_EDITORIAL_ENTRY'
+_ENTRY_TRACK = 'EDITORIAL_ENTRY'
 
 _BEATS = {
     'READ': ('ESTABLISH', 'SUPPORT_REVEAL', 'FOCUS_TRANSFER', 'RESULT_LOCK'),
@@ -77,8 +76,6 @@ def _candidate_origins(event: dict) -> list[tuple[str, list[float], float]]:
         'TOP': max(0.0, target[1] - SAFE_Y[0]),
         'BOTTOM': max(0.0, SAFE_Y[1] - target[1]),
     }
-    # Geometry is the primary authority. Small biases simply resolve near-ties
-    # toward the edge naturally associated with the solved destination.
     bias = {name: 0.0 for name in candidates}
     if target[0] < 0.43:
         bias['LEFT'] -= 0.10
@@ -110,7 +107,9 @@ def _entry_states(event: dict, origin: list[float], direction: str, fps: float) 
     base = f"{event.get('event_id')}::EDITORIAL_ENTRY"
     common = {
         'authority': _AUTHORITY,
-        'sequence_envelope': True,
+        # These are ordinary composition states, deliberately ordered before
+        # any later focus/rebuild states. A persistent sequence track would
+        # otherwise keep forcing the rest center and cancel later composition.
         'envelope_track': _ENTRY_TRACK,
         'position_envelope': True,
         'card_id': event.get('visual_card_id'),
@@ -151,13 +150,13 @@ def _try_directional_entry(event: dict, local_events: list[dict], fps: float) ->
         if not states:
             return None, 'INSUFFICIENT_ENTRY_WINDOW'
         trial = copy.deepcopy(event)
-        trial.setdefault('composition_participant_states', []).extend(copy.deepcopy(states))
+        trial.setdefault('composition_states', []).extend(copy.deepcopy(states))
         candidate = [trial if e is event else copy.deepcopy(e) for e in local_events]
         if card_motion_conflicts(candidate, start, end, fps):
             continue
         if not viewport_clipping_qa([trial], fps).get('pass'):
             continue
-        event.setdefault('composition_participant_states', []).extend(states)
+        event.setdefault('composition_states', []).extend(states)
         event['editorial_entry_direction'] = direction
         event['editorial_entry_motion_family'] = 'DIRECTIONAL_COMPOSITION_ENTRY'
         event['editorial_entry_authority'] = _AUTHORITY
@@ -192,9 +191,6 @@ class BeatChoreographyCompiler:
             staggered_count += int(staggered)
 
             applied = []
-            # The first actor may already own an approved ENTRY preset. Later
-            # actors are especially valuable candidates because directional
-            # arrival makes the progressive phase boundary visible to viewers.
             for event in members:
                 direction, reason = _try_directional_entry(event, members, fps)
                 if direction:
