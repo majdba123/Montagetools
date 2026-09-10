@@ -108,7 +108,12 @@ def composition_state_at(event:dict,t:float,base_center=None)->tuple[list[float]
         for state in sequence:
             tracks.setdefault(str(state.get('envelope_track') or 'SEMANTIC_SEQUENCE'),[]).append(state)
         for track in sorted(tracks):
-            _,sequence_scale,sequence_visibility=_composition_destinations_at(tracks[track],t,center)
+            sequence_center,sequence_scale,sequence_visibility=_composition_destinations_at(tracks[track],t,center)
+            # Position is composed only for an explicitly positional envelope.
+            # Scale-only semantic tracks must not reset a temporary density
+            # composition chosen for a mutually exclusive visual beat.
+            if any(state.get('position_envelope') for state in tracks[track]):
+                center=sequence_center
             scale*=sequence_scale;visibility*=sequence_visibility
     return center,scale,visibility
 

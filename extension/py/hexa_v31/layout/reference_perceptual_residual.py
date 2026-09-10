@@ -221,10 +221,11 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
     old_center=list(snapshot.get('card_rest_position_norm') or [.5,.5])
     candidates=[]
     for absolute in sorted(_single_absolute_scales(event,quality), reverse=True):
-        # Keep the established position. Temporary reframing is scale-only;
-        # moving the rest destination would survive the handoff and can collide
-        # with a later actor even after the envelope returns to one.
-        destinations=[old_center]
+        # Solve the sparse beat in its own negative space.  The positional
+        # envelope returns to the established support composition before the
+        # next reveal, so actors from mutually exclusive beats do not consume
+        # one permanent static layout.
+        destinations=_root_fit_destinations(plan,snapshot,absolute)[:8]
         for center in destinations:
             if (absolute,center) not in candidates:candidates.append((absolute,center))
     for absolute,center in candidates:
@@ -234,13 +235,13 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
         _apply_geometry(event,center,1.)
         factor=absolute/old
         state_id=_event_id(event)+'::RESIDUAL_INTERVAL_FRAME'
-        common=dict(authority=_AUTHORITY,sequence_envelope=True,envelope_track='DENSITY_FRAME',center_norm=list(event.get('card_rest_position_norm') or [.5,.5]),
+        common=dict(authority=_AUTHORITY,sequence_envelope=True,envelope_track='DENSITY_FRAME',position_envelope=True,
                     card_id=_card_id(card),visibility=1.)
         event.setdefault('composition_participant_states',[]).extend([
-            dict(common,state_id=state_id,start_seconds=start,transition_duration_seconds=transition,scale_multiplier=factor,
+            dict(common,state_id=state_id,start_seconds=start,transition_duration_seconds=transition,scale_multiplier=factor,center_norm=list(center),
                  semantic_beat='SOLO_SOURCE_READABLE_FRAMING'),
             dict(common,state_id=state_id+'::HANDOFF',previous_state_id=state_id,start_seconds=end-transition,
-                 transition_duration_seconds=transition,scale_multiplier=1.,semantic_beat='RESTORE_SUPPORT_COMPOSITION')])
+                 transition_duration_seconds=transition,scale_multiplier=1.,center_norm=old_center,semantic_beat='RESTORE_SUPPORT_COMPOSITION')])
         if not _candidate_safe(plan,[event],fps):
             stats.setdefault('rejections',{}).setdefault('INTERVAL_COLLISION_OR_COMPOSITION_QA',0)
             stats['rejections']['INTERVAL_COLLISION_OR_COMPOSITION_QA']+=1

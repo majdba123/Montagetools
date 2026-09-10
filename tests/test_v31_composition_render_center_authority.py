@@ -7,6 +7,7 @@ from PIL import Image,ImageDraw
 
 from hexa_v31.preview import _event_state
 from hexa_v31.render.scene_media import prepare_composition_actor
+from hexa_v31.composition_solver import composition_state_at
 
 
 def assert_center(actual,expected):
@@ -53,5 +54,18 @@ with tempfile.TemporaryDirectory(prefix='hexa_render_center_authority_') as raw:
     state2=_event_state(runtime2,1.0)
     assert state2 is not None,state2
     assert_center(state2[0],[1382.4,302.4])
+
+    framed=dict(event,composition_participant_states=[
+        {'state_id':'FRAME','start_seconds':1.0,'transition_duration_seconds':0.25,
+         'sequence_envelope':True,'envelope_track':'DENSITY_FRAME','position_envelope':True,
+         'center_norm':[0.72,0.28],'scale_multiplier':1.4,'visibility':1.0},
+        {'state_id':'RETURN','previous_state_id':'FRAME','start_seconds':2.5,'transition_duration_seconds':0.25,
+         'sequence_envelope':True,'envelope_track':'DENSITY_FRAME','position_envelope':True,
+         'center_norm':[0.31,0.67],'scale_multiplier':1.0,'visibility':1.0},
+    ])
+    center,scale,visibility=composition_state_at(framed,1.5)
+    assert_center(center,[0.72,0.28]);assert math.isclose(scale,1.4);assert math.isclose(visibility,1.0)
+    center,scale,visibility=composition_state_at(framed,3.0)
+    assert_center(center,[0.31,0.67]);assert math.isclose(scale,1.0);assert math.isclose(visibility,1.0)
 
 print('V31_COMPOSITION_RENDER_CENTER_AUTHORITY_PASS')
