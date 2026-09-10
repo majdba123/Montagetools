@@ -184,7 +184,10 @@ def finalize_reference_staggered_sequence(plan, fps=30.0):
         end=min(float(card['end_seconds']),*map(_end,cohort))
         span=end-start
         entry=min(.65,max(.25,span*.13))
-        stagger=min(.65,max(.25,span*.12))
+        # Use the spoken/cohort clock: long ideas must not spend their entire
+        # progression in the first second. The final shared lifetime remains
+        # the hard deadline, and causal reveals keep their exact authored clock.
+        stagger=max(.25,span*.18)
         onsets=[start]
         for e in cohort[1:]:
             causal=_causal(e)
@@ -192,9 +195,16 @@ def finalize_reference_staggered_sequence(plan, fps=30.0):
             onsets.append(natural if causal else max(natural,onsets[-1]+stagger))
         settled=max(max(t+entry,float((e.get('preset_entry') or {}).get('start_seconds',t))+float((e.get('preset_entry') or {}).get('duration_seconds') or 0)) for e,t in zip(cohort,onsets))
         readable=max(.45,math.ceil(min(.65,max(0.,end-settled)*.25)*fps)/fps)
-        focus_start=settled+readable
-        transition=min(.65,(end-focus_start-readable*.5)/2)
-        rebuild_start=focus_start+transition+readable*.25
+        earliest_focus=settled+readable
+        transition=min(.65,(end-earliest_focus-readable*.5)/2)
+        handoff=min(.9,max(readable*.25,span*.12))
+        rebuild_start=end-handoff-transition
+        focus_start=max(earliest_focus,settled+(rebuild_start-settled)*.45)
+        # Short clocks use the original compact sentence; long clocks distribute
+        # the two attributable hierarchy destinations across the spoken idea.
+        if focus_start+transition+readable*.25>rebuild_start:
+            focus_start=earliest_focus
+            rebuild_start=focus_start+transition+readable*.25
         if transition<.20 or rebuild_start+transition+readable*.25>end+1e-6 or onsets[1]<=onsets[0]+1/fps:
             reject(card,'INSUFFICIENT_LIFETIME',[e['event_id'] for e in cohort]);continue
         snapshots=[copy.deepcopy(e) for e in cohort]

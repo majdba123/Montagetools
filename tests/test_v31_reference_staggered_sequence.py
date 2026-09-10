@@ -90,6 +90,15 @@ with tempfile.TemporaryDirectory() as raw:
         qa=verify_encoded_composition(manifest['clips'][0]['source_path'],signed,render_edit_map={'events':signed['events']})
         assert qa['pass'] and qa['actor_attributable_verified_count']>=2,qa
     causal=fixture(root)
+    long_idea=fixture(root,3,duration=12.)
+    long_stats=finalize_reference_staggered_sequence(long_idea)
+    assert long_stats['changed'],long_stats
+    sentence=long_stats['sequences'][0]
+    assert sentence['reveal_onsets'][2]>4.,sentence
+    assert sentence['focus_transfer_interval'][0]>6.,sentence
+    assert sentence['recomposition_interval'][0]>9.,sentence
+    assert .45 <= sentence['handoff_interval'][1]-sentence['handoff_interval'][0] <= 1.,sentence
+    assert composition_plan_qa(long_idea)['pass']
     causal['events'][0]['preset_entry']['interaction_id']='EXPLICIT_CAUSE'
     original=copy.deepcopy(causal)
     assert finalize_reference_staggered_sequence(causal)['changed']

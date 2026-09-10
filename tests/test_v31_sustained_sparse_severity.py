@@ -40,6 +40,19 @@ assert focal['card_rest_position_norm']==before['events'][0]['card_rest_position
 assert support==before['events'][1]
 assert composition_plan_qa(p)['pass']
 assert stats['mutations'][0]['after_quality']['underfilled_integral']<stats['mutations'][0]['before_quality']['underfilled_integral']
+# A short spoken introduction still has usable framing time during its entry.
+# Waiting until the preset settles would discard this entire safe opportunity.
+early=event('EARLY',.35,.5,(0,0,.20,.30),primary=True,end=4.)
+early['preset_entry']=dict(name='APPEAR_HIGH_SCALE',start_seconds=0.,duration_seconds=.8)
+later=event('INCOMING',.64,.5,(0,0,.20,.30),start=1.8,end=4.)
+short_plan=plan([early,later],end=4.);original_entry=copy.deepcopy(early['preset_entry'])
+short_stats=dict(candidates_evaluated=0,sample_step_seconds=.1,commits=0,single_root_commits=0,event_ids=[],mutations=[])
+assert _commit_interval_frame(short_plan,short_plan['visual_cards']['cards'][0],early,
+    dict(start_seconds=0.,end_seconds=4.),_card_quality(short_plan,short_plan['visual_cards']['cards'][0],.1),30.,short_stats)
+assert early['preset_entry']==original_entry
+assert composition_state_at(early,.8)[1]>1.2
+assert composition_state_at(early,1.8)[1]==1.
+assert composition_plan_qa(short_plan)['pass']
 from hexa_v31.layout.reference_geometry_finalizer import _candidate_safe
 wide=copy.deepcopy(before);wide['events'][0]['layout_scale_multiplier']=2.
 assert not _candidate_safe(wide,[wide['events'][0]],30.)

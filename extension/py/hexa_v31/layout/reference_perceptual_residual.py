@@ -194,7 +194,11 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
     if any(s.get('sequence_envelope') for key in ('composition_states','composition_participant_states') for s in event.get(key) or []):
         return False
     entry=event.get('preset_entry') or {}
-    start=max(float(interval['start_seconds']),float(entry.get('start_seconds',event.get('start_seconds',0)))+float(entry.get('duration_seconds') or 0))
+    # The envelope composes with the existing entry, rather than waiting out
+    # most of a short spoken idea before attempting to make its source readable.
+    # Preset timing, opacity and causal action remain the entry authority.
+    start=max(float(interval['start_seconds']),float(entry.get('start_seconds',event.get('start_seconds',0))),
+              float(event.get('physical_start_seconds',event.get('start_seconds',0))))
     end=min(float(interval['end_seconds']),float(event.get('physical_end_seconds',event.get('end_seconds',0))),
             float(event.get('motion_end_seconds',event.get('end_seconds',0))),
             float((event.get('preset_exit') or {}).get('start_seconds',interval['end_seconds'])))
@@ -213,7 +217,7 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
     old=float(event.get('layout_scale_multiplier') or 1.)
     old_center=list(snapshot.get('card_rest_position_norm') or [.5,.5])
     candidates=[]
-    for absolute in _single_absolute_scales(event,quality):
+    for absolute in sorted(_single_absolute_scales(event,quality), reverse=True):
         destinations=[old_center,*_root_fit_destinations(plan,snapshot,absolute)[:3]]
         for center in destinations:
             if (absolute,center) not in candidates:candidates.append((absolute,center))
@@ -481,7 +485,21 @@ def finalize_reference_perceptual_residual(plan: dict, fps: float = 30.0) -> dic
             strategy_committed = False
             evaluation_start = stats['candidates_evaluated']
             stats['evaluation_limit'] = min(_MAX_EVALUATIONS, evaluation_start + 18)
-            if len(roots) == 1:
+            # Reserve the first bounded search for a temporary composition.
+            # Lifetime-wide fits otherwise consume the budget on collisions
+            # with actors that have not entered the sparse interval yet.
+            incoming_support = len(roots) == 1 and any(
+                other is not roots[0] and not other.get('suppressed_by_card_density')
+                and float(interval['start_seconds']) < max(
+                    float(other.get('physical_start_seconds', other.get('start_seconds', 0))),
+                    float((other.get('preset_entry') or {}).get('start_seconds', other.get('start_seconds', 0))))
+                < float(interval['end_seconds'])
+                for other in plan.get('events') or [])
+            if incoming_support:
+                stats['evaluation_limit'] = min(_MAX_EVALUATIONS, evaluation_start + 12)
+                strategy_committed = _commit_interval_frame(plan, card, roots[0], interval, quality, fps, stats)
+            stats['evaluation_limit'] = min(_MAX_EVALUATIONS, evaluation_start + 18)
+            if len(roots) == 1 and not strategy_committed:
                 strategy_committed = _commit_single(plan, card, roots[0], quality, fps, stats)
             elif 2 <= len(roots) <= 3:
                 strategy_committed = _commit_group(plan, card, roots, quality, fps, stats)

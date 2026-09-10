@@ -1,3 +1,7 @@
+# Current sparse-production continuation
+
+See [P3/P4 current sparse audit](docs/P3_P4_CURRENT_SPARSE_AUDIT.md) for the newest real MP4 measurement, limited source-use audit, generic timing/framing changes and explicit remaining failures. This supersedes older visual-closure statements below. P1/P2 remain protected; P3/P4 engineering and canonical encoded acceptance remain OPEN.
+
 # P3/P4 reference sequencing continuation
 
 Branch: `chatgpt/p0-visual-lifetime-partition-fix` only.
