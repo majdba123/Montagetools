@@ -21,7 +21,7 @@ assert 3<=c['duration_seconds']<=5 and c['rendered_primary_count']==1 and c['ren
 assert c['constraint_layout']['pass'] and c['story_phase_plan']['phase_count']>=1
 
 # Multi-actor, same-source cards must now be authored as progressive temporal
-# states before geometry is solved.  The old one-poster phase made all three
+# states before geometry is solved. The old one-poster phase made all three
 # support icons readable almost simultaneously.
 phase_plan=c['story_phase_plan']
 assert phase_plan.get('progressive_reveal_compiled'),phase_plan
@@ -39,14 +39,22 @@ for e in active:
         assert e['preset_entry']['name']=='APPEAR_HIGH_SCALE'
 
 # Reveal clocks must be materially staggered across the spoken card instead of
-# the previous 60ms index offsets.  Directional entry is a composition envelope
-# so support presets remain compliant with the user's Appearance-family rule.
+# the previous 60ms index offsets. Directional arrival is authored as an
+# ordinary composition state so it can settle and yield to later focus/rebuild
+# states while the preset-family contract for support actors remains intact.
 starts=sorted({round(float(e['physical_start_seconds']),2) for e in active})
 assert len(starts)>=3,starts
 directional=[e for e in active if e.get('editorial_entry_direction')]
 assert directional,directional
 assert all(e['editorial_entry_direction'] in {'LEFT','RIGHT','TOP','BOTTOM'} for e in directional)
-assert all(any(s.get('envelope_track')=='A_EDITORIAL_ENTRY' and s.get('position_envelope') for s in e.get('composition_participant_states') or []) for e in directional)
+assert all(
+    any(
+        s.get('envelope_track')=='EDITORIAL_ENTRY' and s.get('position_envelope')
+        for key in ('composition_states','composition_participant_states')
+        for s in e.get(key) or []
+    )
+    for e in directional
+),directional
 beat=m.get('beat_choreography_compiler') or {}
 assert beat.get('staggered_sentence_count',0)>=1,beat
 assert beat.get('directional_entry_count',0)>=1,beat
