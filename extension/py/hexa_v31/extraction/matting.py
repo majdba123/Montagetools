@@ -40,7 +40,6 @@ def _soft_group_gate(group_mask:np.ndarray, feather_px:float)->np.ndarray:
 
 
 
-
 def _local_stage_leak_mask(rgb:np.ndarray, group_mask:np.ndarray, bg_rgb:tuple[int,int,int])->tuple[np.ndarray,np.ndarray]:
     """Find white-stage pixels that leaked into a top-level object group.
 
@@ -72,6 +71,15 @@ def _local_stage_leak_mask(rgb:np.ndarray, group_mask:np.ndarray, bg_rgb:tuple[i
     # Broad connectivity identifies the physical stage; core is near-canonical white.
     broad=((diff<=20)&(sat<=34)&(gray>=218)).astype(np.uint8)
     broad=cv2.morphologyEx(broad,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)
+    # Never let white-stage connectivity tunnel through a thin legitimate outline.
+    # The previous broad close could bridge a one-pixel antialias gap in a dark/colored
+    # contour, making a white foreground interior look border-connected and therefore
+    # deleting it from the matte.  Dilating real ink by one pixel creates a conservative
+    # topological barrier before connected-component classification.  This is generic
+    # source-integrity protection, not a package/scene-specific exception.
+    strong_seed=((diff>=12)|(sat>=28)|(gray<=236)).astype(np.uint8)
+    ink_barrier=cv2.dilate(strong_seed,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)>0
+    broad[ink_barrier]=0
     n,labels,_,_=cv2.connectedComponentsWithStats(broad,8)
     labs=set()
     if n>1:
@@ -82,7 +90,7 @@ def _local_stage_leak_mask(rgb:np.ndarray, group_mask:np.ndarray, bg_rgb:tuple[i
     core=connected&(diff<=7)&(sat<=16)&(gray>=242)
     # Edge-adjacent near-white pixels can be legitimate antialiasing.  Mark them as a
     # soft zone so refine_alpha caps them by color evidence instead of erasing them.
-    strong=((diff>=12)|(sat>=28)|(gray<=236)).astype(np.uint8)*255
+    strong=strong_seed*255
     near_strong=cv2.dilate(strong,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)),iterations=1)>0
     hard_local=connected & (~near_strong)
     # Canonical-white stage is never valid opaque foreground even right beside ink.
