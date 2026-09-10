@@ -8,6 +8,8 @@ co-occurrence states instead of one permanent poster state.
 """
 from __future__ import annotations
 
+import copy
+
 from .layout import composition_solver as _implementation
 
 globals().update({
@@ -21,6 +23,14 @@ _BASE_REPARTITION_STORY_PHASES = _implementation.repartition_story_phases
 _PROGRESSIVE_AUTHORITY = 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1'
 _MIN_BEAT_SECONDS = 0.72
 _MIN_FINAL_REVEAL_SECONDS = 1.28
+
+
+def _protected_react_semantics(event: dict) -> bool:
+    text = ' '.join(str(event.get(key) or '') for key in (
+        'canonical_clause', 'canonical_narration', 'visual_concept',
+        'semantic_intent', 'narrative_function', 'relationship',
+    )).upper()
+    return any(signal in text for signal in ('REACT', 'REACTION', 'RESPOND'))
 
 
 def _progressive_same_scene_candidates(events: list[dict]) -> list[dict]:
@@ -44,7 +54,7 @@ def _progressive_same_scene_candidates(events: list[dict]) -> list[dict]:
     # delay the causal source and make that protected schedule impossible.
     # Leave these scenes on the established topology so interaction authority
     # remains earlier/harder than P4 editorial staging.
-    if any(str(e.get('semantic_intent') or '').upper() == 'REACT' for e in active):
+    if any(_protected_react_semantics(e) for e in active):
         return []
     return active
 
@@ -188,6 +198,147 @@ def _progressive_plan(
     return candidate
 
 
+def _progressivize_repartitioned_plan(
+    card: dict,
+    events: list[dict],
+    grammar: dict,
+    fallback: dict,
+) -> dict | None:
+    """Split eligible same-scene cohorts inside a multi-scene card.
+
+    Production cards commonly contain several short source scenes.  Treating
+    the whole card as the eligibility scope made the progressive compiler skip
+    every same-scene pair as soon as an adjacent scene shared the card.  The
+    legacy repartitioner already owns those semantic scene windows, so refine
+    only a sufficiently long window and leave all cross-scene handoffs intact.
+    """
+    by_id = {str(e.get('event_id')): e for e in events}
+    scene_root_counts: dict[str, int] = {}
+    for event in events:
+        if str(event.get('render_mode') or 'ROOT_ATOMIC') == 'ROOT_ATOMIC' and not event.get('partition_group_id'):
+            sid = str(event.get('scene_id') or '')
+            scene_root_counts[sid] = scene_root_counts.get(sid, 0) + 1
+    rows: list[dict] = []
+    reveal_order: list[str] = []
+    split_count = 0
+    source_phases = copy.deepcopy(fallback.get('phases') or [])
+    for phase_index, phase in enumerate(source_phases):
+        phase_events = [by_id[eid] for eid in phase.get('event_ids') or [] if eid in by_id]
+        groups: dict[str, list[dict]] = {}
+        for event in phase_events:
+            if str(event.get('render_mode') or 'ROOT_ATOMIC') != 'ROOT_ATOMIC':
+                continue
+            if event.get('partition_group_id'):
+                continue
+            if _protected_react_semantics(event):
+                continue
+            groups.setdefault(str(event.get('scene_id') or ''), []).append(event)
+        cohorts = [
+            group for sid, group in groups.items()
+            if 2 <= len(group) <= 5 and scene_root_counts.get(sid, 0) <= 5
+        ]
+        duration = float(phase.get('end_seconds', 0.0)) - float(phase.get('start_seconds', 0.0))
+        cohort = cohorts[0] if len(cohorts) == 1 else None
+        if cohort is None:
+            row = dict(phase)
+            row.setdefault('entering_event_ids', list(row.get('event_ids') or []))
+            row.setdefault('retained_event_ids', [])
+            rows.append(row)
+            for eid in row.get('event_ids') or []:
+                if eid not in reveal_order:
+                    reveal_order.append(eid)
+            continue
+
+        ordered = list(_implementation._phase_order(cohort, grammar))
+        anchor = next((e for e in ordered if str(e.get('attention_priority') or '').upper() == 'PRIMARY'), ordered[0])
+        ordered = [anchor] + [e for e in ordered if e is not anchor]
+        delayed_ids = [str(e.get('event_id')) for e in ordered[1:]]
+        anchor_id = str(anchor.get('event_id'))
+        start = float(phase['start_seconds'])
+        end = float(phase['end_seconds'])
+        next_phase = source_phases[phase_index + 1] if phase_index + 1 < len(source_phases) else None
+        handoff_extension = bool(
+            next_phase and anchor_id in (next_phase.get('event_ids') or [])
+            and delayed_ids and delayed_ids[-1] not in (next_phase.get('event_ids') or [])
+        )
+        if duration + 1e-9 < (_MIN_BEAT_SECONDS + (0.10 if handoff_extension else _MIN_FINAL_REVEAL_SECONDS)):
+            row = dict(phase)
+            row.setdefault('entering_event_ids', list(row.get('event_ids') or []))
+            row.setdefault('retained_event_ids', [])
+            rows.append(row)
+            for eid in row.get('event_ids') or []:
+                if eid not in reveal_order:
+                    reveal_order.append(eid)
+            continue
+        if handoff_extension:
+            retained_id = delayed_ids[-1]
+            next_phase['event_ids'] = [retained_id if eid == anchor_id else eid for eid in next_phase.get('event_ids') or []]
+            next_phase['progressive_focus_transfer_from_event_id'] = anchor_id
+            next_phase['progressive_focus_transfer_to_event_id'] = retained_id
+        voice_hits = [
+            float(e['perceptual_hit_seconds']) for e in ordered[1:]
+            if e.get('perceptual_hit_seconds') is not None
+            and str(e.get('perceptual_hit_source') or '') == 'VOICE_TRIGGER'
+        ]
+        target = min(voice_hits) - 0.56 if voice_hits else start + duration * 0.45
+        latest_cut = end - (0.10 if handoff_extension else _MIN_FINAL_REVEAL_SECONDS)
+        cut = max(start + _MIN_BEAT_SECONDS, min(latest_cut, target))
+        original_ids = list(phase.get('event_ids') or [])
+        first_ids = [eid for eid in original_ids if eid not in delayed_ids]
+        if anchor_id not in first_ids:
+            first_ids.append(anchor_id)
+        common = {
+            'semantic_boundary_authority': phase.get('semantic_boundary_authority', 'ADJACENT_ANCHOR_MIDPOINT'),
+            'choreography_authority': _PROGRESSIVE_AUTHORITY,
+        }
+        rows.append({
+            **common,
+            'phase_id': f"{phase.get('phase_id')}_PB1",
+            'start_seconds': round(start, 6),
+            'end_seconds': round(cut, 6),
+            'event_ids': first_ids,
+            'entering_event_ids': [eid for eid in first_ids if eid not in reveal_order],
+            'retained_event_ids': [eid for eid in first_ids if eid in reveal_order],
+            'semantic_beat': 'ESTABLISH',
+        })
+        for eid in first_ids:
+            if eid not in reveal_order:
+                reveal_order.append(eid)
+        rows.append({
+            **common,
+            'phase_id': f"{phase.get('phase_id')}_PB2",
+            'start_seconds': round(cut, 6),
+            'end_seconds': round(end, 6),
+            'event_ids': original_ids,
+            'entering_event_ids': delayed_ids,
+            'retained_event_ids': [eid for eid in original_ids if eid not in delayed_ids],
+            'semantic_beat': 'COMPOSITION_REBUILD',
+            'retained_into_next_semantic_phase': handoff_extension,
+        })
+        for eid in delayed_ids:
+            if eid not in reveal_order:
+                reveal_order.append(eid)
+        split_count += 1
+
+    if not split_count:
+        return None
+    candidate = dict(fallback)
+    candidate.update({
+        'schema': 'HEXA_VISUAL_STORY_PHASES_V31_PROGRESSIVE',
+        'phases': rows,
+        'phase_count': len(rows),
+        'progressive_reveal_compiled': True,
+        'progressive_scene_cohort_count': split_count,
+        'choreography_authority': _PROGRESSIVE_AUTHORITY,
+        'reveal_order_event_ids': reveal_order,
+        'retention_policy': 'LEGACY_SEMANTIC_HANDOFF_PLUS_PROGRESSIVE_SCENE_COHORT',
+        'minimum_final_reveal_seconds': _MIN_FINAL_REVEAL_SECONDS,
+    })
+    if not _implementation.solve_card_layout(events, grammar, candidate).get('pass'):
+        return None
+    return candidate
+
+
 def build_story_phases(card: dict, events: list[dict], grammar: dict) -> dict:
     """Build progressive same-scene beats before final geometry is solved."""
     progressive = _progressive_plan(card, events, grammar)
@@ -216,6 +367,11 @@ def repartition_story_phases(card: dict, events: list[dict], conflicts: list[dic
         progressive['repartition_policy'] = 'PRESERVE_PROGRESSIVE_TEMPORAL_TOPOLOGY'
         return progressive
     fallback = _BASE_REPARTITION_STORY_PHASES(card, events, conflicts)
+    refined = _progressivize_repartitioned_plan(card, events, {'archetype': 'GENERIC', 'roles': {}, 'explicit_edges': []}, fallback)
+    if refined is not None:
+        refined['repartition_trigger_conflict_count'] = len(conflicts or [])
+        refined['repartition_policy'] = 'PRESERVE_PROGRESSIVE_TEMPORAL_TOPOLOGY'
+        return refined
     fallback.setdefault('progressive_reveal_compiled', False)
     fallback.setdefault('choreography_authority', 'LEGACY_REPARTITION_FALLBACK')
     return fallback

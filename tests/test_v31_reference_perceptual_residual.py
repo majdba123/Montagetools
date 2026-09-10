@@ -87,6 +87,15 @@ assert (
     travel_target_before['motion_start_seconds'],travel_target_before['motion_end_seconds']
 )
 assert float(travel_owner['layout_scale_multiplier'])>=float(travel_owner_before['layout_scale_multiplier'])
+interval_mutations=[row for row in travel_stats['mutations'] if row.get('strategy')=='SOURCE_INTERVAL_FRAMING_WITH_SUPPORT_HANDOFF']
+if interval_mutations:
+    # Temporary sparse framing must return to the exact settled support
+    # composition. Its destination belongs only to the DENSITY_FRAME envelope;
+    # moving the static base would recreate the later-actor collision.
+    assert travel_owner['card_rest_position_norm']==travel_owner_before['card_rest_position_norm']
+    assert travel_owner['planned_rect_norm']==travel_owner_before['planned_rect_norm']
+    states=[s for s in travel_owner.get('composition_participant_states') or [] if s.get('envelope_track')=='DENSITY_FRAME']
+    assert len(states)==2 and states[-1]['center_norm']==travel_owner_before['card_rest_position_norm'],states
 assert composition_plan_qa(travel_plan)['pass'],composition_plan_qa(travel_plan)
 
 child=event('PARTITION_CHILD',.42,.52,(0,0,.10,.15),primary=True);child['render_mode']='CHILD_PARTITION';child['partition_group_id']='PG'

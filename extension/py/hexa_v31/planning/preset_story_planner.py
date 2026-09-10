@@ -156,7 +156,7 @@ def _spatial_choreography_optimize(events, cards, fps):
     stats={'candidates_evaluated':0,'candidates_committed':0,'event_ids':[],'rejections':{}}
     card_rows=list(cards.get('cards') or []);card_index={str(c.get('card_id')):i for i,c in enumerate(card_rows)}
     for e in events:
-        if e.get('suppressed_by_card_density') or e.get('preset_actions'):continue
+        if e.get('suppressed_by_card_density') or e.get('preset_actions') or e.get('progressive_phase_authority'):continue
         rest=e.get('card_rest_position_norm') or [0,0]
         if abs(float(rest[0])-.5)>.035 or abs(float(rest[1])-.5)>.075:continue
         pe=e.get('preset_entry') or {};px=e.get('preset_exit') or {}
@@ -463,6 +463,8 @@ def _atomic_handoff_optimize(events, cards, fps):
         groups={}
         for event in members: groups.setdefault(round(float(event.get('perceptual_hit_seconds',0))*fps)/fps,[]).append(event)
         for anchor, group in sorted(groups.items()):
+            if any(e.get('progressive_phase_authority') for e in group):
+                continue
             # Do not disturb already compliant transitions.
             deltas=[_hit_delta_frames(e,anchor,fps) for e in group]
             if max((abs(x) for x in deltas),default=0)<=4: continue
@@ -634,7 +636,7 @@ def _solve_semantic_segments(events, cards, fps):
     by_card={str(c.get('card_id')):c for c in cards.get('cards') or []}
     blocked=[]
     for e in events:
-        if e.get('suppressed_by_card_density') or not e.get('preset_entry'): continue
+        if e.get('suppressed_by_card_density') or not e.get('preset_entry') or e.get('progressive_phase_authority'): continue
         delta=_hit_delta_frames(e,float(e.get('perceptual_hit_seconds',0)),fps)
         if abs(delta)>4: blocked.append(e)
     groups={}
@@ -1150,6 +1152,16 @@ def _phase_for_event(phase_plan:dict,eid:str):
     rows=[p for p in (phase_plan.get('phases') or []) if eid in (p.get('event_ids') or [])]
     if not rows:return None
     return float(rows[0]['start_seconds']),float(rows[-1]['end_seconds'])
+
+def _record_progressive_phase_authority(event:dict, phase_plan:dict):
+    if not phase_plan.get('progressive_reveal_compiled'):
+        return
+    eid=str(event.get('event_id'))
+    entering=next((p for p in (phase_plan.get('phases') or []) if eid in (p.get('entering_event_ids') or [])),None)
+    if entering is None:
+        return
+    event['progressive_phase_start_seconds']=round(float(entering['start_seconds']),6)
+    event['progressive_phase_authority']=str(phase_plan.get('choreography_authority') or 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1')
 
 def _clamp(v,a,b):return max(a,min(b,v))
 
@@ -2032,7 +2044,9 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         foundation_contract=_plan_foundation_partition_choreography(selected_events,phase_plan)
         for e in selected_events:
             window=_phase_for_event(phase_plan,e['event_id'])
-            if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=not bool(e.get('independent_motion_allowed',True)),local_events=selected_events,fps=fps)
+            if window:
+                _schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=not bool(e.get('independent_motion_allowed',True)),local_events=selected_events,fps=fps)
+                _record_progressive_phase_authority(e,phase_plan)
         pre_conflicts=card_motion_conflicts(selected_events,float(card['start_seconds']),float(card['end_seconds']),fps)
         if pre_conflicts:
             phase_plan=repartition_story_phases(card,selected_events,pre_conflicts)
@@ -2043,7 +2057,9 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
             for e in selected_events:
                 pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['planned_rect_norm']=pl['rect_norm'];e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
                 window=_phase_for_event(phase_plan,e['event_id'])
-                if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True,local_events=selected_events,fps=fps)
+                if window:
+                    _schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True,local_events=selected_events,fps=fps)
+                    _record_progressive_phase_authority(e,phase_plan)
             card['semantic_phase_repartition']={'detected_conflicts':len(pre_conflicts),'resolved_by_internal_phase_split':len(pre_conflicts),'cards_split':0}
         relationship_resolutions=_safe_relationship_motion(card,selected_events,rels)
         relationship_resolutions=_recover_trajectory_conflicts(card,selected_events,phase_plan,relationship_resolutions,fps)

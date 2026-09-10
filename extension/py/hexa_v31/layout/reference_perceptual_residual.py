@@ -232,7 +232,6 @@ def _commit_interval_frame(plan, card, event, interval, quality, fps, stats):
         if stats['candidates_evaluated']>=min(_MAX_EVALUATIONS, stats.get('evaluation_limit', _MAX_EVALUATIONS)):break
         stats['candidates_evaluated']+=1
         event.clear();event.update(copy.deepcopy(snapshot))
-        _apply_geometry(event,center,1.)
         factor=absolute/old
         state_id=_event_id(event)+'::RESIDUAL_INTERVAL_FRAME'
         common=dict(authority=_AUTHORITY,sequence_envelope=True,envelope_track='DENSITY_FRAME',position_envelope=True,
