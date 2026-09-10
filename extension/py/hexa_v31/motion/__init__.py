@@ -9,7 +9,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.layout.perceptual_finalizer import finalize_perceptual_composition
     from hexa_v31.layout.reference_residual_closure import finalize_reference_residual_closure
     from hexa_v31.layout.reference_perceptual_residual import finalize_reference_perceptual_residual
-    from hexa_v31.layout.reference_staggered_sequence import finalize_reference_staggered_sequence
+    from hexa_v31.layout.reference_staggered_sequence_v2 import finalize_reference_staggered_sequence
 
     plan = build_interaction_motion_plan(*args, **kwargs)
     fps = float(plan.get('fps') or kwargs.get('fps', 30.0))
