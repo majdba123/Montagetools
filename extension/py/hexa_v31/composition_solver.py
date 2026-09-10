@@ -1,8 +1,8 @@
 """Backward-compatible composition solver facade.
 
 Production planning imports this module, while the implementation lives under
-``hexa_v31.layout``.  The facade is also the correct compatibility boundary for
-V31's pre-layout editorial phase policy: geometry remains owned by the existing
+``hexa_v31.layout``. The facade is also the compatibility boundary for V31's
+pre-layout editorial phase policy: geometry remains owned by the existing
 solver, but eligible same-scene actors are presented to it as progressive
 co-occurrence states instead of one permanent poster state.
 """
@@ -17,6 +17,7 @@ globals().update({
 })
 
 _BASE_BUILD_STORY_PHASES = _implementation.build_story_phases
+_BASE_REPARTITION_STORY_PHASES = _implementation.repartition_story_phases
 _PROGRESSIVE_AUTHORITY = 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1'
 _MIN_BEAT_SECONDS = 0.82
 
@@ -25,9 +26,9 @@ def _progressive_same_scene_candidates(events: list[dict]) -> list[dict]:
     active = [e for e in events if not e.get('suppressed_by_card_density')]
     if not 2 <= len(active) <= 5:
         return []
-    # Certified partitions/residuals are source-survival structures.  Their
+    # Certified partitions/residuals are source-survival structures. Their
     # independent motion policy is already owned by P1/P2 and must not be
-    # repartitioned here.  This path is deliberately for independent roots.
+    # repartitioned here. This path is deliberately for independent roots.
     if any(str(e.get('render_mode') or 'ROOT_ATOMIC') != 'ROOT_ATOMIC' for e in active):
         return []
     if any(e.get('partition_group_id') for e in active):
@@ -41,9 +42,8 @@ def _progressive_same_scene_candidates(events: list[dict]) -> list[dict]:
 def _progressive_phase_count(duration: float, event_count: int) -> int:
     if event_count <= 1:
         return 1
-    # A supplied appearance preset consumes 0.8s.  Keep at least one readable
-    # beat boundary around it and reduce complexity on short cards rather than
-    # compressing every reveal into a burst.
+    # APPEAR_HIGH_SCALE consumes 0.8s. Keep a readable beat boundary around
+    # it and reduce complexity on short cards instead of compressing reveals.
     capacity = max(2, min(4, int((duration + 1e-9) // _MIN_BEAT_SECONDS)))
     return min(event_count, capacity)
 
@@ -65,35 +65,41 @@ def _progressive_cuts(card: dict, buckets: list[list[dict]]) -> list[float]:
             if e.get('perceptual_hit_seconds') is not None
             and str(e.get('perceptual_hit_source') or '') == 'VOICE_TRIGGER'
         ]
-        # APPEAR_HIGH_SCALE reaches its perceptual result at ~70% of 0.8s.
-        # When a real voice trigger exists, open the phase just before it so the
-        # visual impact lands on speech. Fallback-only scenes stay evenly paced.
+        # APPEAR_HIGH_SCALE reaches its visual impact around 70% of 0.8s.
+        # Open the beat before a trustworthy voice anchor; otherwise use an
+        # even spoken-clock distribution rather than the old ~60ms burst.
         target = min(voice_hits) - 0.56 if voice_hits else uniform
         remaining = count - index
         lo = cuts[-1] + _MIN_BEAT_SECONDS
         hi = ce - remaining * _MIN_BEAT_SECONDS
         if hi < lo:
+            step = max(0.60, duration / count * 0.72)
             target = uniform
-            lo = cuts[-1] + max(0.60, duration / count * 0.72)
-            hi = ce - remaining * max(0.60, duration / count * 0.72)
+            lo = cuts[-1] + step
+            hi = ce - remaining * step
         cuts.append(max(lo, min(hi, target)))
     cuts.append(ce)
     return cuts
 
 
-def _progressive_plan(card: dict, events: list[dict], grammar: dict) -> dict | None:
+def _progressive_plan(
+    card: dict,
+    events: list[dict],
+    grammar: dict | None = None,
+    *,
+    validate_layout: bool = True,
+) -> dict | None:
     active = _progressive_same_scene_candidates(events)
     if not active:
         return None
     cs = float(card['start_seconds'])
     ce = float(card['end_seconds'])
     duration = ce - cs
-    ordered = list(_implementation._phase_order(active, grammar))
+    phase_grammar = grammar or {'archetype': 'GENERIC', 'roles': {}, 'explicit_edges': []}
+    ordered = list(_implementation._phase_order(active, phase_grammar))
     if len(ordered) < 2:
         return None
 
-    # Establish a focal source first.  Remaining independent roots are ordered
-    # by the existing semantic phase authority and introduced over later beats.
     anchor = next(
         (e for e in ordered if str(e.get('attention_priority') or '').upper() == 'PRIMARY'),
         ordered[0],
@@ -108,9 +114,8 @@ def _progressive_plan(card: dict, events: list[dict], grammar: dict) -> dict | N
     remaining = ordered[1:]
     slots = phase_count - 1
     for index, event in enumerate(remaining):
-        # Spread introductions across the available spoken clock.  When there
-        # are more actors than beats, pair only the unavoidable later reveals;
-        # never collapse them back into the opening frame.
+        # Spread later actors across the available clock. If actor count exceeds
+        # beat capacity, only later beats may pair; never collapse into beat 1.
         slot = 1 + min(slots - 1, int(index * slots / max(1, len(remaining))))
         buckets[slot].append(event)
 
@@ -124,10 +129,9 @@ def _progressive_plan(card: dict, events: list[dict], grammar: dict) -> dict | N
                 introduced.append(event)
                 reveal_order.append(str(event.get('event_id')))
 
-        # Reference-like retained context with bounded concurrency: keep the
-        # focal carrier plus the two most recent supporting actors.  This lets
-        # earlier support retire when a later result needs space instead of
-        # forcing all 4-5 roots into one undersized permanent layout.
+        # Retain the focal carrier plus the two most recent actors. Earlier
+        # support can retire when a later result needs space; this is temporal
+        # composition, not deletion of source evidence.
         phase_events = [anchor]
         primary_count = 1 if str(anchor.get('attention_priority') or '').upper() == 'PRIMARY' else 0
         for event in reversed(introduced):
@@ -168,24 +172,39 @@ def _progressive_plan(card: dict, events: list[dict], grammar: dict) -> dict | N
         'retention_policy': 'FOCAL_PLUS_TWO_MOST_RECENT_SOURCE_ACTORS',
         'atomic_asset_indivisibility': True,
     }
-    # This is a pre-layout policy, so accept it only if the existing hard
-    # geometry solver can solve every declared co-occurrence state.  Failure
-    # falls back to the original phase authority rather than weakening QA.
-    if not _implementation.solve_card_layout(active, grammar, candidate).get('pass'):
+    if validate_layout and not _implementation.solve_card_layout(active, phase_grammar, candidate).get('pass'):
         return None
     return candidate
 
 
 def build_story_phases(card: dict, events: list[dict], grammar: dict) -> dict:
-    """Build progressive same-scene beats before final geometry is solved.
-
-    The legacy builder remains the fallback for partitions, cross-scene cards,
-    dense/irreducible groups, and any candidate the hard layout solver rejects.
-    """
+    """Build progressive same-scene beats before final geometry is solved."""
     progressive = _progressive_plan(card, events, grammar)
     if progressive is not None:
         return progressive
     fallback = _BASE_BUILD_STORY_PHASES(card, events, grammar)
     fallback.setdefault('progressive_reveal_compiled', False)
     fallback.setdefault('choreography_authority', 'LEGACY_PHASE_FALLBACK')
+    return fallback
+
+
+def repartition_story_phases(card: dict, events: list[dict], conflicts: list[dict]) -> dict:
+    """Preserve progressive beat topology through the planner's repartition gate.
+
+    The production planner historically calls semantic repartition before its
+    first geometry solve. With fallback semantic hits that legacy function
+    groups every independent root into one R1 phase, exactly recreating the
+    simultaneous poster state. Eligible same-scene roots therefore receive the
+    progressive temporal topology here. The production planner immediately
+    solves that topology with its real classified grammar, so this wrapper does
+    not weaken or replace the hard layout/collision gate.
+    """
+    progressive = _progressive_plan(card, events, validate_layout=False)
+    if progressive is not None:
+        progressive['repartition_trigger_conflict_count'] = len(conflicts or [])
+        progressive['repartition_policy'] = 'PRESERVE_PROGRESSIVE_TEMPORAL_TOPOLOGY'
+        return progressive
+    fallback = _BASE_REPARTITION_STORY_PHASES(card, events, conflicts)
+    fallback.setdefault('progressive_reveal_compiled', False)
+    fallback.setdefault('choreography_authority', 'LEGACY_REPARTITION_FALLBACK')
     return fallback
