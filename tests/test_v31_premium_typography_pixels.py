@@ -17,7 +17,7 @@ BASE={
 
 hashes={}
 opaque={}
-for role in ('VALUE','RESULT','WARNING','STATUS','KEYWORD','MICRO_LABEL','COMPARISON_LABEL'):
+for role in ('HERO','VALUE','RESULT','WARNING','STATUS','KEYWORD','MICRO_LABEL','COMPARISON_LABEL'):
     event=dict(BASE,typography_role=role,treatment=role+'_TEST')
     img=render_text_rgba(event,1280,720)
     arr=np.asarray(img)
@@ -30,7 +30,8 @@ for role in ('VALUE','RESULT','WARNING','STATUS','KEYWORD','MICRO_LABEL','COMPAR
     opaque[role]=opaque_fraction
     hashes[role]=hashlib.sha256(arr.tobytes()).hexdigest()
 
-# Roles must be materially distinct in encoded pixels, not metadata aliases.
+# Every production role, including concept HERO titles, must be materially distinct
+# in encoded pixels rather than being metadata aliases over the same renderer.
 assert len(set(hashes.values()))==len(hashes),hashes
 
 ok,reason=_display_copy_quality({'text':'لكن في','typography_role':'KEYWORD','semantic_source':'SCENE_SCRIPT_LITERAL_SUBPHRASE'})
