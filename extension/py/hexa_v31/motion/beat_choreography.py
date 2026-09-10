@@ -13,7 +13,7 @@ P1/P2 safety.
 
 import copy
 
-from hexa_v31.composition_qa import card_motion_conflicts, viewport_clipping_qa
+from hexa_v31.composition_qa import card_motion_conflicts, viewport_clipping_qa, _state as _visible_state
 from hexa_v31.composition_solver import SAFE_X, SAFE_Y, _fp
 
 _AUTHORITY = 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1'
@@ -140,9 +140,30 @@ def _entry_states(event: dict, origin: list[float], direction: str, fps: float) 
     return [origin_state, settle_state]
 
 
+def _has_readable_carrier(event: dict, local_events: list[dict]) -> bool:
+    """Require established pixels before hiding an incoming actor off-frame.
+
+    Directional entry is a support/rebuild device, not the establishment of an
+    empty card. Requiring another readable carrier at the incoming entry clock
+    prevents a white/near-blank opening while retaining the reference grammar:
+    establish focal -> reveal support while focal remains -> rebuild.
+    """
+    entry = event.get('preset_entry') or {}
+    at = float(entry.get('start_seconds', event.get('start_seconds', 0.0)))
+    for other in local_events:
+        if other is event or other.get('suppressed_by_card_density'):
+            continue
+        state = _visible_state(other, at)
+        if state is not None and float(state[2]) > 0.22:
+            return True
+    return False
+
+
 def _try_directional_entry(event: dict, local_events: list[dict], fps: float) -> tuple[str | None, str | None]:
     if not _translation_eligible(event):
         return None, 'NOT_TRANSLATION_ELIGIBLE'
+    if not _has_readable_carrier(event, local_events):
+        return None, 'NO_READABLE_CARRIER'
     start = min(float(e.get('physical_start_seconds', e.get('start_seconds', 0.0))) for e in local_events)
     end = max(float(e.get('physical_end_seconds', e.get('end_seconds', start))) for e in local_events)
     for direction, origin, _ in _candidate_origins(event):
