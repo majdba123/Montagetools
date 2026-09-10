@@ -30,6 +30,8 @@ assert phase_plan['phase_count']>=3,phase_plan
 phase_sets=[p['event_ids'] for p in phase_plan['phases']]
 assert len(phase_sets[0])==1,phase_sets
 assert len(set(phase_plan.get('reveal_order_event_ids') or []))==4,phase_plan
+last_phase=phase_plan['phases'][-1]
+assert float(last_phase['end_seconds'])-float(last_phase['start_seconds'])>=1.27,last_phase
 
 active=[x for x in m['events'] if not x.get('suppressed_by_card_density')]
 for e in active:
