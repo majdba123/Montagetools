@@ -3,24 +3,13 @@ from __future__ import annotations
 """Source-backed visible-ink projection used by layout and editorial QA."""
 
 import pathlib
-from PIL import Image, ImageChops
-
-
-def perceptual_visible_fraction(image):
-    """Fraction that survives the certified white-background ink threshold."""
-    rgba = image.convert('RGBA')
-    white = Image.new('RGBA', rgba.size, (255, 255, 255, 255))
-    rgb = Image.alpha_composite(white, rgba).convert('RGB')
-    red, green, blue = rgb.split()
-    darkest = ImageChops.darker(ImageChops.darker(red, green), blue)
-    # Encoded acceptance is ``255 - min(rgb) > 10``.
-    return float(sum(darkest.histogram()[:245])) / max(1, rgb.width * rgb.height)
+from PIL import Image
 
 
 class ProjectedVisibleInkModel:
     """Measure alpha support once, then project it through solved geometry."""
 
-    algorithm_version = 'HEXA_PROJECTED_VISIBLE_INK_V2_PERCEPTUAL_WHITE_THRESHOLD'
+    algorithm_version = 'HEXA_PROJECTED_VISIBLE_INK_V1'
 
     def __init__(self):
         self._fractions = {}
@@ -49,7 +38,11 @@ class ProjectedVisibleInkModel:
             # Coverage is stable at thumbnail scale and this avoids retaining full masks.
             with Image.open(path) as image:
                 image.thumbnail((512, 512))
-                value = perceptual_visible_fraction(image)
+                if 'A' not in image.getbands():
+                    value = 1.0
+                else:
+                    alpha = image.getchannel('A')
+                    value = float(sum(alpha.histogram()[4:])) / max(1, alpha.size[0] * alpha.size[1])
         except Exception:
             value = self._fallback(event)
         value = max(0.0, min(1.0, float(value)))
