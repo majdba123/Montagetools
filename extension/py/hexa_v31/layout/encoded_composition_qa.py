@@ -53,10 +53,11 @@ def _exact_sample_metrics(samples, motion):
 def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps=30.0,render_edit_map=None):
     """Prove authored P3/P4 composition states survived into encoded pixels.
 
-    State attribution is performed against the exact render sources.  In the
-    same decode pass we also compute the frozen 4 Hz / 320x180 P3/P4 closure
-    metrics used for production replay comparison, so a 99-second export is not
-    decoded a second time merely to decide whether density actually improved.
+    State attribution is performed against the exact render sources. In the
+    same decode pass we compute the frozen 4 Hz / 320x180 closure metrics. When
+    ``projected_density`` is supplied (the production pipeline path), P3/P4
+    quality thresholds are hard gates. Unit-level attribution probes may omit
+    it and remain focused on attribution rather than whole-program density.
     """
     cap=cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -140,10 +141,6 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
     encoded_median=float(np.median(occupancies)) if occupancies else 0.0
     exact=_exact_sample_metrics(exact_occupancy,exact_motion)
     planned_safe=float((projected_density or {}).get('median_estimated_alpha_coverage') or 0.0)
-    # Projected visible ink is normalized to the 84%x80% safe frame; encoded
-    # nonwhite occupancy is full-frame. Preserve both values and expose the
-    # full-frame-equivalent projection diagnostically instead of treating the
-    # unlike normalizations as an exact hard equality.
     safe_area=.84*.80
     planned_full_equivalent=planned_safe*safe_area
     divergence=abs(planned_full_equivalent-exact['occupancy_median']) if planned_safe>0 else 0.0
@@ -161,24 +158,52 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
         'encoded_frames_lt15_le_25pct':{'pass':exact['frames_lt15_ratio']<=.25,'actual':round(exact['frames_lt15_ratio'],6),'target_max':.25},
     }
     p3_pass=all(g['pass'] for g in p3_gates.values())
+
     sequence_rows=[r for r in rows if r.get('envelope_track')=='SEMANTIC_SEQUENCE']
     participant_sequence_rows=[r for r in sequence_rows if r.get('state_container')=='composition_participant_states']
-    p4_sequence_pass=bool(sequence_rows) and all(r.get('pass') for r in sequence_rows)
+    sequence_stats=motion_plan.get('reference_staggered_sequence_finalizer') or {}
+    planned_sequence_count=len(sequence_stats.get('sequences') or [])
+    sequence_required=planned_sequence_count>0
+    sequence_materiality_pass=(not sequence_required) or (bool(sequence_rows) and all(r.get('pass') for r in sequence_rows))
+    p4_gates={
+        'semantic_sequence_destinations_encoded':{
+            'pass':sequence_materiality_pass,'planned_sequence_count':planned_sequence_count,
+            'encoded_sequence_state_count':len(sequence_rows),'verified_sequence_state_count':sum(bool(r.get('pass')) for r in sequence_rows),
+        },
+        'exact_motion_mean_in_reference_direction':{
+            'pass':.13<=exact['motion_mean']<=.20,'actual':round(exact['motion_mean'],6),'target_min':.13,'target_max':.20,
+        },
+        'exact_near_static_ratio_materially_below_baseline':{
+            'pass':exact['near_static_ratio']<=.28,'actual':round(exact['near_static_ratio'],6),'target_max':.28,
+        },
+    }
+    p4_pass=all(g['pass'] for g in p4_gates.values())
+
+    closure_enforced=projected_density is not None
+    if closure_enforced and not p3_pass:
+        failures.append({'reason':'P3_ENCODED_DENSITY_TARGET_NOT_MET',
+                         'failed_gates':[name for name,gate in p3_gates.items() if not gate['pass']]})
+    if closure_enforced and not p4_pass:
+        failures.append({'reason':'P4_ENCODED_CHOREOGRAPHY_TARGET_NOT_MET',
+                         'failed_gates':[name for name,gate in p4_gates.items() if not gate['pass']]})
 
     return {
         'schema':'HEXA_ENCODED_ADAPTIVE_COMPOSITION_QA_V3','pass':not failures,
+        'p34_closure_enforced':closure_enforced,
         'planned_recomposition_count':len(states),'encoded_recomposition_verified_count':verified,
         'actor_attributable_verified_count':attributed,
         'composition_state_count':sum(1 for _,_,c in states if c=='composition_states'),
         'participant_state_count':sum(1 for _,_,c in states if c=='composition_participant_states'),
+        'semantic_sequence_planned_count':planned_sequence_count,
         'semantic_sequence_state_count':len(sequence_rows),
         'semantic_sequence_verified_count':sum(bool(r.get('pass')) for r in sequence_rows),
         'semantic_sequence_participant_state_count':len(participant_sequence_rows),
         'semantic_sequence_participant_verified_count':sum(bool(r.get('pass')) for r in participant_sequence_rows),
-        'p4_semantic_sequence_encoded_pass':p4_sequence_pass,
+        'p4_semantic_sequence_encoded_pass':sequence_materiality_pass,
         'encoded_occupancy_mean':round(encoded_mean,6),'encoded_occupancy_median':round(encoded_median,6),
         'exact_normalized_4hz_320x180':{k:round(v,6) if isinstance(v,float) else v for k,v in exact.items()},
         'p3_encoded_density_gates':p3_gates,'p3_encoded_density_pass':p3_pass,
+        'p4_encoded_choreography_gates':p4_gates,'p4_encoded_choreography_pass':p4_pass,
         'planned_visible_ink_safe_frame_median':round(planned_safe,6),
         'planned_visible_ink_full_frame_equivalent':round(planned_full_equivalent,6),
         'planned_encoded_occupancy_divergence_diagnostic':round(divergence,6),
