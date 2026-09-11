@@ -5,22 +5,27 @@ from __future__ import annotations
 A RESIDUAL_SUPPORT layer exists only to preserve source pixels not owned by certified
 actors. It is not an independent visual actor and must never become a density/focus
 surrogate. Large sparse residuals (connectors, rings, shadows, context strokes) become
-visually absurd when a generic support-slot solver magnifies them. This finalizer keeps
-all residual pixels and timing, but caps their independent composition transform to the
-source/camera scale and established center.
+visually absurd when a generic support-slot solver magnifies or relocates them. This
+finalizer keeps every source pixel and timing while bounding the residual transform.
 """
 
 import copy
+import math
 
 from hexa_v31.composition_qa import composition_plan_qa
 
-AUTHORITY='SOURCE_RECONSTRUCTION_RESIDUAL_CONTEXT_V1'
+AUTHORITY='SOURCE_RECONSTRUCTION_RESIDUAL_CONTEXT_V2'
 
 
 def _scale_rect(rect:list[float],factor:float)->list[float]:
     x,y,w,h=map(float,rect);cx=x+w/2.0;cy=y+h/2.0
     nw=w*factor;nh=h*factor
     return [round(cx-nw/2.0,6),round(cy-nh/2.0,6),round(nw,6),round(nh,6)]
+
+
+def _recenter_rect(rect:list[float],center:list[float])->list[float]:
+    x,y,w,h=map(float,rect)
+    return [round(float(center[0])-w/2.0,6),round(float(center[1])-h/2.0,6),round(w,6),round(h,6)]
 
 
 def _sync_constraint_layout(plan:dict,event:dict)->None:
@@ -35,14 +40,19 @@ def _sync_constraint_layout(plan:dict,event:dict)->None:
         return
 
 
+def _restore_event(target:dict,snapshot:dict,plan:dict)->None:
+    target.clear();target.update(copy.deepcopy(snapshot));_sync_constraint_layout(plan,target)
+
+
 def finalize_residual_source_integrity(plan:dict,fps:float=30.0)->dict:
-    """Prevent reconstruction support from being independently enlarged/recomposed."""
+    """Prevent reconstruction support from becoming an independent visual actor."""
     original=copy.deepcopy(plan)
     rows=[]
     for event in plan.get('events') or []:
         if event.get('suppressed_by_card_density') or str(event.get('render_mode') or '')!='RESIDUAL_SUPPORT':
             continue
         old_scale=max(1e-9,float(event.get('layout_scale_multiplier') or 1.0))
+        old_center=list(event.get('card_rest_position_norm') or event.get('source_center_norm') or [.5,.5])
         new_scale=min(1.0,old_scale)
         rect=list(event.get('planned_rect_norm') or [])
         changed=False
@@ -70,14 +80,40 @@ def finalize_residual_source_integrity(plan:dict,fps:float=30.0)->dict:
                 if state_changed:
                     state['residual_context_authority']=AUTHORITY
                     bounded_states+=1;changed=True
+
+        # A reconstruction residual is safest at its source-relative center. Try
+        # restoring that center after scale normalization; commit it only when the
+        # exact full-plan composition remains certified. This avoids arbitrary
+        # relocation of sparse rings/connectors without trading correctness for it.
+        source_center=list(event.get('source_center_norm') or [])
+        source_center_restored=False
+        if len(source_center)>=2 and math.dist(tuple(map(float,base_center[:2])),tuple(map(float,source_center[:2])))>.025:
+            scale_normalized_snapshot=copy.deepcopy(event)
+            event['card_rest_position_norm']=[round(float(source_center[0]),6),round(float(source_center[1]),6)]
+            if len(event.get('planned_rect_norm') or [])==4:
+                centered=_recenter_rect(list(event['planned_rect_norm']),event['card_rest_position_norm'])
+                event['planned_rect_norm']=centered;event['collision_envelope_rect_norm']=list(centered)
+            for key in ('composition_states','composition_participant_states'):
+                for state in event.get(key) or []:
+                    state['center_norm']=list(event['card_rest_position_norm'])
+                    state['position_envelope']=False
+            _sync_constraint_layout(plan,event)
+            if composition_plan_qa(plan).get('pass'):
+                source_center_restored=True;changed=True
+            else:
+                _restore_event(event,scale_normalized_snapshot,plan)
+
         if changed:
             event['residual_context_authority']=AUTHORITY
             event['residual_independent_scale_cap']=1.0
             event['residual_independent_recomposition_forbidden']=True
+            event['residual_source_center_restored']=source_center_restored
             _sync_constraint_layout(plan,event)
             rows.append({'event_id':event.get('event_id'),'visual_card_id':event.get('visual_card_id'),
                          'old_scale':round(old_scale,6),'new_scale':round(float(event.get('layout_scale_multiplier') or 1.0),6),
-                         'bounded_state_count':bounded_states})
+                         'old_center':[round(float(x),6) for x in old_center[:2]],
+                         'new_center':[round(float(x),6) for x in (event.get('card_rest_position_norm') or old_center)[:2]],
+                         'source_center_restored':source_center_restored,'bounded_state_count':bounded_states})
     qa=composition_plan_qa(plan)
     if not qa.get('pass'):
         plan.clear();plan.update(original)
