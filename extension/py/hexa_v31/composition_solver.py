@@ -206,9 +206,9 @@ def _progressivize_repartitioned_plan(
 ) -> dict | None:
     """Split eligible same-scene cohorts inside a multi-scene card.
 
-    Production cards commonly contain several short source scenes.  Treating
+    Production cards commonly contain several short source scenes. Treating
     the whole card as the eligibility scope made the progressive compiler skip
-    every same-scene pair as soon as an adjacent scene shared the card.  The
+    every same-scene pair as soon as an adjacent scene shared the card. The
     legacy repartitioner already owns those semantic scene windows, so refine
     only a sufficiently long window and leave all cross-scene handoffs intact.
     """
@@ -375,3 +375,54 @@ def repartition_story_phases(card: dict, events: list[dict], conflicts: list[dic
     fallback.setdefault('progressive_reveal_compiled', False)
     fallback.setdefault('choreography_authority', 'LEGACY_REPARTITION_FALLBACK')
     return fallback
+
+
+def _expand_retained_phase_spans(phase_plan: dict, active_ids: set[str]) -> tuple[dict, int]:
+    """Make layout co-occurrence match the scheduler's retained-carrier clock.
+
+    ``_phase_for_event`` deliberately keeps a retained actor alive from its first
+    listed phase through its last listed phase. A sparse phase plan can therefore
+    omit that actor from an intermediate row while the renderer still owns a
+    physical carrier there. Geometry must reserve that intermediate phase too;
+    otherwise two actors can legally reuse one slot in the solver and collide at
+    runtime. This expands only co-occurrence metadata. It never retimes, deletes,
+    scales, or otherwise mutates source actors.
+    """
+    expanded = copy.deepcopy(phase_plan)
+    phases = list(expanded.get('phases') or [])
+    memberships: dict[str, list[int]] = {}
+    for index, phase in enumerate(phases):
+        for raw_id in phase.get('event_ids') or []:
+            event_id = str(raw_id)
+            if event_id in active_ids:
+                memberships.setdefault(event_id, []).append(index)
+    inserted = 0
+    for event_id, indices in memberships.items():
+        if len(indices) < 2:
+            continue
+        first, last = min(indices), max(indices)
+        for index in range(first, last + 1):
+            ids = phases[index].setdefault('event_ids', [])
+            if event_id in ids:
+                continue
+            ids.append(event_id)
+            phases[index]['physical_span_reserved'] = True
+            inserted += 1
+    if inserted:
+        expanded['physical_phase_span_expansion_count'] = inserted
+        expanded['physical_phase_span_authority'] = 'FIRST_TO_LAST_PHASE_PHYSICAL_CARRIER'
+    return expanded, inserted
+
+
+def solve_card_layout(events: list[dict], grammar: dict, phase_plan: dict) -> dict:
+    """Solve geometry against the same first-to-last phase span used by scheduling."""
+    active_ids = {
+        str(event.get('event_id')) for event in events
+        if not event.get('suppressed_by_card_density') and event.get('event_id') is not None
+    }
+    expanded, inserted = _expand_retained_phase_spans(phase_plan, active_ids)
+    result = _implementation.solve_card_layout(events, grammar, expanded)
+    result = dict(result)
+    result['physical_phase_span_expansion_count'] = inserted
+    result['physical_phase_span_authority'] = 'FIRST_TO_LAST_PHASE_PHYSICAL_CARRIER'
+    return result
