@@ -23,6 +23,7 @@ _BASE_REPARTITION_STORY_PHASES = _implementation.repartition_story_phases
 _PROGRESSIVE_AUTHORITY = 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1'
 _MIN_BEAT_SECONDS = 0.72
 _MIN_FINAL_REVEAL_SECONDS = 1.28
+_EDITORIAL_TOPOLOGY_AUTHORITY = 'SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2'
 
 
 def _protected_react_semantics(event: dict) -> bool:
@@ -120,10 +121,17 @@ def _progressive_plan(
     if len(ordered) < 2:
         return None
 
-    anchor = next(
-        (e for e in ordered if str(e.get('attention_priority') or '').upper() == 'PRIMARY'),
-        ordered[0],
-    )
+    roles = phase_grammar.get('roles') or {}
+    archetype = str(phase_grammar.get('archetype') or 'SINGLE_FOCUS')
+    def role(event: dict) -> str:
+        return str(roles.get(_implementation._sid(event)) or 'SUPPORT')
+    presenter = next((e for e in ordered if role(e) == 'NARRATOR'), None)
+    result = next((e for e in ordered if role(e) in {'RESULT','TARGET'}), None)
+    non_presenter_primary = next((e for e in ordered if e is not presenter and str(e.get('attention_priority') or '').upper() == 'PRIMARY'), None)
+    if archetype in {'CHARACTER_EXPLAINS_OBJECT','RESULT_PAYOFF','QUESTION_ANSWER'}:
+        anchor = non_presenter_primary or next((e for e in ordered if e is not presenter), presenter or ordered[0])
+    else:
+        anchor = next((e for e in ordered if str(e.get('attention_priority') or '').upper() == 'PRIMARY'), ordered[0])
     ordered = [anchor] + [e for e in ordered if e is not anchor]
     phase_count = _progressive_phase_count(duration, len(ordered))
     if phase_count < 2:
@@ -132,6 +140,10 @@ def _progressive_plan(
     buckets: list[list[dict]] = [[] for _ in range(phase_count)]
     buckets[0].append(anchor)
     remaining = ordered[1:]
+    if archetype in {'RESULT_PAYOFF','SOURCE_BLOCKER_RESULT'} and result in remaining:
+        remaining=[e for e in remaining if e is not result]+[result]
+    elif archetype=='CHARACTER_EXPLAINS_OBJECT' and presenter in remaining:
+        remaining=[e for e in remaining if e is not presenter]+[presenter]
     slots = phase_count - 1
     for index, event in enumerate(remaining):
         # Spread later actors across the available clock. If actor count exceeds
@@ -149,22 +161,36 @@ def _progressive_plan(
                 introduced.append(event)
                 reveal_order.append(str(event.get('event_id')))
 
-        # Retain the focal carrier plus the two most recent actors. Earlier
-        # support can retire when a later result needs space; this is temporal
-        # composition, not deletion of source evidence.
-        phase_events = [anchor]
-        primary_count = 1 if str(anchor.get('attention_priority') or '').upper() == 'PRIMARY' else 0
-        for event in reversed(introduced):
-            if event is anchor:
-                continue
-            incoming_primary = str(event.get('attention_priority') or '').upper() == 'PRIMARY'
-            if incoming_primary and primary_count >= 2:
-                continue
-            phase_events.append(event)
-            primary_count += int(incoming_primary)
-            if len(phase_events) >= 3:
-                break
+        # Retention is archetype-owned. A process advances its carrier instead
+        # of pinning stage one forever; comparisons retain the first term;
+        # payoff structures keep context until the result assumes focus.
+        if archetype=='FLOW_PIPELINE':
+            prior=[] if index==0 else [event for event in buckets[index-1][-1:] if event not in newcomers]
+            phase_events=(prior+newcomers) or [anchor]
+        elif archetype=='BEFORE_AFTER' and index==phase_count-1:
+            phase_events=([introduced[-2]] if len(introduced)>1 else [])+newcomers
+        else:
+            phase_events = [anchor]
+            primary_count = 1 if str(anchor.get('attention_priority') or '').upper() == 'PRIMARY' else 0
+            for event in reversed(introduced):
+                if event is anchor:
+                    continue
+                incoming_primary = str(event.get('attention_priority') or '').upper() == 'PRIMARY'
+                if incoming_primary and primary_count >= 2:
+                    continue
+                phase_events.append(event)
+                primary_count += int(incoming_primary)
+                if len(phase_events) >= 3:
+                    break
         phase_events.sort(key=lambda e: ordered.index(e))
+        focus = newcomers[-1] if newcomers else phase_events[-1]
+        if archetype in {'RESULT_PAYOFF','SOURCE_BLOCKER_RESULT'} and result in phase_events and index==phase_count-1:
+            focus=result
+        beat = 'ESTABLISH' if index == 0 else ('COMPOSITION_REBUILD' if index == phase_count-1 else 'SUPPORT_REVEAL')
+        if archetype=='FLOW_PIPELINE':beat='PROCESS_ESTABLISH' if index==0 else ('PROCESS_RESULT' if index==phase_count-1 else 'PROCESS_ADVANCE')
+        elif archetype=='COMPARISON':beat='COMPARE_ESTABLISH' if index==0 else ('COMPARE_CONCLUDE' if index==phase_count-1 else 'COMPARE_REVEAL')
+        elif archetype in {'RESULT_PAYOFF','SOURCE_BLOCKER_RESULT'}:beat='PAYOFF' if index==phase_count-1 else ('CONTEXT_ESTABLISH' if index==0 else 'CONTEXT_DEVELOP')
+        elif archetype=='BEFORE_AFTER':beat='BEFORE_ESTABLISH' if index==0 else ('AFTER_REVEAL' if index==phase_count-1 else 'TRANSITION')
         rows.append({
             'phase_id': f"{card.get('card_id')}_PB{index + 1}",
             'start_seconds': round(cuts[index], 6),
@@ -174,9 +200,9 @@ def _progressive_plan(
             'retained_event_ids': [
                 str(e.get('event_id')) for e in phase_events if e not in newcomers
             ],
-            'semantic_beat': 'ESTABLISH' if index == 0 else (
-                'COMPOSITION_REBUILD' if index == phase_count - 1 else 'SUPPORT_REVEAL'
-            ),
+            'semantic_beat': beat,
+            'focus_event_id': str(focus.get('event_id')),
+            'editorial_archetype': archetype,
             'choreography_authority': _PROGRESSIVE_AUTHORITY,
         })
 
@@ -185,7 +211,7 @@ def _progressive_plan(
         'phases': rows,
         'phase_count': len(rows),
         'progressive_reveal_compiled': True,
-        'choreography_authority': _PROGRESSIVE_AUTHORITY,
+        'choreography_authority': _EDITORIAL_TOPOLOGY_AUTHORITY,
         'reveal_order_event_ids': reveal_order,
         'max_simultaneous_actor_count': max(len(row['event_ids']) for row in rows),
         'audio_anchor_policy': 'VOICE_TRIGGER_WHEN_AVAILABLE__EVEN_SPOKEN_CLOCK_FALLBACK',
@@ -344,10 +370,60 @@ def build_story_phases(card: dict, events: list[dict], grammar: dict) -> dict:
     progressive = _progressive_plan(card, events, grammar)
     if progressive is not None:
         return progressive
-    fallback = _BASE_BUILD_STORY_PHASES(card, events, grammar)
+    # Preserve the production planner's anchor-owned multi-scene topology.
+    # The old generic card builder can merge adjacent source scenes into one
+    # permanent state; anchor repartition keeps their semantic clocks intact.
+    fallback = _BASE_REPARTITION_STORY_PHASES(card, events, [])
+    refined = _progressivize_repartitioned_plan(card, events, {'archetype':'GENERIC','roles':{},'explicit_edges':[]}, fallback)
+    if refined is not None:
+        return refined
     fallback.setdefault('progressive_reveal_compiled', False)
-    fallback.setdefault('choreography_authority', 'LEGACY_PHASE_FALLBACK')
+    fallback.setdefault('choreography_authority', 'ANCHOR_OWNED_PHASE_TOPOLOGY')
     return fallback
+
+
+def solve_phase_layouts(events:list[dict],grammar:dict,phase_plan:dict)->dict:
+    """Solve a real geometry/hierarchy destination for every editorial phase."""
+    by_id={str(event.get('event_id')):event for event in events if not event.get('suppressed_by_card_density')}
+    stable=solve_card_layout(list(by_id.values()),grammar,phase_plan)
+    if not stable.get('pass'):
+        return stable
+    if phase_plan.get('choreography_authority') != _EDITORIAL_TOPOLOGY_AUTHORITY:
+        return dict(stable,phase_placements={},editorial_geometry_authority='PROTECTED_OR_LEGACY_TOPOLOGY')
+    phase_placements={}
+    for phase in phase_plan.get('phases') or []:
+        ids=[str(event_id) for event_id in phase.get('event_ids') or [] if str(event_id) in by_id]
+        if not ids:continue
+        focus_id=str(phase.get('focus_event_id') or ids[-1])
+        chosen=None
+        # Keep the collision-certified spatial topology stable while changing
+        # actual hierarchy. This creates visible editorial focus without an
+        # unsafe cross-frame slot swap during the reveal transition.
+        for focus_factor,context_factor in ((1.0,.82),(1.0,.86),(1.0,.88)):
+            trial={};rects=[];safe=True
+            for event_id in ids:
+                base=stable['placements'][event_id]
+                factor=focus_factor if event_id==focus_id else context_factor
+                absolute=float(base['scale'])*factor
+                fp=_implementation._fp(by_id[event_id])
+                rect=_implementation._rect(tuple(base['center_norm']),fp,absolute*_implementation.MOTION_ENVELOPE_SCALE)
+                if not _implementation._in_safe(rect):safe=False;break
+                for other_id,other_rect,other_fp in rects:
+                    gap=_implementation.PRIMARY_GAP if (fp.primary or other_fp.primary) else _implementation.SUPPORT_GAP
+                    if _implementation._inter(_implementation._inflate(rect,gap),_implementation._inflate(other_rect,gap))>1e-8:
+                        safe=False;break
+                if not safe:break
+                rects.append((event_id,rect,fp))
+                trial[event_id]=dict(base,scale=round(absolute,6),rect_norm=[round(x,6) for x in rect],
+                                     phase_scale_factor=round(factor,6),phase_focus=(event_id==focus_id))
+            if safe:chosen=trial;break
+        if chosen is None:
+            return {'pass':False,'reason':'NO_SAFE_PHASE_HIERARCHY','phase_id':phase.get('phase_id')}
+        phase_placements[str(phase.get('phase_id'))]=chosen
+    return {'pass':True,'placements':stable['placements'],'phase_placements':phase_placements,
+            'archetype':grammar.get('archetype'),'phase_aware':True,
+            'search_mode':'SEMANTIC_ARCHETYPE_PER_PHASE_GEOMETRY',
+            'editorial_geometry_authority':_EDITORIAL_TOPOLOGY_AUTHORITY}
 
 
 def repartition_story_phases(card: dict, events: list[dict], conflicts: list[dict]) -> dict:

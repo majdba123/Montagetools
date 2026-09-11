@@ -25,7 +25,7 @@ assert c['constraint_layout']['pass'] and c['story_phase_plan']['phase_count']>=
 # support icons readable almost simultaneously.
 phase_plan=c['story_phase_plan']
 assert phase_plan.get('progressive_reveal_compiled'),phase_plan
-assert phase_plan.get('choreography_authority')=='PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1',phase_plan
+assert phase_plan.get('choreography_authority')=='SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2',phase_plan
 assert phase_plan['phase_count']>=3,phase_plan
 phase_sets=[p['event_ids'] for p in phase_plan['phases']]
 assert len(phase_sets[0])==1,phase_sets
@@ -46,6 +46,11 @@ for e in active:
 # states while the preset-family contract for support actors remains intact.
 starts=sorted({round(float(e['physical_start_seconds']),2) for e in active})
 assert len(starts)>=3,starts
+phase_geometry=[s for e in active for s in e.get('composition_states') or []
+                if s.get('state_reason')=='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY']
+assert phase_geometry,active
+assert any(abs(float(s.get('scale_multiplier',1.0))-1.0)>=.10 for s in phase_geometry),phase_geometry
+assert sum(float(e['physical_start_seconds'])<=.01 for e in active)==1,active
 directional=[e for e in active if e.get('editorial_entry_direction')]
 assert directional,directional
 assert all(e['editorial_entry_direction'] in {'LEFT','RIGHT','TOP','BOTTOM'} for e in directional)

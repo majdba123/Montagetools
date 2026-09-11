@@ -18,4 +18,11 @@ g=classify_card(card,[e('A','CONCEPT','PRIMARY'),e('B'),e('C')],[sc]);assert g['
 sc2=dict(sc);sc2['script_span']={'text':'محتوى مختلف كلياً'}
 g2=classify_card(card,[e('A','CONCEPT','PRIMARY'),e('B'),e('C')],[sc2]);assert g2['archetype']==g['archetype'] and g2['roles']==g['roles']
 assert not g['topic_specific_rules']
+
+before=e('BEFORE','CONCEPT','PRIMARY',semantic_intent='BEFORE')
+after=e('AFTER','CONCEPT','PRIMARY',semantic_intent='AFTER')
+assert classify_card(card,[before,after],[{'units':[],'visual_progression':[]}])['archetype']=='BEFORE_AFTER'
+context=e('CONTEXT','CONCEPT','PRIMARY')
+result=e('RESULT','STATUS','SUPPORTING',semantic_intent='RESULT')
+assert classify_card(card,[context,result],[{'units':[],'visual_progression':[]}])['archetype']=='RESULT_PAYOFF'
 print('V31_UNIVERSAL_SCENE_GRAMMAR_PASS')

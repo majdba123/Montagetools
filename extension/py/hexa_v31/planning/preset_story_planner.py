@@ -5,7 +5,7 @@ from hexa_v31.framing import compute_reference_camera_fit
 from hexa_v31.preset_authority import authority as preset_authority, duration as preset_duration, choose_entry_for_center, choose_exit_for_center, is_primary_semantic
 from hexa_v31.visual_cards import build_visual_cards
 from hexa_v31.scene_grammar import classify_card
-from hexa_v31.composition_solver import build_story_phases, solve_card_layout, within_preset_safe, repair_story_phases, repartition_story_phases, candidate_middle_envelope_geometry, _in_safe, _fp, _rect, SAFE_X, SAFE_Y, MOTION_ENVELOPE_SCALE
+from hexa_v31.composition_solver import build_story_phases, solve_card_layout, solve_phase_layouts, within_preset_safe, repair_story_phases, repartition_story_phases, candidate_middle_envelope_geometry, _in_safe, _fp, _rect, SAFE_X, SAFE_Y, MOTION_ENVELOPE_SCALE
 from hexa_v31.composition_qa import card_motion_conflicts
 from hexa_v31.visual_density import build_visual_density_report
 from hexa_v31.editorial_motion import EditorialMotionGrammarDirector, PacingDirector
@@ -1163,6 +1163,44 @@ def _record_progressive_phase_authority(event:dict, phase_plan:dict):
     event['progressive_phase_start_seconds']=round(float(entering['start_seconds']),6)
     event['progressive_phase_authority']=str(phase_plan.get('choreography_authority') or 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1')
 
+def _commit_editorial_phase_geometry(events:list[dict],card:dict,phase_plan:dict,layout:dict)->None:
+    """Commit phase-owned destinations before motion selection and sealing."""
+    phase_placements=layout.get('phase_placements') or {}
+    by_id={str(event.get('event_id')):event for event in events}
+    for event in events:
+        event['composition_states']=[
+            state for state in event.get('composition_states') or []
+            if state.get('state_reason')!='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY'
+        ]
+        if not event['composition_states']:event.pop('composition_states',None)
+    previous_state={}
+    for index,phase in enumerate(phase_plan.get('phases') or []):
+        phase_id=str(phase.get('phase_id'))
+        placements=phase_placements.get(phase_id) or {}
+        start=float(phase.get('start_seconds',card.get('start_seconds',0)))
+        duration=max(0.0,float(phase.get('end_seconds',start))-start)
+        transition=0.0 if index==0 else min(.48,max(.24,duration*.18))
+        for event_id,placement in placements.items():
+            event=by_id.get(str(event_id))
+            if event is None:continue
+            base=layout.get('placements',{}).get(str(event_id)) or placement
+            scale=float(placement['scale'])/max(1e-9,float(base['scale']))
+            state_id=f'{phase_id}::{event_id}::EDITORIAL_GEOMETRY'
+            state={
+                'state_id':state_id,'scene_id':event.get('scene_id'),'card_id':card.get('card_id'),
+                'semantic_beat':phase.get('semantic_beat'),'start_seconds':round(start,6),
+                'transition_duration_seconds':round(transition,6),'center_norm':list(base['center_norm']),
+                'scale_multiplier':round(scale,6),'visibility':1.0,'role':placement.get('role'),
+                'focus_event_id':phase.get('focus_event_id'),'participating_event_ids':list(phase.get('event_ids') or []),
+                'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),
+                'state_reason':'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY',
+                'translation_safe':bool(event.get('translation_safe_after_occlusion',event.get('animation_safe',True))),
+            }
+            if str(event_id) in previous_state:state['previous_state_id']=previous_state[str(event_id)]
+            event.setdefault('composition_states',[]).append(state)
+            event['editorial_phase_geometry_authority']='SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2'
+            previous_state[str(event_id)]=state_id
+
 def _clamp(v,a,b):return max(a,min(b,v))
 
 def _plan_foundation_partition_choreography(events:list[dict], phase_plan:dict)->dict:
@@ -2009,7 +2047,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     for card in cards['cards']:
         evs=[e for e in events if e['visual_card_id']==card['card_id']];_consolidate_card_identity(evs);active=[e for e in evs if not e.get('suppressed_by_card_density')]
         source_scenes=[scene_map[sid] for sid in card.get('source_scene_ids') or [] if sid in scene_map]
-        grammar=classify_card(card,active,source_scenes);phase_plan=repartition_story_phases(card,active,[])
+        grammar=classify_card(card,active,source_scenes);phase_plan=build_story_phases(card,active,grammar)
         card['semantic_phase_repartition']={'detected_conflicts':0,'resolved_by_internal_phase_split':len(phase_plan.get('phases') or []),'cards_split':0,'authority':'ANCHOR_OWNED_PHASE_TOPOLOGY'}
         # Topology-aware solve: do not discard future-state objects before the
         # real phase-aware composition solver can reserve/reuse their geometry.
@@ -2017,7 +2055,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         # in time are legal candidates rather than permanent card occupancy.
         selected_events=list(active)
         card['topology_solver_authority']='CARD_WIDE_FUTURE_REVEAL__TIME_SEPARATED_OCCUPANCY'
-        layout=solve_card_layout(selected_events,grammar,phase_plan)
+        layout=solve_phase_layouts(selected_events,grammar,phase_plan)
         if not layout.get('pass'):
             phase_plan=repair_story_phases(card,selected_events,grammar)
             dropped=set(phase_plan.get('suppressed_event_ids') or [])
@@ -2032,7 +2070,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
                     e['suppressed_by_card_density']=True
                     e['suppression_reason']='V31_0_25_ADAPTIVE_COLLISION_RECOVERY'
             selected_events=[e for e in selected_events if not e.get('suppressed_by_card_density')]
-            layout=solve_card_layout(selected_events,grammar,phase_plan)
+            layout=solve_phase_layouts(selected_events,grammar,phase_plan)
         if not layout.get('pass'):
             raise ValueError(f"{card['card_id']}: V31.0.25 adaptive composition recovery exhausted: {layout.get('reason')}")
         composition_variant=_apply_composition_history_variant(layout,grammar,composition_history)
@@ -2041,6 +2079,8 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         for e in selected_events:
             if _sid(e) in rel_sources:e['relationship_source_requested']=True
             pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['composite_atomic']=bool(pl['atomic']);e['planned_rect_norm']=pl['rect_norm'];window=_phase_for_event(phase_plan,e['event_id'])
+        card['universal_scene_grammar']=grammar
+        _commit_editorial_phase_geometry(selected_events,card,phase_plan,layout)
         foundation_contract=_plan_foundation_partition_choreography(selected_events,phase_plan)
         for e in selected_events:
             window=_phase_for_event(phase_plan,e['event_id'])
@@ -2050,7 +2090,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         pre_conflicts=card_motion_conflicts(selected_events,float(card['start_seconds']),float(card['end_seconds']),fps)
         if pre_conflicts:
             phase_plan=repartition_story_phases(card,selected_events,pre_conflicts)
-            layout=solve_card_layout(selected_events,grammar,phase_plan)
+            layout=solve_phase_layouts(selected_events,grammar,phase_plan)
             if not layout.get('pass'):
                 raise ValueError(f"{card['card_id']}: semantic phase repartition layout failed: {layout.get('reason')}")
             composition_variant=_apply_composition_history_variant(layout,grammar,composition_history)
@@ -2060,6 +2100,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
                 if window:
                     _schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True,local_events=selected_events,fps=fps)
                     _record_progressive_phase_authority(e,phase_plan)
+            _commit_editorial_phase_geometry(selected_events,card,phase_plan,layout)
             card['semantic_phase_repartition']={'detected_conflicts':len(pre_conflicts),'resolved_by_internal_phase_split':len(pre_conflicts),'cards_split':0}
         relationship_resolutions=_safe_relationship_motion(card,selected_events,rels)
         relationship_resolutions=_recover_trajectory_conflicts(card,selected_events,phase_plan,relationship_resolutions,fps)
