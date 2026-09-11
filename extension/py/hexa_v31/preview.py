@@ -4,11 +4,17 @@ The production preset authority is authored against a 1920x1080 Program Monitor.
 Renderers may rasterize at another resolution for QA/proxies, but event Position values
 must remain in canonical coordinates until the compositor performs the single output
 scale. Normalizing here prevents non-1080p renders from double-scaling Position while
-leaving the 1920x1080 shipping path byte-for-byte equivalent in motion semantics.
+leaving the 1920x1080 shipping path equivalent in preset semantics.
+
+V31 editorial phases are also materialized here after the canonical motion evaluator has
+resolved preset motion.  This is the last event-state boundary shared by preview and
+shipping scene-media rendering, so semantic phase geometry can no longer exist only as
+planner metadata while encoded pixels remain unchanged.
 """
 from __future__ import annotations
 
 from .render import preview as _implementation
+from .editorial_runtime import apply_editorial_runtime_state
 
 globals().update({
     key: value
@@ -78,4 +84,5 @@ def _materialize_static_planner_center(event:dict)->dict:
 def _event_state(event:dict,t:float):
     normalized=_canonicalize_event_coordinates(event)
     normalized=_materialize_static_planner_center(normalized)
-    return _implementation._event_state(normalized,t)
+    state=_implementation._event_state(normalized,t)
+    return apply_editorial_runtime_state(normalized,t,state)
