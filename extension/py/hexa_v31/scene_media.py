@@ -1,6 +1,6 @@
 """Backward-compatible render facade with interaction guards and encoded certification."""
 from __future__ import annotations
-import hashlib, inspect, pathlib
+import hashlib, importlib, inspect, pathlib
 from .render import scene_media as _implementation
 from .util import write_json
 globals().update({key: value for key, value in vars(_implementation).items() if key not in {'__name__','__package__','__loader__','__spec__','__file__','__cached__'}})
@@ -18,6 +18,9 @@ def _renderer_dependency_signature()->str:
     from hexa_v31.typography import render_text_rgba
     from hexa_v31.composition_solver import composition_state_at
     files={pathlib.Path(_implementation.__file__).resolve()}
+    for module_name in ('hexa_v31.typography.premium','hexa_v31.typography.premium_v2'):
+        module=importlib.import_module(module_name)
+        files.add(pathlib.Path(module.__file__).resolve())
     for fn in (render_text_rgba,composition_state_at):
         source=inspect.getsourcefile(fn)
         if source:files.add(pathlib.Path(source).resolve())
