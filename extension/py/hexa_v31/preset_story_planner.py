@@ -1,3 +1,5 @@
 """Backward-compatible module shim; implementation lives in hexa_v31.planning.preset_story_planner."""
 from .planning import preset_story_planner as _implementation
+from .planning.round2_editorial import install as _install_round2_editorial
+_install_round2_editorial(_implementation)
 globals().update({key: value for key, value in vars(_implementation).items() if key not in {'__name__','__package__','__loader__','__spec__','__file__','__cached__'}})
