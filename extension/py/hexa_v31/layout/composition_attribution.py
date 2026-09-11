@@ -73,8 +73,8 @@ def attribute_composition(event,state,before,after,times,render_edit_map):
             continue
         seen.add(eid)
         if eid==owner and (
-            runtime.get('composition_states')!=event.get('composition_states')
-            or runtime.get('composition_participant_states')!=event.get('composition_participant_states')
+            (runtime.get('composition_states') or [])!=(event.get('composition_states') or [])
+            or (runtime.get('composition_participant_states') or [])!=(event.get('composition_participant_states') or [])
         ):
             return dict(result,attribution_failure='PLANNER_RENDER_COMPOSITION_STATE_MISMATCH',event_id=eid)
         counter=dict(runtime)
