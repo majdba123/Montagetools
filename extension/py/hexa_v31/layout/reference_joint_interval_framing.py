@@ -109,6 +109,19 @@ def _candidate_factors(quality:dict)->list[float]:
     return out
 
 
+def _snapshot_cohort(cohort:list[dict])->tuple[list[str],dict[str,dict]]:
+    ids=[_event_id(event) for event in cohort]
+    if any(not event_id for event_id in ids) or len(set(ids))!=len(ids):
+        raise ValueError('REFERENCE_JOINT_INTERVAL_FRAMING_INVALID_COHORT_EVENT_ID')
+    return ids,{event_id:copy.deepcopy(event) for event_id,event in zip(ids,cohort)}
+
+
+def _restore_cohort(cohort:list[dict],ids:list[str],snapshots:dict[str,dict])->None:
+    for event,event_id in zip(cohort,ids):
+        event.clear()
+        event.update(copy.deepcopy(snapshots[event_id]))
+
+
 def finalize_reference_joint_interval_framing(plan:dict,fps:float=30.0)->dict:
     original=copy.deepcopy(plan)
     cards=list((plan.get('visual_cards') or {}).get('cards') or [])
@@ -141,15 +154,13 @@ def finalize_reference_joint_interval_framing(plan:dict,fps:float=30.0)->dict:
             stats['rejections']['INSUFFICIENT_SETTLED_INTERVAL']=stats['rejections'].get('INSUFFICIENT_SETTLED_INTERVAL',0)+1
             continue
         transition=min(.38,max(.22,(end-start)*.18))
-        snapshots={_event_id(e):copy.deepcopy(e) for e in cohort}
-        ids=[_event_id(e) for e in cohort]
+        ids,snapshots=_snapshot_cohort(cohort)
         pre_quality=copy.deepcopy(quality)
         pre_density=build_visual_density_report(plan)
         committed=False
         for requested in _candidate_factors(pre_quality):
             stats['candidates_evaluated']+=1
-            for event in cohort:
-                event.clear();event.update(copy.deepcopy(snapshots[_event_id(event)]))
+            _restore_cohort(cohort,ids,snapshots)
             actual=[]
             for event in cohort:
                 cap=max(1.0,float(_safe_envelope_cap(event,fps)))
@@ -183,8 +194,7 @@ def finalize_reference_joint_interval_framing(plan:dict,fps:float=30.0)->dict:
             committed=True
             break
         if not committed:
-            for event in cohort:
-                event.clear();event.update(copy.deepcopy(snapshots[_event_id(event)]))
+            _restore_cohort(cohort,ids,snapshots)
     after_density=build_visual_density_report(plan)
     stats['event_ids']=sorted(set(stats['event_ids']))
     stats['changed']=bool(stats['commits'])
