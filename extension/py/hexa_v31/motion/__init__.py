@@ -3,6 +3,7 @@
 
 def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.interaction.director import build_interaction_motion_plan, finalize_interaction_motion_plan
+    from hexa_v31.layout.source_integrity_finalizer import finalize_residual_source_integrity
     from hexa_v31.layout.reference_quality_finalizer import finalize_reference_density_topology
     from hexa_v31.layout.reference_geometry_finalizer import finalize_reference_geometry
     from hexa_v31.layout.reference_joint_fitter import finalize_reference_joint_geometry
@@ -15,6 +16,12 @@ def _build_final_motion_plan(*args, **kwargs):
 
     plan = build_interaction_motion_plan(*args, **kwargs)
     fps = float(plan.get('fps') or kwargs.get('fps', 30.0))
+
+    # Reconstruction residuals are source-survival context, not density/focus actors.
+    # Normalize any generic support-slot enlargement/recomposition before P3/P4
+    # evaluate density, otherwise sparse connectors/rings can become giant artifacts.
+    source_integrity_stats = finalize_residual_source_integrity(plan, fps=fps)
+    plan['source_integrity_finalizer'] = source_integrity_stats
 
     topology_stats = finalize_reference_density_topology(plan, fps=fps)
     plan['reference_density_topology_finalizer'] = topology_stats
@@ -61,7 +68,8 @@ def _build_final_motion_plan(*args, **kwargs):
     plan['final_card_pacing_qa'] = pacing_stats
 
     if (
-        topology_stats.get('changed')
+        source_integrity_stats.get('changed')
+        or topology_stats.get('changed')
         or geometry_stats.get('changed')
         or joint_stats.get('changed')
         or perceptual_stats.get('changed')
@@ -74,6 +82,7 @@ def _build_final_motion_plan(*args, **kwargs):
         # state. Re-run the same lifetime/physical authority once so the final
         # immutable barrier describes the exact pixels consumed by the renderer.
         plan = finalize_interaction_motion_plan(plan, fps=fps)
+        plan['source_integrity_finalizer'] = source_integrity_stats
         plan['reference_density_topology_finalizer'] = topology_stats
         plan['reference_geometry_finalizer'] = geometry_stats
         plan['reference_joint_geometry_finalizer'] = joint_stats
