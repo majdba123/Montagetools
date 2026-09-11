@@ -67,14 +67,34 @@ def _production_closure_authority(motion_plan, requested=None):
     return all(key in motion_plan for key in _PRODUCTION_CLOSURE_AUTHORITIES)
 
 
+def _authored_destination_delta(row):
+    """Return source-backed materiality of the authored destination itself.
+
+    A semantic-sequence participant may intentionally hold its current transform
+    while another member of the cohort performs the hierarchy transfer. Such a
+    coordination state is useful metadata, but it is not an independent encoded
+    pixel claim. The exact-render counterfactual already reports authored deltas
+    per actor, so zero-delta participant states can be excluded without lowering
+    any material pixel threshold for states that actually change geometry/opacity.
+    """
+    return max(
+        (abs(float(actor.get('authored_state_delta') or 0.0)) for actor in (row.get('actors') or [])),
+        default=0.0,
+    )
+
+
 def _strict_attribution_row(row):
-    # A composition_states destination is an authored recomposition claim and
-    # therefore remains a hard pixel-attribution contract. Auxiliary participant
-    # yield/settle states are measured but are not independent P4 claims unless
-    # they belong to the semantic-sequence authority.
+    # Owner composition destinations are always hard claims. Semantic-sequence
+    # participant destinations are hard claims only when their own authored
+    # destination materially differs from the preceding effective state. This
+    # prevents a deliberate hold/no-op coordination marker from masquerading as
+    # a missing encoded transition while preserving strict attribution for every
+    # real participant reveal/focus/rebuild mutation.
+    if row.get('state_container')=='composition_states':
+        return True
     return (
-        row.get('state_container')=='composition_states'
-        or row.get('envelope_track')=='SEMANTIC_SEQUENCE'
+        row.get('envelope_track')=='SEMANTIC_SEQUENCE'
+        and _authored_destination_delta(row)>1e-9
     )
 
 
@@ -169,6 +189,7 @@ def verify_encoded_composition(
             'encoded_pixel_delta':round(delta,6),'full_frame_delta':round(delta,6),
             'encoded_changed_pixel_ratio':round(changed,6),**attribution,'pass':passed,
         }
+        row['authored_destination_delta']=round(_authored_destination_delta(row),6)
         row['strict_attribution_required']=_strict_attribution_row(row)
         rows.append(row)
 
@@ -204,14 +225,22 @@ def verify_encoded_composition(
 
     sequence_rows=[r for r in rows if r.get('envelope_track')=='SEMANTIC_SEQUENCE']
     participant_sequence_rows=[r for r in sequence_rows if r.get('state_container')=='composition_participant_states']
+    strict_sequence_rows=[r for r in sequence_rows if r.get('strict_attribution_required')]
     sequence_stats=motion_plan.get('reference_staggered_sequence_finalizer') or {}
     planned_sequence_count=len(sequence_stats.get('sequences') or [])
     sequence_required=planned_sequence_count>0
-    sequence_materiality_pass=(not sequence_required) or (bool(sequence_rows) and all(r.get('pass') for r in sequence_rows))
+    # A coordinated no-op/hold marker is not an independent encoded destination.
+    # Every source-backed material sequence destination remains a hard attribution
+    # requirement, including material participant reveals/focus/rebuild states.
+    sequence_materiality_pass=(not sequence_required) or (
+        bool(strict_sequence_rows) and all(r.get('pass') for r in strict_sequence_rows)
+    )
     p4_gates={
         'semantic_sequence_destinations_encoded':{
             'pass':sequence_materiality_pass,'planned_sequence_count':planned_sequence_count,
             'encoded_sequence_state_count':len(sequence_rows),'verified_sequence_state_count':sum(bool(r.get('pass')) for r in sequence_rows),
+            'strict_sequence_state_count':len(strict_sequence_rows),
+            'strict_sequence_verified_count':sum(bool(r.get('pass')) for r in strict_sequence_rows),
         },
         'exact_motion_mean_in_reference_direction':{
             'pass':.13<=exact['motion_mean']<=.20,'actual':round(exact['motion_mean'],6),'target_min':.13,'target_max':.20,
@@ -247,6 +276,8 @@ def verify_encoded_composition(
         'semantic_sequence_planned_count':planned_sequence_count,
         'semantic_sequence_state_count':len(sequence_rows),
         'semantic_sequence_verified_count':sum(bool(r.get('pass')) for r in sequence_rows),
+        'semantic_sequence_strict_state_count':len(strict_sequence_rows),
+        'semantic_sequence_strict_verified_count':sum(bool(r.get('pass')) for r in strict_sequence_rows),
         'semantic_sequence_participant_state_count':len(participant_sequence_rows),
         'semantic_sequence_participant_verified_count':sum(bool(r.get('pass')) for r in participant_sequence_rows),
         'p4_semantic_sequence_encoded_pass':sequence_materiality_pass,
