@@ -39,19 +39,19 @@ def _soft_group_gate(group_mask:np.ndarray, feather_px:float)->np.ndarray:
     return _smoothstep01(t)
 
 
-
 def _local_stage_leak_mask(rgb:np.ndarray, group_mask:np.ndarray, bg_rgb:tuple[int,int,int])->tuple[np.ndarray,np.ndarray]:
     """Find white-stage pixels that leaked into a top-level object group.
 
-    The global scene mask intentionally preserves enclosed white artwork.  That is safe
+    The global scene mask intentionally preserves enclosed white artwork. That is safe
     for faces/cards, but a grouped bbox can also trap a large pocket of the white stage
-    behind a connector or merged silhouette.  If that pocket is left opaque, Premiere
+    behind a connector or merged silhouette. If that pocket is left opaque, Premiere
     renders a visible rectangular/white slab when the layer moves over another object.
 
-    V31 solves this *locally*: only near-background pixels connected to the local group
-    crop border are candidates for removal.  Enclosed white object interiors are not
-    border-connected and therefore survive.  Strong ink/edge neighborhoods receive a
-    soft color-derived cap instead of a hard cut, preserving antialiasing.
+    Connectivity is solved on an eroded white-stage seed and then expanded back one
+    pixel. This blocks one-pixel tunnels through legitimate outlines without turning
+    the white halo immediately outside an actor into an artificial enclosed island.
+    Enclosed white foreground therefore survives, while border-connected source stage
+    remains removable all the way to the real ink boundary.
     """
     gm=(group_mask>0)
     yy,xx=np.where(gm)
@@ -68,28 +68,25 @@ def _local_stage_leak_mask(rgb:np.ndarray, group_mask:np.ndarray, bg_rgb:tuple[i
     diff=np.max(np.abs(roi.astype(np.int16)-bg),axis=2)
     hsv=cv2.cvtColor(roi,cv2.COLOR_RGB2HSV);sat=hsv[:,:,1]
     gray=cv2.cvtColor(roi,cv2.COLOR_RGB2GRAY)
-    # Broad connectivity identifies the physical stage; core is near-canonical white.
+    # Candidate stage is intentionally broad. A one-pixel close repairs compression
+    # pinholes; connectivity itself is then eroded so that close cannot manufacture a
+    # tunnel through a thin foreground outline.
     broad=((diff<=20)&(sat<=34)&(gray>=218)).astype(np.uint8)
-    broad=cv2.morphologyEx(broad,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)
-    # Never let white-stage connectivity tunnel through a thin legitimate outline.
-    # The previous broad close could bridge a one-pixel antialias gap in a dark/colored
-    # contour, making a white foreground interior look border-connected and therefore
-    # deleting it from the matte.  Dilating real ink by one pixel creates a conservative
-    # topological barrier before connected-component classification.  This is generic
-    # source-integrity protection, not a package/scene-specific exception.
-    strong_seed=((diff>=12)|(sat>=28)|(gray<=236)).astype(np.uint8)
-    ink_barrier=cv2.dilate(strong_seed,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)>0
-    broad[ink_barrier]=0
-    n,labels,_,_=cv2.connectedComponentsWithStats(broad,8)
+    kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+    broad=cv2.morphologyEx(broad,cv2.MORPH_CLOSE,kernel,iterations=1)
+    connectable=cv2.erode(broad,kernel,iterations=1)
+    n,labels,_,_=cv2.connectedComponentsWithStats(connectable,8)
     labs=set()
     if n>1:
         border=np.concatenate([labels[0,:],labels[-1,:],labels[:,0],labels[:,-1]])
         labs={int(v) for v in np.unique(border) if int(v)!=0}
-    connected=np.isin(labels,list(labs)) if labs else np.zeros_like(broad,dtype=bool)
-    connected &= gmr
+    exterior_seed=np.isin(labels,list(labs)) if labs else np.zeros_like(broad,dtype=bool)
+    connected=cv2.dilate(exterior_seed.astype(np.uint8),kernel,iterations=1)>0
+    connected &= (broad>0) & gmr
     core=connected&(diff<=7)&(sat<=16)&(gray>=242)
-    # Edge-adjacent near-white pixels can be legitimate antialiasing.  Mark them as a
+    # Edge-adjacent near-white pixels can be legitimate antialiasing. Mark them as a
     # soft zone so refine_alpha caps them by color evidence instead of erasing them.
+    strong_seed=((diff>=12)|(sat>=28)|(gray<=236)).astype(np.uint8)
     strong=strong_seed*255
     near_strong=cv2.dilate(strong,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)),iterations=1)>0
     hard_local=connected & (~near_strong)
@@ -99,6 +96,7 @@ def _local_stage_leak_mask(rgb:np.ndarray, group_mask:np.ndarray, bg_rgb:tuple[i
     hard=np.zeros(group_mask.shape,dtype=bool);soft=np.zeros_like(hard)
     hard[y0:y1,x0:x1]=hard_local;soft[y0:y1,x0:x1]=soft_local
     return hard,soft
+
 
 def refine_alpha(
     rgb:np.ndarray,
@@ -133,14 +131,12 @@ def refine_alpha(
         color=_smoothstep01((cd-1.5)/18.0)
         interior=cv2.distanceTransform((hard>0).astype(np.uint8),cv2.DIST_L2,5)
         # V31 keeps every physically recovered source pixel opaque except the narrow
-        # antialias boundary.  This prevents the pale/thin icon edges visible in P2.
+        # antialias boundary. This prevents the pale/thin icon edges visible in P2.
         certain=(interior>=max(0.75,feather*0.62))
         base=np.where(certain,1.0,np.maximum(geom,color*0.96))
-        # The semantic hard mask is the source-survival authority. Exterior
-        # antialias support is legal only where the *source pixels themselves*
-        # differ from the estimated stage. This prevents a geometric dilation
-        # from manufacturing opaque white-stage rings while retaining genuine
-        # low-contrast/shadow edge pixels adjacent to the semantic silhouette.
+        # Exterior antialias support is legal only where source pixels differ from
+        # the estimated stage. This prevents geometric dilation from manufacturing
+        # opaque white-stage rings while retaining genuine edge/shadow pixels.
         edge_support=cv2.dilate(hard,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)>0
         source_edge_evidence=(cd>=1.75)
         allowed=(hard>0) | (edge_support & source_edge_evidence)
@@ -148,15 +144,13 @@ def refine_alpha(
         source='TRIMAP_EDGE_MATTE'
     stage_hard=np.zeros((h,w),dtype=bool); stage_soft=np.zeros((h,w),dtype=bool)
     if group_mask is not None:
-        # Gate only against a slightly expanded top-level semantic group.  V31 does not
+        # Gate only against a slightly expanded top-level semantic group. V31 does not
         # erode an icon to fit a speculative child mask.
         expanded=cv2.dilate((group_mask>0).astype(np.uint8)*255,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)),iterations=1)
         gate=_soft_group_gate(expanded,max(1.0,feather))
         base=np.minimum(base,gate)
         if native_alpha is None:
             stage_hard,stage_soft=_local_stage_leak_mask(rgb,group_mask,bg_rgb)
-            # Remove border-connected white-stage pockets before alpha smoothing.
-            # In the narrow antialias neighborhood cap opacity by real color evidence.
             base[stage_hard]=0.0
             if np.any(stage_soft):
                 cd=_color_distance(rgb,bg_rgb)
@@ -167,10 +161,6 @@ def refine_alpha(
     a8=np.clip(base*255.0,0,255).astype(np.uint8)
     a8=cv2.bilateralFilter(a8,5,16,3)
     if np.any(stage_soft):
-        # Bilateral smoothing may borrow opacity from adjacent foreground and lift a
-        # border-connected stage pixel back above the hard leak cutoff. Reapply the
-        # same color-derived soft cap after smoothing; enclosed white object content
-        # is not stage_soft and remains untouched.
         cd=_color_distance(rgb,bg_rgb)
         edge_cap=_smoothstep01((cd-1.0)/18.0)*0.96
         a8[stage_soft]=np.minimum(a8[stage_soft],np.floor(edge_cap[stage_soft]*255.0).astype(np.uint8))
