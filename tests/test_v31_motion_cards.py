@@ -46,7 +46,7 @@ for e in active:
 # states while the preset-family contract for support actors remains intact.
 starts=sorted({round(float(e['physical_start_seconds']),2) for e in active})
 assert len(starts)>=3,starts
-phase_geometry=[s for e in active for s in e.get('composition_states') or []
+phase_geometry=[s for e in active for key in ('composition_states','composition_participant_states') for s in e.get(key) or []
                 if s.get('state_reason')=='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY']
 assert phase_geometry,active
 assert any(abs(float(s.get('scale_multiplier',1.0))-1.0)>=.10 for s in phase_geometry),phase_geometry

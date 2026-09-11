@@ -395,30 +395,50 @@ def solve_phase_layouts(events:list[dict],grammar:dict,phase_plan:dict)->dict:
         ids=[str(event_id) for event_id in phase.get('event_ids') or [] if str(event_id) in by_id]
         if not ids:continue
         focus_id=str(phase.get('focus_event_id') or ids[-1])
-        chosen=None
-        # Keep the collision-certified spatial topology stable while changing
-        # actual hierarchy. This creates visible editorial focus without an
-        # unsafe cross-frame slot swap during the reveal transition.
-        for focus_factor,context_factor in ((1.0,.82),(1.0,.86),(1.0,.88)):
-            trial={};rects=[];safe=True
-            for event_id in ids:
-                base=stable['placements'][event_id]
-                factor=focus_factor if event_id==focus_id else context_factor
-                absolute=float(base['scale'])*factor
-                fp=_implementation._fp(by_id[event_id])
-                rect=_implementation._rect(tuple(base['center_norm']),fp,absolute*_implementation.MOTION_ENVELOPE_SCALE)
-                if not _implementation._in_safe(rect):safe=False;break
-                for other_id,other_rect,other_fp in rects:
-                    gap=_implementation.PRIMARY_GAP if (fp.primary or other_fp.primary) else _implementation.SUPPORT_GAP
-                    if _implementation._inter(_implementation._inflate(rect,gap),_implementation._inflate(other_rect,gap))>1e-8:
-                        safe=False;break
-                if not safe:break
-                rects.append((event_id,rect,fp))
-                trial[event_id]=dict(base,scale=round(absolute,6),rect_norm=[round(x,6) for x in rect],
-                                     phase_scale_factor=round(factor,6),phase_focus=(event_id==focus_id))
-            if safe:chosen=trial;break
-        if chosen is None:
-            return {'pass':False,'reason':'NO_SAFE_PHASE_HIERARCHY','phase_id':phase.get('phase_id')}
+        chosen={event_id:copy.deepcopy(stable['placements'][event_id]) for event_id in ids}
+        focus_base=float(chosen[focus_id]['scale'])
+        focus_fp=_implementation._fp(by_id[focus_id])
+        # Expand focus into phase-local negative space. Centers remain the
+        # card-wide collision-certified authority, making every interpolated
+        # transition safe; scale is the phase-owned geometric variable.
+        # A co-occurring actor may still be traversing its preset envelope even
+        # when both phase endpoints are disjoint. Reserve expansion for solo
+        # focus states; multi-actor states retain the certified envelope.
+        focus_candidates=[focus_base*factor for factor in (1.42,1.34,1.26,1.18,1.12)] if len(ids)==1 else []
+        focus_scale=focus_base
+        for candidate in focus_candidates:
+            rect=_implementation._rect(tuple(chosen[focus_id]['center_norm']),focus_fp,candidate*_implementation.MOTION_ENVELOPE_SCALE)
+            if not _implementation._in_safe(rect):continue
+            safe=True
+            for event_id in sorted(by_id):
+                if event_id==focus_id:continue
+                other=stable['placements'][event_id];other_fp=_implementation._fp(by_id[event_id])
+                other_rect=_implementation._rect(tuple(other['center_norm']),other_fp,float(other['scale'])*_implementation.MOTION_ENVELOPE_SCALE)
+                gap=_implementation.PRIMARY_GAP if (focus_fp.primary or other_fp.primary) else _implementation.SUPPORT_GAP
+                if _implementation._inter(_implementation._inflate(rect,gap),_implementation._inflate(other_rect,gap))>1e-8:
+                    safe=False;break
+            if safe:
+                focus_scale=candidate
+                chosen[focus_id]['scale']=round(candidate,6)
+                chosen[focus_id]['rect_norm']=[round(x,6) for x in rect]
+                break
+        # With co-occurring actors, keep the previously certified conservative
+        # hierarchy. Entry/exit envelopes occupy more space than static phase
+        # endpoints, so enlarging either endpoint is not sufficient evidence of
+        # a safe interpolated path.
+        for event_id,placement in chosen.items():
+            if event_id==focus_id:continue
+            fp=_implementation._fp(by_id[event_id]);scale=float(stable['placements'][event_id]['scale'])*.82
+            rect=_implementation._rect(tuple(placement['center_norm']),fp,scale*_implementation.MOTION_ENVELOPE_SCALE)
+            placement['scale']=round(scale,6);placement['rect_norm']=[round(x,6) for x in rect]
+        for event_id,placement in chosen.items():
+            base_scale=max(1e-9,float(stable['placements'][event_id]['scale']))
+            placement['phase_scale_factor']=round(float(placement['scale'])/base_scale,6)
+            placement['phase_focus']=event_id==focus_id
+        context=[placement for event_id,placement in chosen.items() if event_id!=focus_id]
+        focus_factor=float(chosen[focus_id]['phase_scale_factor'])
+        if context and focus_factor-max(float(row['phase_scale_factor']) for row in context)<.099:
+            return {'pass':False,'reason':'NO_MATERIAL_PHASE_HIERARCHY','phase_id':phase.get('phase_id')}
         phase_placements[str(phase.get('phase_id'))]=chosen
     return {'pass':True,'placements':stable['placements'],'phase_placements':phase_placements,
             'archetype':grammar.get('archetype'),'phase_aware':True,

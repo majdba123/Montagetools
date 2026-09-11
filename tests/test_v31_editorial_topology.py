@@ -48,6 +48,13 @@ for plan,layout in ((flow,flow_layout),(comparison,comparison_layout),(payoff,pa
         context=[row for eid,row in placements.items() if eid!=phase['focus_event_id']]
         if context:assert focus['phase_scale_factor']-max(row['phase_scale_factor'] for row in context)>=.10,(phase,placements)
 
+# A genuinely solo card can expand into its available negative space. Multi-
+# actor cards remain conservative because preset travel envelopes must remain
+# collision-safe through the handoff, not merely at phase endpoints.
+solo_plan={'choreography_authority':'SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2','phases':[{'phase_id':'SOLO_P1','event_ids':['A'],'focus_event_id':'A'}]}
+solo_layout=solve_phase_layouts([copy.deepcopy(a)],{'archetype':'HERO_STATEMENT','roles':{'A':'LEAD'}},solo_plan)
+assert solo_layout['pass'] and solo_layout['phase_placements']['SOLO_P1']['A']['phase_scale_factor']>1.1,solo_layout
+
 again,_=compile('FLOW_PIPELINE',{'A':'ACTOR','B':'TARGET','C':'RESULT'},flow_edges)
 assert again==flow
 

@@ -1168,11 +1168,12 @@ def _commit_editorial_phase_geometry(events:list[dict],card:dict,phase_plan:dict
     phase_placements=layout.get('phase_placements') or {}
     by_id={str(event.get('event_id')):event for event in events}
     for event in events:
-        event['composition_states']=[
-            state for state in event.get('composition_states') or []
-            if state.get('state_reason')!='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY'
-        ]
-        if not event['composition_states']:event.pop('composition_states',None)
+        for container in ('composition_states','composition_participant_states'):
+            event[container]=[
+                state for state in event.get(container) or []
+                if state.get('state_reason')!='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY'
+            ]
+            if not event[container]:event.pop(container,None)
     previous_state={}
     for index,phase in enumerate(phase_plan.get('phases') or []):
         phase_id=str(phase.get('phase_id'))
@@ -1197,9 +1198,22 @@ def _commit_editorial_phase_geometry(events:list[dict],card:dict,phase_plan:dict
                 'translation_safe':bool(event.get('translation_safe_after_occlusion',event.get('animation_safe',True))),
             }
             if str(event_id) in previous_state:state['previous_state_id']=previous_state[str(event_id)]
-            event.setdefault('composition_states',[]).append(state)
+            container='composition_states' if str(event_id)==str(phase.get('focus_event_id')) else 'composition_participant_states'
+            event.setdefault(container,[]).append(state)
             event['editorial_phase_geometry_authority']='SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2'
             previous_state[str(event_id)]=state_id
+            if len(placements)==1 and scale>1.001 and index<len(phase_plan.get('phases') or [])-1:
+                handoff_duration=min(.42,max(.24,duration*.16))
+                handoff_id=f'{phase_id}::{event_id}::HANDOFF_GEOMETRY'
+                handoff=dict(
+                    state,state_id=handoff_id,semantic_beat='HANDOFF_GEOMETRY',
+                    start_seconds=round(float(phase.get('end_seconds'))-handoff_duration,6),
+                    transition_duration_seconds=round(handoff_duration,6),
+                    center_norm=list(base['center_norm']),scale_multiplier=1.0,
+                    previous_state_id=state_id,
+                )
+                event.setdefault('composition_states',[]).append(handoff)
+                previous_state[str(event_id)]=handoff_id
 
 def _clamp(v,a,b):return max(a,min(b,v))
 
@@ -1944,6 +1958,16 @@ def _recover_trajectory_conflicts(card:dict,events:list[dict],phase_plan:dict,re
                 if str(r.get('source_scope_id') or r.get('source'))==sid and r.get('mode')=='WITHIN_FRAME_PRESET':
                     r.update({'mode':'TEMPORAL_HANDOFF','reason':'ANIMATED_TRAJECTORY_COLLISION_RECOVERY'});r.pop('preset',None)
     conflicts=card_motion_conflicts(events,float(card['start_seconds']),float(card['end_seconds']),fps)
+    if conflicts:
+        involved={eid for row in conflicts for eid in (row['event_a'],row['event_b'])}
+        for e in events:
+            if e.get('event_id') not in involved:continue
+            expanded=False
+            for state in e.get('composition_states') or []:
+                if state.get('state_reason')=='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY' and float(state.get('scale_multiplier') or 1.0)>1.001:
+                    state['scale_multiplier']=1.0;state['editorial_expansion_rollback']='SWEPT_TRAJECTORY_CONFLICT';expanded=True
+            if expanded:changed=True
+        conflicts=card_motion_conflicts(events,float(card['start_seconds']),float(card['end_seconds']),fps)
     if conflicts:
         involved={eid for row in conflicts for eid in (row['event_a'],row['event_b'])}
         for e in events:
