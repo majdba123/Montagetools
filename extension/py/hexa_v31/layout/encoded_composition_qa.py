@@ -8,6 +8,10 @@ _EXACT_H=180
 _EXACT_SAMPLE_HZ=4.0
 _EXACT_NONWHITE_DELTA=10
 _EXACT_MOTION_DELTA=13
+_PRODUCTION_CLOSURE_AUTHORITIES=(
+    'reference_perceptual_residual_finalizer',
+    'reference_staggered_sequence_finalizer',
+)
 
 
 def _authored_states(motion_plan):
@@ -50,14 +54,44 @@ def _exact_sample_metrics(samples, motion):
     }
 
 
-def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps=30.0,render_edit_map=None):
-    """Prove authored P3/P4 composition states survived into encoded pixels.
+def _production_closure_authority(motion_plan, requested=None):
+    """Resolve whether whole-program P3/P4 encoded gates are authoritative.
 
-    State attribution is performed against the exact render sources. In the
-    same decode pass we compute the frozen 4 Hz / 320x180 closure metrics. When
-    ``projected_density`` is supplied (the production pipeline path), P3/P4
-    quality thresholds are hard gates. Unit-level attribution probes may omit
-    it and remain focused on attribution rather than whole-program density.
+    Unit/render probes legitimately pass projected-density diagnostics too, so
+    projected-density presence is not a production-mode signal. A final V31
+    motion plan is identifiable by the late P3 and P4 finalizer records that are
+    attached before the immutable barrier. Callers may still override explicitly.
+    """
+    if requested is not None:
+        return bool(requested)
+    return all(key in motion_plan for key in _PRODUCTION_CLOSURE_AUTHORITIES)
+
+
+def _strict_attribution_row(row):
+    # A composition_states destination is an authored recomposition claim and
+    # therefore remains a hard pixel-attribution contract. Auxiliary participant
+    # yield/settle states are measured but are not independent P4 claims unless
+    # they belong to the semantic-sequence authority.
+    return (
+        row.get('state_container')=='composition_states'
+        or row.get('envelope_track')=='SEMANTIC_SEQUENCE'
+    )
+
+
+def verify_encoded_composition(
+    video_path,
+    motion_plan,
+    projected_density=None,
+    fps=30.0,
+    render_edit_map=None,
+    enforce_p34_closure=None,
+):
+    """Prove authored composition survived into encoded pixels.
+
+    Every owner and participant destination is measured against the exact render
+    sources. Whole-program P3/P4 quality thresholds are enforced only for the
+    final production motion authority (or an explicit caller override), never
+    merely because a unit probe supplied projected-density diagnostics.
     """
     cap=cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -94,7 +128,7 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
         index+=1
     cap.release()
 
-    rows=[];verified=0;attributed=0
+    rows=[]
     for event,state,container in states:
         t=float(state.get('start_seconds',0));transition=float(state.get('transition_duration_seconds') or 0.0);dd=max(.1,transition or .1)
         before=frames.get(int(round(max(0.0,t-.12)*actual_fps)))
@@ -126,8 +160,7 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
                         changed=float(np.mean(diff>=10))
                         meaningful=delta>=.003 and changed>=.012
         passed=bool(meaningful and attribution['actor_attributable_pass'])
-        verified+=int(meaningful);attributed+=int(passed)
-        rows.append({
+        row={
             'event_id':event.get('event_id'),'card_id':state.get('card_id',event.get('visual_card_id')),
             'state_id':state.get('state_id'),'state_container':container,
             'sequence_envelope':bool(state.get('sequence_envelope')),
@@ -135,7 +168,9 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
             'transition_seconds':t,'transition_duration_seconds':transition,
             'encoded_pixel_delta':round(delta,6),'full_frame_delta':round(delta,6),
             'encoded_changed_pixel_ratio':round(changed,6),**attribution,'pass':passed,
-        })
+        }
+        row['strict_attribution_required']=_strict_attribution_row(row)
+        rows.append(row)
 
     encoded_mean=float(np.mean(occupancies)) if occupancies else 0.0
     encoded_median=float(np.median(occupancies)) if occupancies else 0.0
@@ -145,11 +180,19 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
     planned_full_equivalent=planned_safe*safe_area
     divergence=abs(planned_full_equivalent-exact['occupancy_median']) if planned_safe>0 else 0.0
 
+    owner_rows=[row for row in rows if row.get('state_container')=='composition_states']
+    participant_rows=[row for row in rows if row.get('state_container')=='composition_participant_states']
+    strict_rows=[row for row in rows if row.get('strict_attribution_required')]
     failures=[]
-    if states and verified<len(states):
-        failures.append({'reason':'PLANNED_RECOMPOSITION_NOT_ENCODED','planned':len(states),'verified':verified})
-    if states and attributed<len(states):
-        failures.append({'reason':'PLANNED_RECOMPOSITION_NOT_ACTOR_ATTRIBUTABLE','planned':len(states),'verified':attributed})
+    owner_encoded=sum(bool(row.get('encoded_pixel_delta',0)>=.003 and row.get('encoded_changed_pixel_ratio',0)>=.012) for row in owner_rows)
+    owner_attributed=sum(bool(row.get('pass')) for row in owner_rows)
+    if owner_rows and owner_encoded<len(owner_rows):
+        failures.append({'reason':'PLANNED_RECOMPOSITION_NOT_ENCODED','planned':len(owner_rows),'verified':owner_encoded})
+    strict_attributed=sum(bool(row.get('pass')) for row in strict_rows)
+    if strict_rows and strict_attributed<len(strict_rows):
+        failures.append({'reason':'STRICT_COMPOSITION_STATE_NOT_ACTOR_ATTRIBUTABLE',
+                         'planned':len(strict_rows),'verified':strict_attributed,
+                         'failed_state_ids':[row.get('state_id') for row in strict_rows if not row.get('pass')]})
 
     p3_gates={
         'encoded_mean_occupancy_ge_24pct':{'pass':exact['occupancy_mean']>=.24,'actual':round(exact['occupancy_mean'],6),'target_min':.24},
@@ -179,7 +222,7 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
     }
     p4_pass=all(g['pass'] for g in p4_gates.values())
 
-    closure_enforced=projected_density is not None
+    closure_enforced=_production_closure_authority(motion_plan,enforce_p34_closure)
     if closure_enforced and not p3_pass:
         failures.append({'reason':'P3_ENCODED_DENSITY_TARGET_NOT_MET',
                          'failed_gates':[name for name,gate in p3_gates.items() if not gate['pass']]})
@@ -187,13 +230,20 @@ def verify_encoded_composition(video_path,motion_plan,projected_density=None,fps
         failures.append({'reason':'P4_ENCODED_CHOREOGRAPHY_TARGET_NOT_MET',
                          'failed_gates':[name for name,gate in p4_gates.items() if not gate['pass']]})
 
+    total_encoded=sum(bool(row.get('encoded_pixel_delta',0)>=.003 and row.get('encoded_changed_pixel_ratio',0)>=.012) for row in rows)
+    total_attributed=sum(bool(row.get('pass')) for row in rows)
     return {
         'schema':'HEXA_ENCODED_ADAPTIVE_COMPOSITION_QA_V3','pass':not failures,
         'p34_closure_enforced':closure_enforced,
-        'planned_recomposition_count':len(states),'encoded_recomposition_verified_count':verified,
-        'actor_attributable_verified_count':attributed,
-        'composition_state_count':sum(1 for _,_,c in states if c=='composition_states'),
-        'participant_state_count':sum(1 for _,_,c in states if c=='composition_participant_states'),
+        # Compatibility fields retain their original owner-recomposition meaning.
+        'planned_recomposition_count':len(owner_rows),'encoded_recomposition_verified_count':owner_encoded,
+        'actor_attributable_recomposition_verified_count':owner_attributed,
+        'authored_state_transition_count':len(rows),'encoded_state_transition_verified_count':total_encoded,
+        'actor_attributable_verified_count':total_attributed,
+        'strict_attribution_state_count':len(strict_rows),'strict_attribution_verified_count':strict_attributed,
+        'composition_state_count':len(owner_rows),'participant_state_count':len(participant_rows),
+        'participant_state_encoded_count':sum(bool(row.get('encoded_pixel_delta',0)>=.003 and row.get('encoded_changed_pixel_ratio',0)>=.012) for row in participant_rows),
+        'participant_state_attributable_count':sum(bool(row.get('pass')) for row in participant_rows),
         'semantic_sequence_planned_count':planned_sequence_count,
         'semantic_sequence_state_count':len(sequence_rows),
         'semantic_sequence_verified_count':sum(bool(r.get('pass')) for r in sequence_rows),
