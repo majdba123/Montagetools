@@ -7,7 +7,11 @@ import numpy as np
 from PIL import Image
 
 from hexa_v31.layout.composition_attribution import attribute_composition, _gray_actor
-from hexa_v31.layout.encoded_composition_qa import _authored_states, _exact_sample_metrics
+from hexa_v31.layout.encoded_composition_qa import (
+    _authored_states,
+    _exact_sample_metrics,
+    _production_closure_authority,
+)
 from hexa_v31.render.scene_media import prepare_composition_actor
 
 
@@ -73,6 +77,17 @@ with tempfile.TemporaryDirectory(prefix='hexa_p34_encoded_contract_') as raw:
     assert len(authored)==1,authored
     assert authored[0][0]['event_id']=='PARTICIPANT'
     assert authored[0][2]=='composition_participant_states'
+
+    # Projected-density diagnostics alone must never turn a tiny unit fixture into
+    # a whole-program P3/P4 certification. Final reference authorities identify
+    # the production motion plan; callers may also explicitly override.
+    assert not _production_closure_authority(motion)
+    production=dict(motion,
+        reference_perceptual_residual_finalizer={'authority':'TEST'},
+        reference_staggered_sequence_finalizer={'authority':'TEST','sequences':[]})
+    assert _production_closure_authority(production)
+    assert _production_closure_authority(motion,True)
+    assert not _production_closure_authority(production,False)
 
     frames=[np.full((360,640),255,dtype=np.uint8) for _ in range(2)]
     for event in (owner,participant):
