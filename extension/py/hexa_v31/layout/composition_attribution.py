@@ -28,7 +28,7 @@ def attribute_composition(event,state,before,after,times,render_edit_map):
     intended={owner,*map(str,state.get('participating_event_ids') or [])}
     result={'owner_delta':0.0,'participant_delta':0.0,'unrelated_delta':0.0,
             'attributed_changed_pixel_ratio':0.0,'actor_attributable_pass':False,
-            'attribution_authority':'EXACT_RENDER_SOURCE_COUNTERFACTUAL_V1','actors':[]}
+            'attribution_authority':'EXACT_RENDER_SOURCE_COUNTERFACTUAL_V2','actors':[]}
     if before is None or after is None or render_edit_map is None:
         return dict(result,attribution_failure='MISSING_ENCODED_OR_RENDER_SOURCE_EVIDENCE')
     height,width=before.shape
@@ -72,13 +72,21 @@ def attribute_composition(event,state,before,after,times,render_edit_map):
             np.minimum(unrelated_after,b,out=unrelated_after)
             continue
         seen.add(eid)
-        if eid==owner and runtime.get('composition_states')!=event.get('composition_states'):
+        if eid==owner and (
+            runtime.get('composition_states')!=event.get('composition_states')
+            or runtime.get('composition_participant_states')!=event.get('composition_participant_states')
+        ):
             return dict(result,attribution_failure='PLANNER_RENDER_COMPOSITION_STATE_MISMATCH',event_id=eid)
         counter=dict(runtime)
         counter['composition_states']=[s for s in runtime.get('composition_states') or [] if str(s.get('state_id'))!=sid]
-        # Preserve the participant A destination; omit only its committed B.
-        counter['composition_participant_states']=[s for s in runtime.get('composition_participant_states') or []
-            if not (str(s.get('owner_state_id'))==sid and s.get('previous_state_id'))]
+        # Exact participant destinations are first-class authored states too.
+        # Remove the exact state under test; for an owner destination also omit
+        # its linked B participant states while preserving their preceding A state.
+        counter['composition_participant_states']=[
+            s for s in runtime.get('composition_participant_states') or []
+            if str(s.get('state_id'))!=sid
+            and not (str(s.get('owner_state_id'))==sid and s.get('previous_state_id'))
+        ]
         c=_gray_actor(counter,image,times[1],width,height)
         actor_rows.append((eid,a,b,c))
     if seen!=intended:
