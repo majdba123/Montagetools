@@ -136,11 +136,14 @@ def refine_alpha(
         # antialias boundary.  This prevents the pale/thin icon edges visible in P2.
         certain=(interior>=max(0.75,feather*0.62))
         base=np.where(certain,1.0,np.maximum(geom,color*0.96))
-        # The semantic hard mask is the source-survival authority.  Permit only one
-        # pixel of exterior antialias support; a wider 7x7 expansion allowed unrelated
-        # neighbouring/source-stage pixels to become actor alpha and broke lossless
-        # partition QA after enclosed-light preservation was strengthened.
-        allowed=cv2.dilate(hard,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)>0
+        # The semantic hard mask is the source-survival authority. Exterior
+        # antialias support is legal only where the *source pixels themselves*
+        # differ from the estimated stage. This prevents a geometric dilation
+        # from manufacturing opaque white-stage rings while retaining genuine
+        # low-contrast/shadow edge pixels adjacent to the semantic silhouette.
+        edge_support=cv2.dilate(hard,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)),iterations=1)>0
+        source_edge_evidence=(cd>=1.75)
+        allowed=(hard>0) | (edge_support & source_edge_evidence)
         base=np.where(allowed,base,0.0)
         source='TRIMAP_EDGE_MATTE'
     stage_hard=np.zeros((h,w),dtype=bool); stage_soft=np.zeros((h,w),dtype=bool)
