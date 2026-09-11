@@ -1,5 +1,7 @@
 """Typography layer and compatibility exports for ``hexa_v31.typography``."""
 from . import typography as _implementation
+from .round2_editorial import install as _install_round2_typography
+_install_round2_typography(_implementation)
 globals().update({key: value for key, value in vars(_implementation).items() if not key.startswith('__')})
 
 # Premium V31 art direction is intentionally a narrow overlay above the literal-copy
