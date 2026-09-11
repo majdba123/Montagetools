@@ -410,7 +410,7 @@ def solve_phase_layouts(events:list[dict],grammar:dict,phase_plan:dict)->dict:
             rect=_implementation._rect(tuple(chosen[focus_id]['center_norm']),focus_fp,candidate*_implementation.MOTION_ENVELOPE_SCALE)
             if not _implementation._in_safe(rect):continue
             safe=True
-            for event_id in sorted(by_id):
+            for event_id in ids:
                 if event_id==focus_id:continue
                 other=stable['placements'][event_id];other_fp=_implementation._fp(by_id[event_id])
                 other_rect=_implementation._rect(tuple(other['center_norm']),other_fp,float(other['scale'])*_implementation.MOTION_ENVELOPE_SCALE)
