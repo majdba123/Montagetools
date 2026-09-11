@@ -125,6 +125,24 @@ def viewport_clipping_qa(events,fps=30.0):
         if exit and not entry and any(b>a+1e-4 for a,b in zip(fractions,fractions[1:])):failures.append(f"{e.get('event_id')}: nonmonotonic exit clipping")
     return {'pass':not failures,'failures':failures,'sample_count':samples,'authority':'FINAL_COMMITTED_VISIBLE_FRACTION_OVER_TIME'}
 
+
+def _phase_settled_rect(e:dict, phase:dict):
+    """Evaluate the actual planner-authored destination for this semantic phase.
+
+    The old QA used one card-wide `card_rest_position_norm` for every phase. Once
+    editorial geometry became phase-owned, that produced false settled-overlap failures
+    and forced the final certification pass to erase valid recompositions. Motion-path
+    safety remains separately sampled by `card_motion_conflicts`.
+    """
+    start=float(phase.get('start_seconds',0));end=float(phase.get('end_seconds',start));dur=max(0.0,end-start)
+    # Sample shortly after the phase boundary: pre-boundary reflow has completed, while
+    # exit motion has not yet started.
+    t=start+min(.16,max(.03,dur*.18))
+    base=e.get('card_rest_position_norm') or [0.5,0.5]
+    center,state_scale,state_visibility=composition_state_at(e,t,base)
+    fp=_fp(e);scale=float(e.get('layout_scale_multiplier') or 1.0)*float(state_scale)
+    return _rect((float(center[0]),float(center[1])),fp,scale),float(state_visibility)
+
 def composition_plan_qa(motion_plan:dict)->dict:
     failures=[];warnings=[];cards=(motion_plan.get('visual_cards') or {}).get('cards') or [];events=motion_plan.get('events') or [];fps=float(motion_plan.get('fps') or 30.0)
     by_card={str(c.get('card_id')):[] for c in cards}
@@ -140,7 +158,8 @@ def composition_plan_qa(motion_plan:dict)->dict:
             rows=[em[x] for x in ph.get('event_ids') or [] if x in em]
             rects=[]
             for e in rows:
-                r=_settled_rect(e)
+                r,vis=_phase_settled_rect(e,ph)
+                if vis<=0.05:continue
                 if not _in_safe(r):failures.append(f"{cid}/{ph.get('phase_id')}:{e.get('event_id')}: settled bbox outside safe frame")
                 rects.append((e,r))
             for i,(a,ra) in enumerate(rects):
@@ -158,4 +177,4 @@ def composition_plan_qa(motion_plan:dict)->dict:
     # dedupe messages while preserving order
     failures=list(dict.fromkeys(failures));warnings=list(dict.fromkeys(warnings))
     viewport=viewport_clipping_qa(events,fps);failures.extend(viewport['failures'])
-    return {'pass':not failures,'failures':failures,'warnings':warnings,'checked_pair_count':total_pairs,'dynamic_pair_samples':dynamic_samples,'bad_pair_count':bad_pairs,'visual_card_count':len(cards),'viewport_clipping_qa':viewport,'authority':'V31_CONSTRAINT_SOLVED_COMPOSITION__SETTLED_AND_MOTION_PATH_HARD_GATE'}
+    return {'pass':not failures,'failures':failures,'warnings':warnings,'checked_pair_count':total_pairs,'dynamic_pair_samples':dynamic_samples,'bad_pair_count':bad_pairs,'visual_card_count':len(cards),'viewport_clipping_qa':viewport,'authority':'V31_PHASE_DESTINATION_COMPOSITION__SETTLED_AND_MOTION_PATH_HARD_GATE'}
