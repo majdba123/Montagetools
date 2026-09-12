@@ -36,9 +36,9 @@ def _physical_window(event: dict, card_start: float, card_end: float) -> tuple[f
     return max(card_start, start), min(card_end, end)
 
 
-def _same_scene_conflict_scenes(conflicts: list[dict], events: list[dict]) -> set[str]:
+def _same_scene_conflict_rows(conflicts: list[dict], events: list[dict]) -> list[dict]:
     by_id = {_event_id(event): event for event in events}
-    scenes: set[str] = set()
+    rows = []
     for row in conflicts:
         a = by_id.get(str(row.get('event_a') or ''))
         b = by_id.get(str(row.get('event_b') or ''))
@@ -47,7 +47,17 @@ def _same_scene_conflict_scenes(conflicts: list[dict], events: list[dict]) -> se
         scene_a = _scene_id(a)
         scene_b = _scene_id(b)
         if scene_a and scene_a == scene_b:
-            scenes.add(scene_a)
+            rows.append(row)
+    return rows
+
+
+def _same_scene_conflict_scenes(conflicts: list[dict], events: list[dict]) -> set[str]:
+    by_id = {_event_id(event): event for event in events}
+    scenes: set[str] = set()
+    for row in _same_scene_conflict_rows(conflicts, events):
+        event = by_id.get(str(row.get('event_a') or ''))
+        if event is not None and _scene_id(event):
+            scenes.add(_scene_id(event))
     return scenes
 
 
@@ -145,16 +155,11 @@ def _apply_scene_layout(impl, card: dict, events: list[dict], scene_id: str) -> 
         event for event in events
         if not event.get('suppressed_by_card_density')
         and _scene_id(event) == scene_id
+        and _is_independent_root(event)
         and _physical_window(event, card_start, card_end)[1]
             > _physical_window(event, card_start, card_end)[0] + _EPS
     ]
     if len(scene_events) < 2:
-        return False, 0
-
-    # Protected Foundation partitions/residuals retain their certified geometry.
-    # If they participate in a residual same-scene conflict, fail closed and let the
-    # caller surface the hard error rather than weakening P1/source integrity.
-    if any(not _is_independent_root(event) for event in scene_events):
         return False, 0
 
     phase_plan = _exact_physical_cooccurrence_plan(scene_events, card_start, card_end)
@@ -208,23 +213,17 @@ def install(impl) -> None:
         card_start = float(card.get('start_seconds', 0.0))
         card_end = float(card.get('end_seconds', card_start))
         conflicts = impl.card_motion_conflicts(events, card_start, card_end, fps)
+        same_scene_rows = _same_scene_conflict_rows(conflicts, events)
         scenes = sorted(_same_scene_conflict_scenes(conflicts, events))
-        if not scenes:
+        if not same_scene_rows or not scenes:
             raise original_exc
 
         by_id = {_event_id(event): event for event in events}
         same_scene_involved = {
             str(event_id)
-            for row in conflicts
+            for row in same_scene_rows
             for event_id in (row.get('event_a'), row.get('event_b'))
-            if event_id is not None
-            and str(event_id) in by_id
-            and any(
-                _scene_id(by_id[str(row_id)]) == scene
-                for scene in scenes
-                for row_id in (row.get('event_a'), row.get('event_b'))
-                if row_id is not None and str(row_id) in by_id
-            )
+            if event_id is not None and str(event_id) in by_id
         }
         # Never use this fallback to move protected partition/residual geometry.
         if any(not _is_independent_root(by_id[event_id]) for event_id in same_scene_involved):
@@ -249,7 +248,7 @@ def install(impl) -> None:
             stale_state_count += removed
 
         remaining = impl.card_motion_conflicts(events, card_start, card_end, fps)
-        if _same_scene_conflict_scenes(remaining, events):
+        if _same_scene_conflict_rows(remaining, events):
             for event in events:
                 snap = snapshots.get(_event_id(event))
                 if snap is not None:
