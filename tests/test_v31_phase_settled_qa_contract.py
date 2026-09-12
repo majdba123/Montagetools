@@ -6,7 +6,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'extension/py'))
 
-from hexa_v31.composition_qa import _in_safe, _phase_settled_rect
+from hexa_v31.composition_qa import _in_safe, _phase_settled_rect, _phase_common_settled_rects
 
 
 def event_with_states(outbound_start: float) -> dict:
@@ -137,5 +137,65 @@ long_entry_phase = dict(short_entry_phase, end_seconds=3.35)
 rect, visibility = _phase_settled_rect(directional_entry_event, long_entry_phase)
 assert visibility > 0.05, (rect, visibility)
 assert _in_safe(rect), rect
+
+
+# Pairwise settled QA must use one common timestamp. The outgoing actor is stable
+# only until 0.35s; the incoming actor does not finish its appearance until 0.70s.
+# Comparing their two independent settled snapshots would invent a composition
+# that never exists on screen. The swept-motion gate remains responsible for the
+# actual handoff frames, so there is no simultaneous settled pair to return.
+outgoing = event_with_states(0.35)
+outgoing['event_id'] = 'OUTGOING'
+outgoing['composition_states'][0]['state_id'] = 'OUTGOING_DESTINATION'
+outgoing['composition_states'][1]['state_id'] = 'OUTGOING_HANDOFF'
+
+incoming = {
+    'event_id': 'INCOMING',
+    'attention_priority': 'SUPPORTING',
+    'source_bbox_norm': [0.45, 0.42, 0.10, 0.16],
+    'visible_ink_fraction': 0.8,
+    'card_rest_position_norm': [0.5, 0.5],
+    'layout_scale_multiplier': 1.0,
+    'start_seconds': 0.30,
+    'end_seconds': 0.80,
+    'physical_start_seconds': 0.30,
+    'physical_end_seconds': 0.80,
+    'motion_start_seconds': 0.30,
+    'motion_end_seconds': 0.80,
+    'preset_entry': {
+        'name': 'APPEAR_HIGH_SCALE',
+        'start_seconds': 0.30,
+        'duration_seconds': 0.40,
+    },
+    'composition_states': [
+        {
+            'state_id': 'INCOMING_DESTINATION',
+            'start_seconds': 0.30,
+            'transition_duration_seconds': 0.0,
+            'center_norm': [0.5, 0.5],
+            'scale_multiplier': 1.0,
+            'visibility': 1.0,
+            'state_reason': 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY',
+        },
+    ],
+}
+handoff_phase = {
+    'phase_id': 'HANDOFF_ONLY_PHASE',
+    'start_seconds': 0.0,
+    'end_seconds': 0.80,
+    'event_ids': ['OUTGOING', 'INCOMING'],
+}
+# Each actor individually has a stable destination inside the phase.
+assert _phase_settled_rect(outgoing, handoff_phase)[1] > 0.05
+assert _phase_settled_rect(incoming, handoff_phase)[1] > 0.05
+# But there is no common stable interval, so pairwise settled overlap is undefined.
+assert _phase_common_settled_rects([outgoing, incoming], handoff_phase) == []
+
+# When the incoming actor settles before the outgoing handoff, the common stable
+# composition becomes certifiable again and both actors must be returned together.
+incoming_with_overlap = dict(incoming)
+incoming_with_overlap['preset_entry'] = dict(incoming['preset_entry'], duration_seconds=0.02)
+common = _phase_common_settled_rects([event_with_states(0.60), incoming_with_overlap], handoff_phase)
+assert len(common) == 2, common
 
 print('V31_PHASE_SETTLED_QA_CONTRACT_PASS')
