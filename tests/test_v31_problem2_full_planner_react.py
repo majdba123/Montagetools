@@ -1,7 +1,7 @@
 from __future__ import annotations
 import copy,json,pathlib,tempfile
 from PIL import Image,ImageDraw
-from hexa_v31.planning.preset_story_planner import build_preset_story_motion_plan
+from hexa_v31.preset_story_planner import build_preset_story_motion_plan
 from hexa_v31.interaction.director import apply_interaction_director
 from hexa_v31.scene_media import render_scene_media
 
