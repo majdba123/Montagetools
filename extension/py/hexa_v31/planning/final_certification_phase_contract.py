@@ -65,8 +65,22 @@ def _restore_many(events: list[dict], snapshots: dict[str, dict]) -> list[str]:
     return restored
 
 
+def _serialized_state(state: dict) -> dict:
+    return {
+        key: state.get(key)
+        for key in (
+            'state_id', 'owner_state_id', 'previous_state_id', 'state_reason',
+            'semantic_beat', 'start_seconds', 'transition_duration_seconds',
+            'center_norm', 'scale_multiplier', 'visibility', 'sequence_envelope',
+            'position_envelope', 'envelope_track', 'editorial_motion_family',
+            'translation_safe', 'phase_center_authority',
+        )
+        if state.get(key) is not None
+    }
+
+
 def _failure_diagnostic(events: list[dict], cards: dict, failures: list[str]) -> str:
-    """Emit one bounded generic phase snapshot for actionable CI failures."""
+    """Emit the exact common settled pixel-state authority for the first failure."""
     if not failures:
         return '{}'
     first = str(failures[0])
@@ -83,13 +97,65 @@ def _failure_diagnostic(events: list[dict], cards: dict, failures: list[str]) ->
         None,
     )
     member_ids = {str(event_id) for event_id in ((phase or {}).get('event_ids') or [])}
+    members = [
+        event for event in events
+        if (str(event.get('event_id')) in member_ids if member_ids else str(event.get('visual_card_id')) == card_id)
+    ]
+
+    common_sample = None
+    windows = []
+    if phase and members:
+        try:
+            from hexa_v31.layout.phase_qa_contract import _stable_window, _sample_time
+
+            windows = [
+                {
+                    'event_id': str(event.get('event_id')),
+                    'window': [round(float(value), 6) for value in _stable_window(event, phase)],
+                }
+                for event in members
+            ]
+            common_start = max(row['window'][0] for row in windows)
+            common_end = min(row['window'][1] for row in windows)
+            common_sample = _sample_time(common_start, common_end)
+        except Exception as exc:  # diagnostics must never mask the certification failure
+            windows = [{'diagnostic_error': type(exc).__name__ + ':' + str(exc)[:240]}]
+
+    actual_by_id = {}
+    actual_pair_overlaps = []
+    if common_sample is not None:
+        try:
+            from hexa_v31.composition_qa import _state
+            from hexa_v31.composition_solver import overlap_ratio
+
+            visible = []
+            for event in members:
+                actual = _state(event, common_sample)
+                if actual is None:
+                    actual_by_id[str(event.get('event_id'))] = None
+                    continue
+                row = {
+                    'center_norm': [round(float(x), 6) for x in actual[0]],
+                    'scale': round(float(actual[1]), 6),
+                    'opacity': round(float(actual[2]), 6),
+                    'rect_norm': [round(float(x), 6) for x in actual[3]],
+                }
+                actual_by_id[str(event.get('event_id'))] = row
+                if float(actual[2]) > 0.05:
+                    visible.append((event, actual[3]))
+            for index, (a, rect_a) in enumerate(visible):
+                for b, rect_b in visible[index + 1:]:
+                    actual_pair_overlaps.append({
+                        'event_a': str(a.get('event_id')),
+                        'event_b': str(b.get('event_id')),
+                        'overlap_ratio': round(float(overlap_ratio(rect_a, rect_b)), 9),
+                    })
+        except Exception as exc:  # diagnostics must never mask the certification failure
+            actual_by_id['diagnostic_error'] = type(exc).__name__ + ':' + str(exc)[:240]
+
     rows = []
-    for event in events:
+    for event in members:
         event_id = str(event.get('event_id'))
-        if member_ids and event_id not in member_ids:
-            continue
-        if not member_ids and str(event.get('visual_card_id')) != card_id:
-            continue
         rows.append({
             'event_id': event_id,
             'scene_id': event.get('scene_id'),
@@ -99,33 +165,32 @@ def _failure_diagnostic(events: list[dict], cards: dict, failures: list[str]) ->
             'planned_rect': event.get('planned_rect_norm'),
             'start_seconds': event.get('start_seconds'),
             'end_seconds': event.get('end_seconds'),
+            'motion_start_seconds': event.get('motion_start_seconds'),
+            'motion_end_seconds': event.get('motion_end_seconds'),
             'physical_start_seconds': event.get('physical_start_seconds'),
             'physical_end_seconds': event.get('physical_end_seconds'),
             'preset_entry': event.get('preset_entry'),
             'preset_exit': event.get('preset_exit'),
-            'phase_states': [
-                {
-                    'state_id': state.get('state_id'),
-                    'start_seconds': state.get('start_seconds'),
-                    'transition_duration_seconds': state.get('transition_duration_seconds'),
-                    'center_norm': state.get('center_norm'),
-                    'scale_multiplier': state.get('scale_multiplier'),
-                    'visibility': state.get('visibility'),
-                    'state_reason': state.get('state_reason'),
-                    'semantic_beat': state.get('semantic_beat'),
-                }
-                for state in (
-                    list(event.get('composition_states') or [])
-                    + list(event.get('composition_participant_states') or [])
-                )
-                if state.get('state_reason') == 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY'
+            'preset_actions': event.get('preset_actions') or [],
+            'progressive_phase_authority': event.get('progressive_phase_authority'),
+            'adaptive_composition_authority': event.get('adaptive_composition_authority'),
+            'meaningful_recomposition': event.get('meaningful_recomposition'),
+            'readable_hold_authority': event.get('readable_hold_authority'),
+            'final_cross_source_handoff_authority': event.get('final_cross_source_handoff_authority'),
+            'composition_states': [_serialized_state(state) for state in event.get('composition_states') or []],
+            'composition_participant_states': [
+                _serialized_state(state) for state in event.get('composition_participant_states') or []
             ],
+            'actual_common_sample_state': actual_by_id.get(event_id),
         })
     return json.dumps({
         'failure': first,
         'card_id': card_id,
         'phase_id': phase_id,
         'phase': phase,
+        'stable_windows': windows,
+        'common_sample_seconds': None if common_sample is None else round(float(common_sample), 6),
+        'actual_pair_overlaps': actual_pair_overlaps,
         'events': rows[:8],
     }, sort_keys=True, separators=(',', ':'))
 
@@ -226,8 +291,8 @@ def install(planner_module) -> None:
             return base_result
 
         # Neither state is certifiable. Leave the safer phase-owned baseline in
-        # place and include one bounded state snapshot so CI identifies the true
-        # geometry/timing authority instead of requiring another blind patch.
+        # place and include the exact common settled render state so CI identifies
+        # the true geometry/timing authority instead of requiring another blind patch.
         diagnostic = _failure_diagnostic(events, cards, restored_qa.get('failures') or [])
         if base_error is not None:
             raise ValueError(
@@ -235,13 +300,13 @@ def install(planner_module) -> None:
                 + ' | RESTORED_PHASE_QA='
                 + ' | '.join(restored_qa.get('failures') or [])[:1200]
                 + ' | PHASE_STATE_DIAGNOSTIC='
-                + diagnostic[:6000]
+                + diagnostic[:12000]
             ) from base_error
         raise ValueError(
             'FINAL_PHYSICAL_CERTIFICATION_FAILED_AFTER_PHASE_GEOMETRY_ROLLBACK: '
             + ' | '.join(restored_qa.get('failures') or [])[:1600]
             + ' | PHASE_STATE_DIAGNOSTIC='
-            + diagnostic[:6000]
+            + diagnostic[:12000]
         )
 
     final_physical_certification.__name__ = base_final_certification.__name__
