@@ -130,6 +130,20 @@ def _stable_window_end(event: dict, phase: dict, settle: float) -> float:
     return stable_end
 
 
+def _stable_window(event: dict, phase: dict) -> tuple[float, float]:
+    settle = _boundary_settle_time(event, phase)
+    return settle, _stable_window_end(event, phase, settle)
+
+
+def _sample_time(settle: float, stable_end: float) -> float | None:
+    if stable_end <= settle + _SETTLE_PAD_SECONDS + _EPS:
+        return None
+    return min(
+        stable_end - _EPS,
+        max(settle + _SETTLE_PAD_SECONDS, (settle + stable_end) * 0.5),
+    )
+
+
 def install(qa_module) -> None:
     if getattr(qa_module, '_phase_settled_qa_contract_installed', False):
         return
@@ -142,24 +156,48 @@ def install(qa_module) -> None:
         if end <= start + _EPS:
             return base_settled_rect(event), 0.0
 
-        settle = _boundary_settle_time(event, phase)
-        stable_end = _stable_window_end(event, phase, settle)
+        settle, stable_end = _stable_window(event, phase)
+        sample_time = _sample_time(settle, stable_end)
 
         # Some intentionally short beats are entirely transition/handoff. They
         # have no static destination to certify. Motion-path and viewport QA still
         # inspect every visible intermediate frame, while pacing QA owns whether
         # the beat is editorially long enough.
-        if stable_end <= settle + _SETTLE_PAD_SECONDS + _EPS:
+        if sample_time is None:
             return base_settled_rect(event), 0.0
 
-        sample_time = min(
-            stable_end - _EPS,
-            max(settle + _SETTLE_PAD_SECONDS, (settle + stable_end) * 0.5),
-        )
         state = qa_module._state(event, sample_time)
         if state is None:
             return base_settled_rect(event), 0.0
         return state[3], float(state[2])
 
+    def phase_common_settled_rects(rows: list[dict], phase: dict):
+        """Return simultaneous settled geometry at one shared phase timestamp.
+
+        Pairwise overlap is a simultaneous physical property. Sampling actor A
+        before its exit and actor B after its entry, then comparing those two
+        rectangles, creates a synthetic composition that never exists on screen.
+        When stable windows do not intersect, the phase is a transition-only
+        handoff for pairwise purposes; the full swept-motion and viewport gates
+        remain authoritative over every actual frame.
+        """
+        if not rows:
+            return []
+        windows = [_stable_window(event, phase) for event in rows]
+        common_settle = max(start for start, _ in windows)
+        common_end = min(end for _, end in windows)
+        sample_time = _sample_time(common_settle, common_end)
+        if sample_time is None:
+            return []
+
+        rects = []
+        for event in rows:
+            state = qa_module._state(event, sample_time)
+            if state is None or float(state[2]) <= 0.05:
+                continue
+            rects.append((event, state[3]))
+        return rects
+
     qa_module._phase_settled_rect = phase_settled_rect
+    qa_module._phase_common_settled_rects = phase_common_settled_rects
     qa_module._phase_settled_qa_contract_installed = True
