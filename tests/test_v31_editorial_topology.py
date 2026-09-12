@@ -26,6 +26,12 @@ def compile(archetype,roles,edges=()):
     assert layout['pass'],layout
     return plan,layout
 
+def phase_scale_factor(layout,event_id,placement):
+    """Measure hierarchy from shipping geometry, not deprecated diagnostic metadata."""
+    base=float(layout['placements'][event_id]['scale'])
+    assert base>1e-9,(event_id,layout['placements'][event_id])
+    return float(placement['scale'])/base
+
 flow_edges=[{'source':'A','target':'B'},{'source':'B','target':'C'}]
 flow,flow_layout=compile('FLOW_PIPELINE',{'A':'ACTOR','B':'TARGET','C':'RESULT'},flow_edges)
 comparison,comparison_layout=compile('COMPARISON',{'A':'LEAD','B':'LEAD','C':'SUPPORT'})
@@ -44,16 +50,18 @@ assert len(signatures)==3,signatures
 for plan,layout in ((flow,flow_layout),(comparison,comparison_layout),(payoff,payoff_layout)):
     for phase in plan['phases']:
         placements=layout['phase_placements'][phase['phase_id']]
-        focus=placements[phase['focus_event_id']]
-        context=[row for eid,row in placements.items() if eid!=phase['focus_event_id']]
-        if context:assert focus['phase_scale_factor']-max(row['phase_scale_factor'] for row in context)>=.10,(phase,placements)
+        focus_id=phase['focus_event_id']
+        focus_factor=phase_scale_factor(layout,focus_id,placements[focus_id])
+        context_factors=[phase_scale_factor(layout,eid,row) for eid,row in placements.items() if eid!=focus_id]
+        if context_factors:assert focus_factor-max(context_factors)>=.10,(phase,placements,focus_factor,context_factors)
 
 # A genuinely solo card can expand into its available negative space. Multi-
 # actor cards remain conservative because preset travel envelopes must remain
 # collision-safe through the handoff, not merely at phase endpoints.
 solo_plan={'choreography_authority':'SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2','phases':[{'phase_id':'SOLO_P1','event_ids':['A'],'focus_event_id':'A'}]}
 solo_layout=solve_phase_layouts([copy.deepcopy(a)],{'archetype':'HERO_STATEMENT','roles':{'A':'LEAD'}},solo_plan)
-assert solo_layout['pass'] and solo_layout['phase_placements']['SOLO_P1']['A']['phase_scale_factor']>1.1,solo_layout
+solo=solo_layout['phase_placements']['SOLO_P1']['A']
+assert solo_layout['pass'] and phase_scale_factor(solo_layout,'A',solo)>1.1,solo_layout
 
 again,_=compile('FLOW_PIPELINE',{'A':'ACTOR','B':'TARGET','C':'RESULT'},flow_edges)
 assert again==flow
