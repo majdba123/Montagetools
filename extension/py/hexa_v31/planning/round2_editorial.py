@@ -19,12 +19,23 @@ def _explicit_react_semantics(event: dict) -> bool:
     return bool(explicit.intersection({'REACT', 'REACTION', 'RESPOND'}))
 
 
+def _phase_owned(event: dict) -> bool:
+    if event.get('editorial_phase_geometry_authority'):
+        return True
+    for container in ('composition_states', 'composition_participant_states'):
+        for state in event.get(container) or []:
+            if state.get('state_reason') == 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY':
+                return True
+    return False
+
+
 def install(impl) -> None:
     if getattr(impl, '_round2_editorial_installed', False):
         return
 
     base_history_variant = impl._apply_composition_history_variant
     base_optical_scale = impl._optical_scale_optimize
+    base_adaptive_composition = impl._adaptive_composition_state_optimize
     base_schedule = impl._schedule_event
 
     def apply_composition_history_variant(layout, grammar, history):
@@ -120,6 +131,61 @@ def install(impl) -> None:
             result['phase_owned_events_restored'] = len(protected)
         return result
 
+    def adaptive_composition_state_optimize(events, cards, fps):
+        """Keep the legacy adaptive compositor away from phase-owned geometry.
+
+        Semantic phase geometry has already been solved and collision-certified as the
+        destination authority. The legacy adaptive pass may still improve cards that do
+        not have that authority, but it must not append a second scale/position track to
+        either member of a phase-owned adjacent pair.
+        """
+        guarded = []
+        guarded_ids = set()
+        pair_count = 0
+        for card in cards.get('cards') or []:
+            cs = float(card.get('start_seconds', 0))
+            ce = float(card.get('end_seconds', cs))
+            local = sorted(
+                (
+                    event for event in events
+                    if not event.get('suppressed_by_card_density')
+                    and float(event.get('start_seconds', 0)) < ce
+                    and float(event.get('end_seconds', 0)) > cs
+                ),
+                key=lambda event: (
+                    float(event.get('perceptual_hit_seconds', event.get('start_seconds', 0))),
+                    str(event.get('event_id')),
+                ),
+            )
+            for current, nxt in zip(local, local[1:]):
+                if not (_phase_owned(current) or _phase_owned(nxt)):
+                    continue
+                pair_count += 1
+                marker_id = id(current)
+                if marker_id in guarded_ids or current.get('composition_states') or current.get('preset_actions'):
+                    continue
+                guarded_ids.add(marker_id)
+                had_actions = 'preset_actions' in current
+                saved_actions = copy.deepcopy(current.get('preset_actions'))
+                guarded.append((current, had_actions, saved_actions))
+                current['preset_actions'] = [{
+                    'name': 'PHASE_OWNED_GEOMETRY_GUARD',
+                    'non_rendering_guard': True,
+                    'authority': 'SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2',
+                }]
+        try:
+            result = base_adaptive_composition(events, cards, fps)
+        finally:
+            for event, had_actions, saved_actions in guarded:
+                if had_actions:
+                    event['preset_actions'] = saved_actions
+                else:
+                    event.pop('preset_actions', None)
+        result = dict(result)
+        result['phase_owned_pairs_skipped'] = pair_count
+        result['phase_owned_geometry_authority'] = 'SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2'
+        return result
+
     def _phase_state_for_start(event, phase_start):
         states = list(event.get('composition_states') or []) + list(event.get('composition_participant_states') or [])
         states = [s for s in states if s.get('state_reason') == 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY']
@@ -163,5 +229,6 @@ def install(impl) -> None:
     impl._apply_composition_history_variant = apply_composition_history_variant
     impl._commit_editorial_phase_geometry = commit_editorial_phase_geometry
     impl._optical_scale_optimize = optical_scale_optimize
+    impl._adaptive_composition_state_optimize = adaptive_composition_state_optimize
     impl._schedule_event = schedule_event
     impl._round2_editorial_installed = True
