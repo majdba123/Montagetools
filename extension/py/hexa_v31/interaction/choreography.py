@@ -133,6 +133,28 @@ def _retime_fallback_reaction_entry(event:dict,intent:dict,fps:float,not_before:
     retimed=dict(row);retimed.update({'start_seconds':round(new_start,6),'end_seconds':round(new_end,6),'perceptual_impact_seconds':round(semantic_hit,6),'retime_existing_entry':True,'original_start_seconds':float(row['start_seconds']),'original_end_seconds':float(row['end_seconds']),'retime_reason':'REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT','semantic_anchor_match':True,'key':'|'.join((str(event.get('event_id')),str(row['preset']),f'{new_start:.6f}','REACTION_SEMANTIC_PROMOTION'))})
     return retimed
 
+def _retime_reaction_after_cause(event:dict,intent:dict,fps:float,not_before:float):
+    """Move an existing in-place reaction later when causal pre-roll is impossible.
+
+    Voice anchors can precede both physical carriers on short source beats. In that
+    case moving the cause earlier is impossible, but a long-lived reaction carrier
+    can still preserve P2 by moving only its non-translating appearance after the
+    cause. This never delays or alters the causal source.
+    """
+    row=_entry_manifestation(event,'REACTION')
+    if not row:return None
+    if str(intent.get('semantic_action') or '')!='REACT' or str(intent.get('causal_direction') or '')!='OBJECT_CAUSES_SUBJECT_REACTION':return None
+    if 'TRANSLATE' in set(row.get('required_operations') or []):return None
+    dd=float(row['duration_seconds']);frame=1.0/max(1.0,fps)
+    new_start=max(float(row['start_seconds']),float(not_before));new_end=new_start+dd
+    physical_start=float(event.get('physical_start_seconds',event.get('start_seconds',new_start)));physical_end=float(event.get('physical_end_seconds',event.get('end_seconds',new_end)))
+    if new_start<physical_start-1e-6 or new_end>physical_end+1e-6:return None
+    px=event.get('preset_exit') or {}
+    if px and new_end>float(px.get('start_seconds',physical_end))+1e-6:return None
+    if any(float(action.get('start_seconds',physical_end))<new_end-1e-6 for action in event.get('preset_actions') or []):return None
+    retimed=dict(row);retimed.update({'start_seconds':round(new_start,6),'end_seconds':round(new_end,6),'perceptual_impact_seconds':round(new_start+_entry_fraction(str(row['preset']))*dd,6),'retime_existing_entry':True,'original_start_seconds':float(row['start_seconds']),'original_end_seconds':float(row['end_seconds']),'retime_reason':'REACT_CAUSAL_ORDER_REACTION_DELAY','semantic_anchor_match':False,'key':'|'.join((str(event.get('event_id')),str(row['preset']),f'{new_start:.6f}','REACTION_CAUSAL_DELAY'))})
+    return retimed
+
 def _matching_existing_relationship_action(event:dict,intent:dict,target:dict|None):
     if not target:return None
     target_semantic=str(target.get('semantic_unit_id') or '');target_event=str(target.get('event_id') or '');hit=float(intent.get('semantic_hit_seconds',event.get('perceptual_hit_seconds',0.0)));rows=[]
@@ -185,10 +207,25 @@ def _fixed_or_retimed_pair_from_entries(cause,reaction,intent,fps):
     semantic_subject=str(intent.get('subject_event_id') or '');cause_is_subject=str(cause.get('event_id'))==semantic_subject;reaction_is_subject=str(reaction.get('event_id'))==semantic_subject;frame=1.0/max(1.0,fps)
     action=_aligned_entry_manifestation(cause,intent,'ACTION',fps,anchor_to_intent=cause_is_subject)
     reply=_aligned_entry_manifestation(reaction,intent,'REACTION',fps,anchor_to_intent=reaction_is_subject)
+    if not action and not reply and reaction_is_subject:
+        # If narration precedes both available source carriers, the earliest
+        # capability-safe cause is its authored in-place entry. Preserve it and
+        # delay only the reaction when that carrier has sufficient lifetime.
+        raw_action=_entry_manifestation(cause,'ACTION')
+        semantic_hit=float(intent.get('semantic_hit_seconds',0.0))
+        if raw_action and semantic_hit<float(raw_action['start_seconds'])-1e-6:
+            delayed=_retime_reaction_after_cause(
+                reaction,intent,fps,float(raw_action['end_seconds'])+frame,
+            )
+            if delayed:
+                raw_action['semantic_anchor_match']=False
+                raw_action['causal_earliest_available_source']=True
+                return raw_action,delayed
     if action and not reply and reaction_is_subject:
         not_before=float(action['end_seconds'])+frame
         reply=_retime_fallback_reaction_entry(reaction,intent,fps,not_before)
         if not reply:reply=_carrier_onset_reaction_manifestation(reaction,intent,fps,not_before)
+        if not reply:reply=_retime_reaction_after_cause(reaction,intent,fps,not_before)
     if not action or not reply:return None
     if float(reply['start_seconds'])>=float(action['end_seconds'])+frame-1e-6:return action,reply
     # If both entries are already semantic-aligned but simultaneous, only REACT
@@ -198,7 +235,9 @@ def _fixed_or_retimed_pair_from_entries(cause,reaction,intent,fps):
     if 'TRANSLATE' in set(action.get('required_operations') or []):return None
     desired_end=float(reply['start_seconds'])-frame;new_start=desired_end-float(action['duration_seconds'])
     physical_start=float(cause.get('physical_start_seconds',cause.get('start_seconds',new_start)));physical_end=float(cause.get('physical_end_seconds',cause.get('end_seconds',desired_end)))
-    if new_start<physical_start-1e-6 or desired_end>physical_end+1e-6:return None
+    if new_start<physical_start-1e-6 or desired_end>physical_end+1e-6:
+        delayed=_retime_reaction_after_cause(reaction,intent,fps,float(action['end_seconds'])+frame)
+        return (action,delayed) if delayed else None
     px=cause.get('preset_exit') or {}
     if px and desired_end>float(px.get('start_seconds',physical_end))+1e-6:return None
     retimed=dict(action);retimed.update({'start_seconds':round(new_start,6),'end_seconds':round(desired_end,6),'perceptual_impact_seconds':round(new_start+_entry_fraction(str(action['preset']))*float(action['duration_seconds']),6),'retime_existing_entry':True,'original_start_seconds':float(action['start_seconds']),'original_end_seconds':float(action['end_seconds']),'retime_reason':'REACT_CAUSAL_PRE_ROLL','semantic_anchor_match':False,'key':'|'.join((str(cause.get('event_id')),str(action['preset']),f'{new_start:.6f}','ACTION_RETIMED'))})

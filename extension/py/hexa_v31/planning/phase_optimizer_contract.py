@@ -152,9 +152,10 @@ def install(planner_module) -> None:
             # The legacy helper mirrored only card-wide placements. Phase-local
             # destinations are the same geometry authority and must transform with
             # them or the renderer receives two incompatible coordinate spaces.
-            for placements in (layout.get("phase_placements") or {}).values():
-                for placement in (placements or {}).values():
-                    _mirror_placement(placement)
+            if layout.get("phase_geometry_history_variant") != "MIRRORED_ATOMIC_WITH_BASE":
+                for placements in (layout.get("phase_placements") or {}).values():
+                    for placement in (placements or {}).values():
+                        _mirror_placement(placement)
             layout["phase_geometry_history_variant"] = "MIRRORED_ATOMIC_WITH_BASE"
         return variant
 

@@ -699,7 +699,17 @@ def solve_phase_layouts(events:list[dict],grammar:dict,phase_plan:dict)->dict:
                     center_candidates=[tuple(chosen[event_id]['center_norm'])]
                 else:
                     center_candidates=[]
-                    for center in [local_center,stable_center,*_implementation._adaptive_slots(phase_arch,str(chosen[event_id].get('role') or 'SUPPORT'),fp)]:
+                    # The semantic slot vocabulary is the preference order, not
+                    # the complete feasibility domain. Mixed fixed-partition and
+                    # movable-root phases can leave legal negative space between
+                    # named slots. Search a small deterministic safe-frame lattice
+                    # before declaring the phase unsatisfiable.
+                    fallback_centers=[
+                        (x,y)
+                        for y in (.20,.31,.44,.56,.69,.80)
+                        for x in (.18,.27,.38,.50,.62,.73,.82)
+                    ]
+                    for center in [local_center,stable_center,*_implementation._adaptive_slots(phase_arch,str(chosen[event_id].get('role') or 'SUPPORT'),fp),*fallback_centers]:
                         center=(round(float(center[0]),6),round(float(center[1]),6))
                         if center not in center_candidates:center_candidates.append(center)
                 if protected:
@@ -712,7 +722,13 @@ def solve_phase_layouts(events:list[dict],grammar:dict,phase_plan:dict)->dict:
                         scale_candidates=all_scales
                     else:
                         # Retained context stays readable but does not compete with focus.
-                        ceiling=max(base,base*1.18);floor=max(.22,base*.68)
+                        ceiling=max(base,base*1.18)
+                        # A movable non-focus root may need one additional
+                        # source-safe scale step to fit around immutable P1
+                        # partition geometry. The prior 68% preference floor
+                        # could exclude the first feasible canonical scale and
+                        # force an unsafe fallback placement.
+                        floor=max(.22,base*.60)
                         scale_candidates=[x for x in all_scales if floor-1e-9<=x<=ceiling+1e-9]
                         scale_candidates=sorted(set(scale_candidates+[base]),reverse=True)
                 next_states=[]
@@ -722,7 +738,20 @@ def solve_phase_layouts(events:list[dict],grammar:dict,phase_plan:dict)->dict:
                             rect=_implementation._rect(center,fp,scale*_implementation.MOTION_ENVELOPE_SCALE)
                             if not _implementation._in_safe(rect):continue
                             safe=True
-                            for _,other_rect,other_fp,_,_ in placed:
+                            for other_id,other_rect,other_fp,_,_ in placed:
+                                other_event=by_id.get(str(other_id)) or {}
+                                # A certified partition is one lossless source carrier.
+                                # Its member masks may overlap by design. Keep every
+                                # member fixed, allow that intra-carrier overlap, and
+                                # make independent roots search around their union.
+                                same_partition=(
+                                    protected
+                                    and str(other_event.get('render_mode') or '') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}
+                                    and str(event.get('partition_root_id') or event.get('partition_group_id') or '')
+                                    == str(other_event.get('partition_root_id') or other_event.get('partition_group_id') or '')
+                                )
+                                if same_partition:
+                                    continue
                                 gap=_implementation.PRIMARY_GAP if (fp.primary or other_fp.primary) else _implementation.SUPPORT_GAP
                                 if _implementation._inter(_implementation._inflate(rect,gap),_implementation._inflate(other_rect,gap))>1e-8:
                                     safe=False;break

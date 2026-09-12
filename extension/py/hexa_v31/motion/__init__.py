@@ -98,6 +98,9 @@ def _build_final_motion_plan(*args, **kwargs):
     # or relocated merely to satisfy a later handoff request.
     cross_card_editorial_stats = finalize_cross_card_editorial(plan, fps=fps)
     plan['cross_card_editorial_finalizer'] = cross_card_editorial_stats
+    from hexa_v31.planning.final_density_recovery import recover_final_density
+    final_density_recovery = recover_final_density(plan, fps=fps)
+    plan['final_density_recovery'] = final_density_recovery
 
     pacing_stats = build_final_card_pacing_report(plan)
     plan['final_card_pacing_qa'] = pacing_stats
@@ -113,6 +116,7 @@ def _build_final_motion_plan(*args, **kwargs):
         or joint_interval_stats.get('changed')
         or stagger_stats.get('changed')
         or cross_card_editorial_stats.get('changed')
+        or final_density_recovery.get('repaired_event_ids')
     ):
         # Final reference passes mutate only already-certified source-backed
         # state. Re-run the same lifetime/physical authority once so the final
@@ -128,6 +132,7 @@ def _build_final_motion_plan(*args, **kwargs):
         plan['reference_joint_interval_framing_finalizer'] = joint_interval_stats
         plan['reference_staggered_sequence_finalizer'] = stagger_stats
         plan['cross_card_editorial_finalizer'] = cross_card_editorial_stats
+        plan['final_density_recovery'] = final_density_recovery
         plan['final_card_pacing_qa'] = pacing_stats
     return plan
 

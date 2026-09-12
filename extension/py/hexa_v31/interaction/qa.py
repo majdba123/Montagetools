@@ -3,6 +3,7 @@ from hexa_v31.preset_authority import authority
 from .contracts import MIN_ACTIONABLE_EMBODIMENT_RATIO
 
 SEMANTIC_PROMOTION_REASON='REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT'
+CAUSAL_REACTION_DELAY_REASON='REACT_CAUSAL_ORDER_REACTION_DELAY'
 
 def interaction_plan_qa(plan:dict)->dict:
     engine=plan.get('interaction_engine') or {};graph=engine.get('graph') or {};actions=list(engine.get('physical_actions') or []);events={str(e.get('event_id')):e for e in plan.get('events') or []};allowed=set((authority().get('preset_motion') or {}).keys());fail=[];warnings=[];by={};fps=float(plan.get('fps') or 30.0);intents={str(x.get('interaction_id')):x for x in (engine.get('intents') or [])}
@@ -25,6 +26,9 @@ def interaction_plan_qa(plan:dict)->dict:
                 if st<=original+1e-6:fail.append({'reason':'SEMANTIC_PROMOTION_DID_NOT_MOVE_REACTION_LATER','action':row})
                 if str(entry.get('semantic_promotion_authority') or '')!=SEMANTIC_PROMOTION_REASON:fail.append({'reason':'SEMANTIC_PROMOTION_NOT_COMMITTED_TO_RENDER_ENTRY','action':row,'entry':entry})
                 if abs(float(row.get('perceptual_impact_seconds',semantic_hit))-semantic_hit)*fps>6.0+1e-6:fail.append({'reason':'SEMANTIC_PROMOTION_MISSED_SEMANTIC_HIT','interaction_id':iid,'semantic_hit_seconds':semantic_hit,'perceptual_impact_seconds':row.get('perceptual_impact_seconds')})
+            elif reason==CAUSAL_REACTION_DELAY_REASON:
+                if str(row.get('phase') or '')!='REACTION':fail.append({'reason':'CAUSAL_REACTION_DELAY_ONLY_VALID_FOR_REACTION','action':row})
+                if st<=original+1e-6:fail.append({'reason':'CAUSAL_REACTION_DELAY_DID_NOT_MOVE_LATER','action':row})
             else:
                 if original<=st+1e-6:fail.append({'reason':'CAUSAL_PREROLL_DID_NOT_MOVE_EARLIER','action':row})
     actionable=[x for x in intents.values() if x.get('actionable')]

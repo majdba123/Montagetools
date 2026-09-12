@@ -53,6 +53,11 @@ def install(impl) -> None:
                 if len(rect) == 4:
                     rect[0] = round(1.0 - float(rect[0]) - float(rect[2]), 6)
                     placement['rect_norm'] = rect
+        # The phase-optimizer compatibility contract also wraps this hook in the
+        # shipping graph. Record the atomic transform so an outer compatibility
+        # layer cannot mirror phase destinations a second time while the base
+        # card placement is mirrored only once.
+        layout['phase_geometry_history_variant'] = 'MIRRORED_ATOMIC_WITH_BASE'
         return variant
 
     def commit_editorial_phase_geometry(events, card, phase_plan, layout):

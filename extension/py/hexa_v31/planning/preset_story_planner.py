@@ -1547,6 +1547,12 @@ def _reconcile_final_partition_handoffs(events:list[dict], cards:dict, fps:float
                 b=local_by_id.get(str(row.get('event_b')))
                 if not a or not b or str(a.get('scene_id'))==str(b.get('scene_id')):
                     continue
+                if (str(a.get('visual_card_id'))!=str(b.get('visual_card_id')) and
+                    any(str(e.get('render_mode') or '') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} for e in (a,b))):
+                    # P1 partitions cannot be shortened merely because their
+                    # carrier crosses nominal card ownership. Static placement
+                    # authority must resolve this class instead.
+                    continue
                 stats['candidate_conflict_count']+=1
 
                 if source_order(a)<source_order(b)-1e-6:
@@ -1565,6 +1571,38 @@ def _reconcile_final_partition_handoffs(events:list[dict], cards:dict, fps:float
                 trigger_pair=tuple(sorted((str(row.get('event_a')),str(row.get('event_b')))))
                 outgoing_snap=[copy.deepcopy(e) for e in members]
                 incoming_snap=[copy.deepcopy(e) for e in incoming_members]
+                global_start=min(float(e.get('physical_start_seconds',e.get('start_seconds',0.0))) for e in active)
+                global_end=max(float(e.get('physical_end_seconds',e.get('end_seconds',0.0))) for e in active)
+                global_before_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b'))))) for x in card_motion_conflicts(active,global_start,global_end,fps)}
+
+                # Prefer a collision-free shared relationship composition over
+                # serializing the sources. The incoming actor remains in its
+                # certified base slot until its later focus state.
+                if len(incoming_members)==1 and str(incoming.get('render_mode') or 'ROOT_ATOMIC')=='ROOT_ATOMIC':
+                    live=incoming_members[0];t=float(row.get('time_seconds',0.0));base_center=list(live.get('card_rest_position_norm') or [])
+                    state_snap=copy.deepcopy(live)
+                    centers=[tuple(base_center),(.18,.20),(.38,.20),(.62,.20),(.82,.20),(.18,.52),(.38,.52),(.62,.52),(.82,.52),(.18,.80),(.38,.80),(.62,.80),(.82,.80)]
+                    for candidate_center in centers:
+                        live.clear();live.update(copy.deepcopy(state_snap));active_states=[]
+                        for container in ('composition_states','composition_participant_states'):
+                            ordered=sorted(live.get(container) or [],key=lambda state:float(state.get('start_seconds',0.0)))
+                            state=next((item for item in reversed(ordered) if float(item.get('start_seconds',0.0))<=t+1e-6),None)
+                            if state is not None:active_states.append(state)
+                        if len(candidate_center)<2 or not active_states:continue
+                        for state in active_states:
+                            state['center_norm']=[float(candidate_center[0]),float(candidate_center[1])]
+                            state['cross_scene_shared_phase_geometry_authority']='FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+                        after_rows=card_motion_conflicts(local,float(card.get('start_seconds',0.0)),float(card.get('end_seconds',0.0)),fps)
+                        after_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b'))))) for x in after_rows}
+                        live_start=float(live.get('physical_start_seconds',live.get('start_seconds',0.0)));live_end=float(live.get('physical_end_seconds',live.get('end_seconds',live_start)))
+                        global_live_conflicts=[x for x in card_motion_conflicts(active,live_start,live_end,fps) if str(live.get('event_id')) in (str(x.get('event_a')),str(x.get('event_b')))]
+                        if trigger_pair not in after_pairs and len(after_pairs)<len(before_pairs) and not global_live_conflicts:
+                            stats['handoffs_committed']+=1
+                            stats['repairs'].append({'visual_card_id':cid,'scene_id':str(outgoing.get('scene_id')),'incoming_scene_id':str(live.get('scene_id')),'trigger_conflict':dict(row),'event_ids':[str(live.get('event_id'))],'authority':'FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH','geometry_mode':'READABLE_SHARED_NEGATIVE_SPACE_SLOT'})
+                            committed=True
+                            break
+                    if committed:break
+                    live.clear();live.update(state_snap)
 
                 for delay_frames in range(0,max_sync_frames+1):
                     stats['candidate_schedules_evaluated']+=1
@@ -1619,6 +1657,33 @@ def _reconcile_final_partition_handoffs(events:list[dict], cards:dict, fps:float
                     break
                 _restore(members,outgoing_snap)
                 _restore(incoming_members,incoming_snap)
+                # If the overlap occurs while the successor is only beginning
+                # to appear, retiring the source would violate readable-successor
+                # authority. Keep the incoming root at its already certified base
+                # slot for the shared relationship state; later solo/focus states
+                # retain their authored destinations. Accept only when exact card
+                # QA proves the conflict set strictly decreases.
+                if len(incoming_members)==1 and str(incoming.get('render_mode') or 'ROOT_ATOMIC')=='ROOT_ATOMIC':
+                    live=incoming_members[0];t=float(row.get('time_seconds',0.0));base_center=list(live.get('card_rest_position_norm') or [])
+                    state_snap=copy.deepcopy(live)
+                    active_states=[]
+                    for container in ('composition_states','composition_participant_states'):
+                        ordered=sorted(live.get(container) or [],key=lambda state:float(state.get('start_seconds',0.0)))
+                        active_state=next((state for state in reversed(ordered) if float(state.get('start_seconds',0.0))<=t+1e-6),None)
+                        if active_state is not None:active_states.append(active_state)
+                    if len(base_center)>=2 and active_states:
+                        for state in active_states:
+                            state['center_norm']=[float(base_center[0]),float(base_center[1])]
+                            state['cross_scene_shared_phase_geometry_authority']='FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+                        after_rows=card_motion_conflicts(local,float(card.get('start_seconds',0.0)),float(card.get('end_seconds',0.0)),fps)
+                        after_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b'))))) for x in after_rows}
+                        global_after_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b'))))) for x in card_motion_conflicts(active,global_start,global_end,fps)}
+                        if trigger_pair not in after_pairs and len(after_pairs)<len(before_pairs) and not (global_after_pairs-global_before_pairs):
+                            stats['handoffs_committed']+=1
+                            stats['repairs'].append({'visual_card_id':cid,'scene_id':str(outgoing.get('scene_id')),'incoming_scene_id':str(live.get('scene_id')),'trigger_conflict':dict(row),'event_ids':[str(live.get('event_id'))],'authority':'FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH','geometry_mode':'INCOMING_BASE_SLOT_UNTIL_READABLE_HANDOFF'})
+                            committed=True
+                            break
+                    live.clear();live.update(state_snap)
                 stats['handoffs_rejected']+=1
             if committed:
                 break

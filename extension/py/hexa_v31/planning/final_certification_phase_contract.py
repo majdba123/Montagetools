@@ -65,6 +65,57 @@ def _restore_many(events: list[dict], snapshots: dict[str, dict]) -> list[str]:
     return restored
 
 
+def _clamp_movable_phase_states_to_safe_frame(events: list[dict]) -> list[str]:
+    """Keep phase destinations legal after late footprint/scale finalizers.
+
+    Late reference passes may change an independent root's effective footprint
+    after phase geometry was solved. Re-center only movable ROOT_ATOMIC phase
+    states by the minimum delta; protected partition/residual geometry is never
+    touched and scale/semantic timing remain unchanged.
+    """
+    from hexa_v31.layout.composition_solver import SAFE_X, SAFE_Y, _fp, _rect
+    from hexa_v31.composition_qa import _state
+
+    changed=[]
+    for event in events:
+        protected=(str(event.get('render_mode') or 'ROOT_ATOMIC') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} or bool(event.get('partition_group_id')))
+        fp=_fp(event);base_scale=float(event.get('layout_scale_multiplier') or 1.0)
+        for container in ('composition_states','composition_participant_states'):
+            for state in event.get(container) or []:
+                if state.get('state_reason')!='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY':continue
+                center=list(state.get('center_norm') or event.get('card_rest_position_norm') or [.5,.5])
+                if len(center)<2:continue
+                if protected:
+                    destination=[round(float(x),6) for x in (event.get('card_rest_position_norm') or center)]
+                    if destination!=list(center) or abs(float(state.get('scale_multiplier') or 1.0)-1.0)>1e-9:
+                        state['center_norm']=destination
+                        state['scale_multiplier']=1.0
+                        state['protected_geometry_restored']='P1_PARTITION_BASE_GEOMETRY'
+                        changed.append(str(event.get('event_id')))
+                    continue
+                state_scale=float(state.get('scale_multiplier') or 1.0)
+                planned=list(event.get('planned_rect_norm') or [])
+                if len(planned)==4:
+                    width=float(planned[2])*state_scale;height=float(planned[3])*state_scale
+                    rect=(float(center[0])-width/2,float(center[1])-height/2,width,height)
+                else:
+                    sample=float(state.get('start_seconds') or 0.0)+float(state.get('transition_duration_seconds') or 0.0)+1e-4
+                    actual=_state(event,sample)
+                    rect=(actual[3] if actual is not None else
+                          _rect((float(center[0]),float(center[1])),fp,base_scale*state_scale))
+                cx=float(center[0]);cy=float(center[1])
+                if rect[0]<SAFE_X[0]:cx+=SAFE_X[0]-rect[0]
+                if rect[0]+rect[2]>SAFE_X[1]:cx-=rect[0]+rect[2]-SAFE_X[1]
+                if rect[1]<SAFE_Y[0]:cy+=SAFE_Y[0]-rect[1]
+                if rect[1]+rect[3]>SAFE_Y[1]:cy-=rect[1]+rect[3]-SAFE_Y[1]
+                destination=[round(cx,6),round(cy,6)]
+                if destination!=list(center):
+                    state['center_norm']=destination
+                    state['late_footprint_safe_frame_recenter']='MINIMUM_PHASE_DESTINATION_DELTA'
+                    changed.append(str(event.get('event_id')))
+    return sorted(set(changed))
+
+
 def _serialized_state(state: dict) -> dict:
     return {
         key: state.get(key)
@@ -207,6 +258,8 @@ def install(planner_module) -> None:
         if not phase_owned:
             return base_final_certification(events, cards, fps)
 
+        recentered=_clamp_movable_phase_states_to_safe_frame(phase_owned)
+
         # Cross-card placement is a legitimate late geometry authority. Apply it
         # before the rollback baseline so restoring phase-owned geometry never
         # discards a required cross-card placement correction.
@@ -222,6 +275,7 @@ def install(planner_module) -> None:
             from hexa_v31.composition_solver import certify_cross_card_placements
 
             cross_card_placement = certify_cross_card_placements(events, cards, fps)
+            recentered=sorted(set(recentered+_clamp_movable_phase_states_to_safe_frame(phase_owned)))
 
         baseline = {
             str(event.get('event_id')): _snapshot(event)
@@ -282,6 +336,7 @@ def install(planner_module) -> None:
                     'restored_event_count': len(restored),
                     'authority': 'CANONICAL_PHASE_DESTINATION_QA_FAIL_CLOSED',
                 },
+                'late_phase_safe_frame_recentered_event_ids': recentered,
             }
 
         # Restoration did not certify the plan. If the legacy repair itself was

@@ -468,7 +468,12 @@ def certify_cross_card_placements(events,cards,fps,_allow_companion_repair=True)
                 fp=_fp(event);old_center=list(event.get('card_rest_position_norm') or [.5,.5])
                 old_scale=float(event.get('layout_scale_multiplier') or 1)
                 arch=str(grammar.get(str(event.get('visual_card_id')),{}).get('archetype') or 'SINGLE_FOCUS')
-                centers=[tuple(old_center),*_adaptive_slots(arch,str(event.get('composition_role') or 'LEAD'),fp)]
+                micro_offsets=[
+                    (float(old_center[0])+dx,float(old_center[1])+dy)
+                    for radius in (.01,.02,.035)
+                    for dx,dy in ((-radius,0),(radius,0),(0,-radius),(0,radius))
+                ]
+                centers=[tuple(old_center),*_adaptive_slots(arch,str(event.get('composition_role') or 'LEAD'),fp),*micro_offsets]
                 centers=sorted(set(centers),key=lambda c:(math.dist(c,old_center),c))
                 scales=[s for s in _scale_candidates(fp,fp.primary) if s<old_scale-1e-6] if allow_shrink else [old_scale]
                 st=float(event.get('physical_start_seconds',event.get('start_seconds',0)))
@@ -505,6 +510,74 @@ def certify_cross_card_placements(events,cards,fps,_allow_companion_repair=True)
             if repaired:break
         if not repaired:break
     remaining=conflicts()
+    if remaining:
+        # A late phase-state transition can create a marginal cross-card overlap
+        # even when both base placements are certified. Search a bounded local
+        # delta on only the active movable state before sacrificing actor scale.
+        for conflict in list(remaining):
+            t=float(conflict.get('time_seconds',0.0))
+            for event_id in (conflict.get('event_b'),conflict.get('event_a')):
+                event=byid.get(str(event_id))
+                if not event or str(event.get('render_mode') or 'ROOT_ATOMIC')!='ROOT_ATOMIC' or event.get('partition_group_id'):continue
+                st=float(event.get('physical_start_seconds',event.get('start_seconds',0)));en=float(event.get('physical_end_seconds',event.get('end_seconds',0)))
+                neighbors=[e for e in active if e is not event and float(e.get('physical_start_seconds',e.get('start_seconds',0)))<en and float(e.get('physical_end_seconds',e.get('end_seconds',0)))>st]
+                for container in ('composition_states','composition_participant_states'):
+                    ordered=sorted(event.get(container) or [],key=lambda state:float(state.get('start_seconds',0.0)))
+                    index=next((i for i in range(len(ordered)-1,-1,-1) if float(ordered[i].get('start_seconds',0.0))<=t+1e-6),None)
+                    if index is None:continue
+                    deltas=[(dx,dy) for radius in (.005,.01,.02,.035,.05) for dx,dy in ((-radius,0),(radius,0),(0,-radius),(0,radius))]
+                    origin=ordered[index].get('center_norm') or event.get('card_rest_position_norm') or [.5,.5]
+                    deltas.extend((x-float(origin[0]),y-float(origin[1])) for y in (.20,.52,.80) for x in (.18,.38,.62,.82))
+                    for dx,dy in deltas:
+                        for factor in (1.0,.9,.8,.7,.6):
+                            trial=copy.deepcopy(event);trial_states=trial.get(container) or []
+                            target=next((state for state in trial_states if str(state.get('state_id'))==str(ordered[index].get('state_id'))),None)
+                            if target is None:continue
+                            center=target.get('center_norm') or trial.get('card_rest_position_norm') or [.5,.5]
+                            target['center_norm']=[float(center[0])+dx,float(center[1])+dy]
+                            target['scale_multiplier']=round(float(target.get('scale_multiplier') or 1.0)*factor,6)
+                            target['final_cross_card_phase_delta']=[dx,dy]
+                            target['final_cross_card_phase_scale_factor']=factor
+                            if not viewport_clipping_qa([trial],fps)['pass']:continue
+                            rows=card_motion_conflicts([trial,*neighbors],st,en,fps)
+                            if any(str(event_id) in (row.get('event_a'),row.get('event_b')) for row in rows):continue
+                            event.clear();event.update(trial)
+                            repairs.append({'event_id':str(event_id),'state_id':target.get('state_id'),'delta':[dx,dy],'authority':'FINAL_OVERLAPPING_CARD_PHASE_STATE_PLACEMENT'})
+                            break
+                        else:continue
+                        break
+                    else:continue
+                    break
+                remaining=conflicts()
+                if not remaining:break
+            if not remaining:break
+    if remaining:
+        # Static placement can be geometrically exhausted for two large roots.
+        # The stronger final authority may retire only the ordered outgoing root,
+        # and only one frame before the incoming root is actually readable.
+        from hexa_v31.composition_qa import _state
+        step=1.0/max(1.0,float(fps))
+        for conflict in list(remaining):
+            pair=[byid.get(str(conflict.get('event_a'))),byid.get(str(conflict.get('event_b')))]
+            if any(e is None or str(e.get('render_mode') or 'ROOT_ATOMIC')!='ROOT_ATOMIC' or e.get('partition_group_id') for e in pair):continue
+            pair.sort(key=lambda e:float(e.get('source_scene_start_seconds',e.get('physical_start_seconds',0))))
+            outgoing,incoming=pair
+            readable=None;first=int(float(incoming.get('physical_start_seconds',incoming.get('start_seconds',0)))*fps);last=int(float(incoming.get('physical_end_seconds',incoming.get('end_seconds',0)))*fps)+1
+            for frame in range(first,last+1):
+                state=_state(incoming,frame/fps)
+                if state and float(state[2])>.22:readable=frame/fps;break
+            if readable is None:continue
+            new_end=readable-step;start=float(outgoing.get('physical_start_seconds',outgoing.get('start_seconds',0)));anchor=float(outgoing.get('perceptual_hit_seconds',start))
+            if new_end<=max(start,anchor)+step:continue
+            trial=copy.deepcopy(outgoing);trial['end_seconds']=round(new_end,6);trial['physical_end_seconds']=round(new_end,6);trial['visibility_interval_seconds']=[start,round(new_end,6)]
+            exit_row=trial.get('preset_exit')
+            if exit_row:
+                dd=float(exit_row.get('duration_seconds') or .6);exit_row['start_seconds']=round(max(start,new_end-dd*.6),6);exit_row['authority']='FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+            trial['preset_actions']=[];trial['motion_end_seconds']=round(min(float(trial.get('motion_end_seconds',new_end)),new_end),6);trial['final_cross_source_handoff_authority']='FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+            rows=card_motion_conflicts([trial,*[e for e in active if e is not outgoing]],0,end,fps)
+            if any(str(outgoing.get('event_id')) in (row.get('event_a'),row.get('event_b')) for row in rows):continue
+            outgoing.clear();outgoing.update(trial);repairs.append({'event_id':outgoing.get('event_id'),'new_physical_end_seconds':round(new_end,6),'incoming_event_id':incoming.get('event_id'),'authority':'FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'});remaining=conflicts()
+            if not remaining:break
     if remaining and _allow_companion_repair:
         # A newly enlarged focal can pin its companion between itself and the
         # preceding card. Repair that coupled placement, not the lifetimes: try
