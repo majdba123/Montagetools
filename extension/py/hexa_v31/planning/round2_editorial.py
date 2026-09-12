@@ -36,6 +36,7 @@ def install(impl) -> None:
     base_history_variant = impl._apply_composition_history_variant
     base_optical_scale = impl._optical_scale_optimize
     base_adaptive_composition = impl._adaptive_composition_state_optimize
+    base_recover_trajectory = impl._recover_trajectory_conflicts
     base_schedule = impl._schedule_event
 
     def apply_composition_history_variant(layout, grammar, history):
@@ -186,6 +187,80 @@ def install(impl) -> None:
         result['phase_owned_geometry_authority'] = 'SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2'
         return result
 
+    def recover_trajectory_conflicts(card, events, phase_plan, resolutions, fps):
+        """Use a semantic cut when safe phase destinations have no safe swept path.
+
+        The base recovery first removes optional relationship travel, rolls back
+        expansion, and recompiles involved actors with static preset families. If the
+        only remaining conflict is interpolation between already-certified phase
+        destinations, preserving that interpolation would contradict the physical hard
+        gate. Keep the destinations and switch only their transition to a cut/recompose.
+        This does not shorten source lifetime or weaken collision QA.
+        """
+        try:
+            return base_recover_trajectory(card, events, phase_plan, resolutions, fps)
+        except ValueError as exc:
+            if 'NO_COLLISION_FREE_SPATIOTEMPORAL_PLAN after preset-safe recovery' not in str(exc):
+                raise
+
+            conflicts = impl.card_motion_conflicts(
+                events,
+                float(card.get('start_seconds', 0.0)),
+                float(card.get('end_seconds', 0.0)),
+                fps,
+            )
+            involved = {
+                str(event_id)
+                for row in conflicts
+                for event_id in (row.get('event_a'), row.get('event_b'))
+                if event_id is not None
+            }
+            changed = 0
+            for event in events:
+                if str(event.get('event_id')) not in involved:
+                    continue
+                for container in ('composition_states', 'composition_participant_states'):
+                    for state in event.get(container) or []:
+                        state_id = str(state.get('state_id') or '')
+                        semantic_beat = str(state.get('semantic_beat') or '')
+                        phase_owned_state = (
+                            state.get('state_reason') == 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY'
+                            or state_id.endswith('::EDITORIAL_GEOMETRY')
+                            or state_id.endswith('::HANDOFF_GEOMETRY')
+                            or semantic_beat == 'HANDOFF_GEOMETRY'
+                        )
+                        if not phase_owned_state:
+                            continue
+                        duration = max(0.0, float(state.get('transition_duration_seconds') or 0.0))
+                        if duration <= 1e-9:
+                            continue
+                        state['transition_duration_seconds'] = 0.0
+                        state['trajectory_fallback'] = 'SEMANTIC_CUT_RECOMPOSE'
+                        state['trajectory_fallback_reason'] = 'NO_COLLISION_FREE_SWEPT_PHASE_PATH'
+                        changed += 1
+
+            if not changed:
+                raise
+
+            remaining = impl.card_motion_conflicts(
+                events,
+                float(card.get('start_seconds', 0.0)),
+                float(card.get('end_seconds', 0.0)),
+                fps,
+            )
+            if remaining:
+                raise
+
+            card['trajectory_recovery'] = 'PRESET_SAFE_TEMPORAL_HANDOFF_OR_SEMANTIC_CUT_RECOMPOSE'
+            card['semantic_cut_recompose_count'] = changed
+            for resolution in resolutions:
+                source = str(resolution.get('source_scope_id') or resolution.get('source') or '')
+                if source in involved and resolution.get('mode') == 'WITHIN_FRAME_PRESET':
+                    resolution['mode'] = 'TEMPORAL_HANDOFF'
+                    resolution['reason'] = 'ANIMATED_TRAJECTORY_COLLISION_RECOVERY'
+                    resolution.pop('preset', None)
+            return resolutions
+
     def _phase_state_for_start(event, phase_start):
         states = list(event.get('composition_states') or []) + list(event.get('composition_participant_states') or [])
         states = [s for s in states if s.get('state_reason') == 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY']
@@ -230,5 +305,6 @@ def install(impl) -> None:
     impl._commit_editorial_phase_geometry = commit_editorial_phase_geometry
     impl._optical_scale_optimize = optical_scale_optimize
     impl._adaptive_composition_state_optimize = adaptive_composition_state_optimize
+    impl._recover_trajectory_conflicts = recover_trajectory_conflicts
     impl._schedule_event = schedule_event
     impl._round2_editorial_installed = True
