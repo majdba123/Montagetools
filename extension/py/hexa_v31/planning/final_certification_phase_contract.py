@@ -14,6 +14,7 @@ cross-card geometry authority is never discarded.
 from __future__ import annotations
 
 import copy
+import json
 
 _GEOMETRY_KEYS = (
     'card_rest_position_norm',
@@ -62,6 +63,71 @@ def _restore_many(events: list[dict], snapshots: dict[str, dict]) -> list[str]:
         if snapshot is not None and _restore(event, snapshot):
             restored.append(event_id)
     return restored
+
+
+def _failure_diagnostic(events: list[dict], cards: dict, failures: list[str]) -> str:
+    """Emit one bounded generic phase snapshot for actionable CI failures."""
+    if not failures:
+        return '{}'
+    first = str(failures[0])
+    card_id = first.split('/', 1)[0] if '/' in first else ''
+    phase_id = ''
+    if '/' in first:
+        phase_id = first.split('/', 1)[1].split(':', 1)[0]
+    card = next((row for row in (cards.get('cards') or []) if str(row.get('card_id')) == card_id), None)
+    phase = next(
+        (
+            row for row in ((card or {}).get('story_phase_plan') or {}).get('phases') or []
+            if str(row.get('phase_id')) == phase_id
+        ),
+        None,
+    )
+    member_ids = {str(event_id) for event_id in ((phase or {}).get('event_ids') or [])}
+    rows = []
+    for event in events:
+        event_id = str(event.get('event_id'))
+        if member_ids and event_id not in member_ids:
+            continue
+        if not member_ids and str(event.get('visual_card_id')) != card_id:
+            continue
+        rows.append({
+            'event_id': event_id,
+            'scene_id': event.get('scene_id'),
+            'attention_priority': event.get('attention_priority'),
+            'base_center': event.get('card_rest_position_norm'),
+            'base_scale': event.get('layout_scale_multiplier'),
+            'planned_rect': event.get('planned_rect_norm'),
+            'start_seconds': event.get('start_seconds'),
+            'end_seconds': event.get('end_seconds'),
+            'physical_start_seconds': event.get('physical_start_seconds'),
+            'physical_end_seconds': event.get('physical_end_seconds'),
+            'preset_entry': event.get('preset_entry'),
+            'preset_exit': event.get('preset_exit'),
+            'phase_states': [
+                {
+                    'state_id': state.get('state_id'),
+                    'start_seconds': state.get('start_seconds'),
+                    'transition_duration_seconds': state.get('transition_duration_seconds'),
+                    'center_norm': state.get('center_norm'),
+                    'scale_multiplier': state.get('scale_multiplier'),
+                    'visibility': state.get('visibility'),
+                    'state_reason': state.get('state_reason'),
+                    'semantic_beat': state.get('semantic_beat'),
+                }
+                for state in (
+                    list(event.get('composition_states') or [])
+                    + list(event.get('composition_participant_states') or [])
+                )
+                if state.get('state_reason') == 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY'
+            ],
+        })
+    return json.dumps({
+        'failure': first,
+        'card_id': card_id,
+        'phase_id': phase_id,
+        'phase': phase,
+        'events': rows[:8],
+    }, sort_keys=True, separators=(',', ':'))
 
 
 def install(planner_module) -> None:
@@ -160,12 +226,22 @@ def install(planner_module) -> None:
             return base_result
 
         # Neither state is certifiable. Leave the safer phase-owned baseline in
-        # place and propagate the original hard failure.
+        # place and include one bounded state snapshot so CI identifies the true
+        # geometry/timing authority instead of requiring another blind patch.
+        diagnostic = _failure_diagnostic(events, cards, restored_qa.get('failures') or [])
         if base_error is not None:
-            raise base_error
+            raise ValueError(
+                str(base_error)
+                + ' | RESTORED_PHASE_QA='
+                + ' | '.join(restored_qa.get('failures') or [])[:1200]
+                + ' | PHASE_STATE_DIAGNOSTIC='
+                + diagnostic[:6000]
+            ) from base_error
         raise ValueError(
             'FINAL_PHYSICAL_CERTIFICATION_FAILED_AFTER_PHASE_GEOMETRY_ROLLBACK: '
-            + ' | '.join(restored_qa.get('failures') or [])[:2000]
+            + ' | '.join(restored_qa.get('failures') or [])[:1600]
+            + ' | PHASE_STATE_DIAGNOSTIC='
+            + diagnostic[:6000]
         )
 
     final_physical_certification.__name__ = base_final_certification.__name__
