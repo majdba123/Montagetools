@@ -8,8 +8,13 @@ def _build_final_motion_plan(*args, **kwargs):
     # without eager package imports or circular initialization.
     from hexa_v31.planning import preset_story_planner as _preset_story_planner
     from hexa_v31.planning.round2_editorial import install as _install_round2_editorial
+    from hexa_v31.planning.phase_optimizer_contract import install as _install_phase_optimizer_contract
     from hexa_v31.planning.final_certification_phase_contract import install as _install_final_certification_phase_contract
     _install_round2_editorial(_preset_story_planner)
+    # Round 2 owns the phase-authoring implementation. Install the compatibility
+    # guard after it so every shipping caller protects that final phase authority
+    # from legacy late optimizers before the final hard certification wrapper runs.
+    _install_phase_optimizer_contract(_preset_story_planner)
     _install_final_certification_phase_contract(_preset_story_planner)
 
     from hexa_v31.interaction.director import build_interaction_motion_plan, finalize_interaction_motion_plan
