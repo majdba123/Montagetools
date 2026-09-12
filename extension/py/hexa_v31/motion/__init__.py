@@ -2,6 +2,14 @@
 
 
 def _build_final_motion_plan(*args, **kwargs):
+    # Shipping motion imports the planning implementation directly through the
+    # interaction director. Install editorial planner corrections before loading
+    # that graph so production, preview and tests execute the same phase geometry
+    # without eager package imports or circular initialization.
+    from hexa_v31.planning import preset_story_planner as _preset_story_planner
+    from hexa_v31.planning.round2_editorial import install as _install_round2_editorial
+    _install_round2_editorial(_preset_story_planner)
+
     from hexa_v31.interaction.director import build_interaction_motion_plan, finalize_interaction_motion_plan
     from hexa_v31.layout.source_integrity_finalizer import finalize_residual_source_integrity
     from hexa_v31.layout.reference_quality_finalizer import finalize_reference_density_topology
