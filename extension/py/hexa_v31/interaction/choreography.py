@@ -86,6 +86,36 @@ def _aligned_entry_manifestation(event:dict,intent:dict,phase:str,fps:float,anch
     row['semantic_anchor_match']=bool(abs(impact-intent_hit)<=max(tolerance,.35)+1e-6)
     return row
 
+def _carrier_onset_reaction_manifestation(event:dict,intent:dict,fps:float,not_before:float):
+    """Adopt an in-place reaction at its canonical carrier onset when pre-roll is illegal.
+
+    Progressive phase topology may intentionally start the reaction carrier at the
+    semantic reaction phase.  In that state there is no legal source lifetime in which
+    to pre-roll an appearance so its 70% perceptual point lands on the phase boundary.
+    If the existing non-translating appearance itself begins at that semantic boundary,
+    it is the authoritative reaction onset.  We adopt it unchanged rather than extending
+    source lifetime backwards or inventing translation.  Causal ordering is still gated
+    by ``not_before`` and the normal interaction QA frame gap.
+    """
+    row=_entry_manifestation(event,'REACTION')
+    if not row:return None
+    if str(intent.get('semantic_action') or '')!='REACT' or str(intent.get('causal_direction') or '')!='OBJECT_CAUSES_SUBJECT_REACTION':return None
+    if str(row.get('perceptual_hit_source') or '').upper()!='SOURCE_INTERVAL_FALLBACK':return None
+    if 'TRANSLATE' in set(row.get('required_operations') or []):return None
+    st=float(row['start_seconds']);en=float(row['end_seconds']);semantic_hit=float(intent.get('semantic_hit_seconds',st));frame=1.0/max(1.0,fps)
+    physical_start=float(event.get('physical_start_seconds',event.get('start_seconds',st)));physical_end=float(event.get('physical_end_seconds',event.get('end_seconds',en)))
+    # This fallback is intentionally narrow: the entry and the carrier must share
+    # the semantic phase boundary, otherwise normal semantic alignment/retiming owns it.
+    if abs(st-physical_start)>1e-6:return None
+    if abs(st-semantic_hit)>max(frame,.06)+1e-6:return None
+    if st<float(not_before)-1e-6 or en>physical_end+1e-6:return None
+    px=event.get('preset_exit') or {}
+    if px and en>float(px.get('start_seconds',physical_end))+1e-6:return None
+    for action in event.get('preset_actions') or []:
+        if float(action.get('start_seconds',physical_end))<en-1e-6:return None
+    adopted=dict(row);adopted.update({'semantic_anchor_match':True,'semantic_anchor_basis':'PHYSICAL_CARRIER_ONSET','carrier_onset_reaction':True,'authority':'CANONICAL_PHASE_CARRIER_ONSET_REACTION','key':'|'.join((str(event.get('event_id')),str(row['preset']),f'{st:.6f}','REACTION_CARRIER_ONSET'))})
+    return adopted
+
 def _retime_fallback_reaction_entry(event:dict,intent:dict,fps:float,not_before:float):
     row=_entry_manifestation(event,'REACTION')
     if not row:return None
@@ -156,7 +186,9 @@ def _fixed_or_retimed_pair_from_entries(cause,reaction,intent,fps):
     action=_aligned_entry_manifestation(cause,intent,'ACTION',fps,anchor_to_intent=cause_is_subject)
     reply=_aligned_entry_manifestation(reaction,intent,'REACTION',fps,anchor_to_intent=reaction_is_subject)
     if action and not reply and reaction_is_subject:
-        reply=_retime_fallback_reaction_entry(reaction,intent,fps,float(action['end_seconds'])+frame)
+        not_before=float(action['end_seconds'])+frame
+        reply=_retime_fallback_reaction_entry(reaction,intent,fps,not_before)
+        if not reply:reply=_carrier_onset_reaction_manifestation(reaction,intent,fps,not_before)
     if not action or not reply:return None
     if float(reply['start_seconds'])>=float(action['end_seconds'])+frame-1e-6:return action,reply
     # If both entries are already semantic-aligned but simultaneous, only REACT
@@ -183,7 +215,9 @@ def build_choreography_candidate(intent:dict,event_by_id:dict[str,dict],fps:floa
         if fixed:
             retimed=sum(bool(x.get('retime_existing_entry')) for x in fixed)
             promoted=sum(str(x.get('retime_reason') or '')=='REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT' for x in fixed)
-            return {'mode':'RETIMED_EXISTING_PAIR' if retimed else 'FIXED_EXISTING_PAIR','reason':None,'template':'REACT_SOURCE_INTERVAL_SEMANTIC_PROMOTION' if promoted else ('REACT_CAUSAL_PRE_ROLL_EXISTING_APPEARANCE' if retimed else 'SEMANTICALLY_ALIGNED_CAPABILITY_SAFE_ENTRY_PAIR'),'adopted_actions':list(fixed),'steps':[],'retimed_existing_motion_count':retimed,'semantic_promoted_reaction_count':promoted,'cause_translation_safe':_safe_translation(cause),'reaction_translation_safe':_safe_translation(reaction),**direction}
+            carrier_onset=sum(bool(x.get('carrier_onset_reaction')) for x in fixed)
+            template='REACT_PHASE_CARRIER_ONSET_EXISTING_APPEARANCE' if carrier_onset else ('REACT_SOURCE_INTERVAL_SEMANTIC_PROMOTION' if promoted else ('REACT_CAUSAL_PRE_ROLL_EXISTING_APPEARANCE' if retimed else 'SEMANTICALLY_ALIGNED_CAPABILITY_SAFE_ENTRY_PAIR'))
+            return {'mode':'RETIMED_EXISTING_PAIR' if retimed else 'FIXED_EXISTING_PAIR','reason':None,'template':template,'adopted_actions':list(fixed),'steps':[],'retimed_existing_motion_count':retimed,'semantic_promoted_reaction_count':promoted,'carrier_onset_reaction_count':carrier_onset,'cause_translation_safe':_safe_translation(cause),'reaction_translation_safe':_safe_translation(reaction),**direction}
         authored=_matching_existing_relationship_action(cause,intent,reaction);cause_anchor=str(cause.get('event_id'))==str(intent.get('subject_event_id'));adopted=authored or _aligned_entry_manifestation(cause,intent,'ACTION',fps,anchor_to_intent=cause_anchor)
         if adopted:
             cause_end=float(adopted['end_seconds']);source_end=_apply_preset_endpoint(_point_through(cause,float(adopted['start_seconds'])-1e-6),str(adopted['preset']));reaction_cutoff=max(cause_end,float(reaction.get('settle_seconds',reaction.get('start_seconds',0.0))));reaction_point=_point_through(reaction,reaction_cutoff);reaction_state=_state(reaction_point);reply=_reaction_step(reaction,reaction_state,source_end,cause_end+1.0/max(1.0,fps))
