@@ -15,6 +15,7 @@ and viewport clipping.
 from __future__ import annotations
 
 import copy
+import json
 
 _GEOMETRY_KEYS = (
     'card_rest_position_norm',
@@ -55,6 +56,50 @@ def _restore(event: dict, snapshot: dict) -> bool:
         else:
             event.pop(key, None)
     return changed
+
+
+def _failure_diagnostic(events, cards, fps, restored):
+    """Small deterministic geometry receipt emitted only on hard certification failure."""
+    from hexa_v31.composition_qa import _phase_settled_rect, composition_plan_qa
+
+    qa = composition_plan_qa({'events': events, 'visual_cards': cards, 'fps': fps})
+    by_id = {str(event.get('event_id')): event for event in events}
+    details = []
+    for card in cards.get('cards') or []:
+        for phase in (card.get('story_phase_plan') or {}).get('phases') or []:
+            for raw_id in phase.get('event_ids') or []:
+                event_id = str(raw_id)
+                event = by_id.get(event_id)
+                if event is None or not _phase_owned(event):
+                    continue
+                rect, visibility = _phase_settled_rect(event, phase)
+                if visibility <= 0.05:
+                    continue
+                details.append({
+                    'card_id': str(card.get('card_id')),
+                    'phase_id': str(phase.get('phase_id')),
+                    'event_id': event_id,
+                    'focus_event_id': str(phase.get('focus_event_id') or ''),
+                    'base_center': event.get('card_rest_position_norm'),
+                    'base_scale': event.get('layout_scale_multiplier'),
+                    'settled_rect': [round(float(value), 6) for value in rect],
+                    'visibility': round(float(visibility), 6),
+                    'entry': event.get('preset_entry'),
+                    'actions': event.get('preset_actions'),
+                    'ordinary_states': event.get('composition_states'),
+                    'participant_states': event.get('composition_participant_states'),
+                })
+                if len(details) >= 12:
+                    break
+            if len(details) >= 12:
+                break
+        if len(details) >= 12:
+            break
+    return {
+        'qa_failures': (qa.get('failures') or [])[:8],
+        'restored_event_ids': sorted(restored),
+        'phase_samples': details,
+    }
 
 
 def install(planner_module) -> None:
@@ -102,11 +147,6 @@ def install(planner_module) -> None:
                 if _restore(event, snapshots[event_id]):
                     restored.append(event_id)
 
-            # If legacy certification did not mutate phase-owned base geometry,
-            # the failure is genuine and must remain a hard failure.
-            if not restored:
-                raise
-
             from hexa_v31.composition_qa import composition_plan_qa
 
             after = composition_plan_qa({
@@ -114,28 +154,32 @@ def install(planner_module) -> None:
                 'visual_cards': cards,
                 'fps': fps,
             })
-            if not after.get('pass'):
-                raise
+            if restored and after.get('pass'):
+                return {
+                    'pass': True,
+                    'repair_passes': 1,
+                    'before': {
+                        'pass': False,
+                        'failures': [str(exc)],
+                        'authority': 'LEGACY_CARD_WIDE_REPAIR_REJECTED_FOR_PHASE_OWNED_GEOMETRY',
+                    },
+                    'after': after,
+                    'repairs': [{
+                        'type': 'RESTORE_CERTIFIED_PHASE_OWNED_BASE_GEOMETRY',
+                        'event_ids': sorted(restored),
+                    }],
+                    'cross_card_placement': cross_card_placement,
+                    'phase_owned_geometry_rollback': {
+                        'restored_event_count': len(restored),
+                        'authority': 'CANONICAL_PHASE_DESTINATION_QA_FAIL_CLOSED',
+                    },
+                }
 
-            return {
-                'pass': True,
-                'repair_passes': 1,
-                'before': {
-                    'pass': False,
-                    'failures': [str(exc)],
-                    'authority': 'LEGACY_CARD_WIDE_REPAIR_REJECTED_FOR_PHASE_OWNED_GEOMETRY',
-                },
-                'after': after,
-                'repairs': [{
-                    'type': 'RESTORE_CERTIFIED_PHASE_OWNED_BASE_GEOMETRY',
-                    'event_ids': sorted(restored),
-                }],
-                'cross_card_placement': cross_card_placement,
-                'phase_owned_geometry_rollback': {
-                    'restored_event_count': len(restored),
-                    'authority': 'CANONICAL_PHASE_DESTINATION_QA_FAIL_CLOSED',
-                },
-            }
+            diagnostic = _failure_diagnostic(events, cards, fps, restored)
+            raise ValueError(
+                str(exc) + ' | PHASE_GEOMETRY_DIAGNOSTIC=' +
+                json.dumps(diagnostic, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
+            ) from exc
 
     final_physical_certification.__name__ = base_final_certification.__name__
     final_physical_certification.__doc__ = base_final_certification.__doc__
