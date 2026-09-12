@@ -187,15 +187,80 @@ def install(impl) -> None:
         result['phase_owned_geometry_authority'] = 'SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2'
         return result
 
+    def _source_order(event):
+        return float(event.get(
+            'source_scene_start_seconds',
+            event.get(
+                'perceptual_hit_seconds',
+                event.get('physical_start_seconds', event.get('start_seconds', 0.0)),
+            ),
+        ))
+
+    def _deferable_cross_scene_conflicts(conflicts, events):
+        """Return True only for conflicts owned by the final source-handoff solver.
+
+        The early card planner cannot legally shorten source lifetimes. The final
+        lifetime compiler can, but only after the incoming source is actually readable.
+        Defer only ordered cross-scene pairs; same-scene collisions remain hard errors.
+        """
+        if not conflicts:
+            return False
+        by_id = {str(event.get('event_id')): event for event in events}
+        for row in conflicts:
+            a = by_id.get(str(row.get('event_a')))
+            b = by_id.get(str(row.get('event_b')))
+            if a is None or b is None:
+                return False
+            scene_a = str(a.get('scene_id') or '')
+            scene_b = str(b.get('scene_id') or '')
+            if not scene_a or not scene_b or scene_a == scene_b:
+                return False
+            if abs(_source_order(a) - _source_order(b)) <= 1e-6:
+                return False
+        return True
+
+    def _commit_cross_scene_deferral(card, events, conflicts, resolutions):
+        involved = {
+            str(event_id)
+            for row in conflicts
+            for event_id in (row.get('event_a'), row.get('event_b'))
+            if event_id is not None
+        }
+        for event in events:
+            if str(event.get('event_id')) in involved:
+                event['cross_scene_handoff_deferred'] = True
+                event['cross_scene_handoff_authority'] = 'FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+        card['trajectory_recovery'] = 'DEFERRED_TO_FINAL_CROSS_SCENE_HANDOFF_RECONCILER'
+        card['deferred_cross_scene_conflicts'] = [
+            {
+                'event_a': str(row.get('event_a')),
+                'event_b': str(row.get('event_b')),
+                'time_seconds': round(float(row.get('time_seconds', 0.0)), 6),
+                'overlap_ratio': row.get('overlap_ratio'),
+                'limit': row.get('limit'),
+            }
+            for row in conflicts[:16]
+        ]
+        for resolution in resolutions:
+            source = str(resolution.get('source_scope_id') or resolution.get('source') or '')
+            if source in involved and resolution.get('mode') == 'WITHIN_FRAME_PRESET':
+                resolution['mode'] = 'TEMPORAL_HANDOFF'
+                resolution['reason'] = 'DEFERRED_TO_FINAL_CROSS_SCENE_HANDOFF_RECONCILER'
+                resolution.pop('preset', None)
+        return resolutions
+
     def recover_trajectory_conflicts(card, events, phase_plan, resolutions, fps):
-        """Use a semantic cut when safe phase destinations have no safe swept path.
+        """Recover same-scene trajectories now; defer ordered source handoffs.
 
         The base recovery first removes optional relationship travel, rolls back
         expansion, and recompiles involved actors with static preset families. If the
         only remaining conflict is interpolation between already-certified phase
         destinations, preserving that interpolation would contradict the physical hard
-        gate. Keep the destinations and switch only their transition to a cut/recompose.
-        This does not shorten source lifetime or weaken collision QA.
+        gate, so the transition becomes a cut/recompose. Ordered conflicts between two
+        different source scenes are different: only the final lifetime compiler knows
+        when the incoming source is actually readable and is therefore authorized to
+        retire the outgoing source. Those conflicts are explicitly deferred to the
+        bounded final handoff search and are still required to pass final physical QA.
         """
         try:
             return base_recover_trajectory(card, events, phase_plan, resolutions, fps)
@@ -209,6 +274,13 @@ def install(impl) -> None:
                 float(card.get('end_seconds', 0.0)),
                 fps,
             )
+
+            # Cross-scene carrier overlap is intentionally owned by the final
+            # readable-successor handoff search. Do not corrupt safe phase geometry
+            # trying to solve a lifetime problem in the early trajectory layer.
+            if _deferable_cross_scene_conflicts(conflicts, events):
+                return _commit_cross_scene_deferral(card, events, conflicts, resolutions)
+
             involved = {
                 str(event_id)
                 for row in conflicts
@@ -249,6 +321,12 @@ def install(impl) -> None:
                 fps,
             )
             if remaining:
+                # A mixed card can have a real same-scene swept collision plus a
+                # separate cross-scene carrier overlap. After the semantic cut fixes
+                # the former, hand the latter to the final lifetime authority.
+                if _deferable_cross_scene_conflicts(remaining, events):
+                    card['semantic_cut_recompose_count'] = changed
+                    return _commit_cross_scene_deferral(card, events, remaining, resolutions)
                 raise
 
             card['trajectory_recovery'] = 'PRESET_SAFE_TEMPORAL_HANDOFF_OR_SEMANTIC_CUT_RECOMPOSE'
