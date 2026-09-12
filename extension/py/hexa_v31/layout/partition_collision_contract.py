@@ -3,11 +3,12 @@ from __future__ import annotations
 """Collision semantics for certified source partitions.
 
 A complete CHILD_PARTITION is one source-backed semantic composition slot even when
-Foundation exposes several independently renderable physical children. Bounding-box
-intersection between two children of that same certified partition is therefore an
-internal source-composite property, not a collision between independent composition
-slots. External actors, different partition roots, different source scenes and
-incomplete partitions remain under the unchanged hard collision thresholds.
+Foundation exposes several independently renderable physical children. Its settled
+children may therefore share bounding-box space without becoming independent layout
+collisions. Spatial entry/exit/recomposition trajectories remain fully collision-gated;
+only after recovery removes those trajectories may internal partition overlap be
+classified as source-composite geometry. External actors, different partition roots,
+different source scenes and incomplete partitions remain under unchanged hard gates.
 """
 
 
@@ -30,6 +31,50 @@ def same_certified_partition_slot(a: dict, b: dict) -> bool:
     return bool(root_a and root_a == root_b)
 
 
+def _has_spatial_trajectory(event: dict) -> bool:
+    """Return True while an actor still owns authored position travel.
+
+    Static scale/opacity reveals are deliberately excluded. Phase states with an
+    instantaneous zero-duration cut are also non-spatial for swept-collision purposes.
+    """
+    if bool(event.get('position_animated')):
+        return True
+    for preset in (event.get('preset_entry') or {}, event.get('preset_exit') or {}):
+        name = str(preset.get('name') or '').upper()
+        if name.startswith('ENTRY_') or name.startswith('EXIT_'):
+            return True
+    for action in event.get('preset_actions') or []:
+        name = str(action.get('name') or '').upper()
+        if name.startswith('WITHIN_'):
+            return True
+    for container in ('composition_states', 'composition_participant_states'):
+        states = sorted(
+            event.get(container) or [],
+            key=lambda state: (float(state.get('start_seconds', 0.0)), str(state.get('state_id') or '')),
+        )
+        prior_center = None
+        for state in states:
+            center = state.get('center_norm')
+            duration = max(0.0, float(state.get('transition_duration_seconds') or 0.0))
+            if bool(state.get('position_envelope')) and duration > 1e-9:
+                return True
+            if center is not None and len(center) >= 2:
+                current = (float(center[0]), float(center[1]))
+                if prior_center is not None and duration > 1e-9:
+                    if abs(current[0] - prior_center[0]) > 1e-6 or abs(current[1] - prior_center[1]) > 1e-6:
+                        return True
+                prior_center = current
+    return False
+
+
+def _static_internal_partition_pair(a: dict, b: dict) -> bool:
+    return (
+        same_certified_partition_slot(a, b)
+        and not _has_spatial_trajectory(a)
+        and not _has_spatial_trajectory(b)
+    )
+
+
 def install(qa_module) -> None:
     if getattr(qa_module, '_partition_collision_contract_installed', False):
         return
@@ -37,14 +82,14 @@ def install(qa_module) -> None:
     base_card_motion_conflicts = qa_module.card_motion_conflicts
 
     def card_motion_conflicts(events: list[dict], start_seconds: float, end_seconds: float, fps: float = 30.0) -> list[dict]:
-        """Keep hard collision QA between composition slots, not within one partition."""
+        """Keep trajectory collisions hard; exempt only recovered static siblings."""
         rows = base_card_motion_conflicts(events, start_seconds, end_seconds, fps)
         by_id = {str(event.get('event_id')): event for event in events}
         kept = []
         for row in rows:
             a = by_id.get(str(row.get('event_a')))
             b = by_id.get(str(row.get('event_b')))
-            if a is not None and b is not None and same_certified_partition_slot(a, b):
+            if a is not None and b is not None and _static_internal_partition_pair(a, b):
                 continue
             kept.append(row)
         return kept
@@ -89,6 +134,9 @@ def install(qa_module) -> None:
                 rects = qa_module._phase_common_settled_rects(rows, phase)
                 for index, (a, rect_a) in enumerate(rects):
                     for b, rect_b in rects[index + 1:]:
+                        # Settled siblings reconstruct one certified source slot. Swept
+                        # travel between their states is still handled below by the hard
+                        # trajectory gate, so this does not legalize spatial crossings.
                         if same_certified_partition_slot(a, b):
                             internal_partition_pairs += 1
                             continue
@@ -137,7 +185,7 @@ def install(qa_module) -> None:
             'visual_card_count': len(cards),
             'viewport_clipping_qa': viewport,
             'partition_internal_pair_count': internal_partition_pairs,
-            'partition_collision_authority': 'CERTIFIED_PARTITION_IS_ONE_SEMANTIC_COMPOSITION_SLOT',
+            'partition_collision_authority': 'CERTIFIED_PARTITION_IS_ONE_SEMANTIC_COMPOSITION_SLOT_AFTER_SPATIAL_RECOVERY',
             'authority': 'V31_PHASE_DESTINATION_COMPOSITION__COMMON_SETTLED_AND_MOTION_PATH_HARD_GATE',
         }
 
