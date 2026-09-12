@@ -7,15 +7,22 @@ def _build_final_motion_plan(*args, **kwargs):
     # that graph so production, preview and tests execute the same phase geometry
     # without eager package imports or circular initialization.
     from hexa_v31.planning import preset_story_planner as _preset_story_planner
+    from hexa_v31.motion import beat_choreography as _beat_choreography
     from hexa_v31.planning.round2_editorial import install as _install_round2_editorial
     from hexa_v31.planning.phase_optimizer_contract import install as _install_phase_optimizer_contract
     from hexa_v31.planning.final_certification_phase_contract import install as _install_final_certification_phase_contract
+    from hexa_v31.planning.phase_entry_contract import install as _install_phase_entry_contract
     _install_round2_editorial(_preset_story_planner)
     # Round 2 owns the phase-authoring implementation. Install the compatibility
     # guard after it so every shipping caller protects that final phase authority
     # from legacy late optimizers before the final hard certification wrapper runs.
     _install_phase_optimizer_contract(_preset_story_planner)
     _install_final_certification_phase_contract(_preset_story_planner)
+    # Beat choreography is a subordinate motion layer. Install the phase-aware
+    # entry contract before importing the interaction director so directional
+    # entry envelopes land on the certified semantic phase destination instead
+    # of restoring stale card-wide rest geometry.
+    _install_phase_entry_contract(_beat_choreography)
 
     from hexa_v31.interaction.director import build_interaction_motion_plan, finalize_interaction_motion_plan
     from hexa_v31.layout.source_integrity_finalizer import finalize_residual_source_integrity
