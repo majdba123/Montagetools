@@ -143,6 +143,21 @@ def _phase_settled_rect(e:dict, phase:dict):
     fp=_fp(e);scale=float(e.get('layout_scale_multiplier') or 1.0)*float(state_scale)
     return _rect((float(center[0]),float(center[1])),fp,scale),float(state_visibility)
 
+
+def _phase_common_settled_rects(rows:list[dict], phase:dict)->list[tuple[dict,tuple]]:
+    """Fallback simultaneous-settled view used before the phase QA contract installs.
+
+    The shipping phase contract replaces this with a stable-window-aware evaluator.
+    Keeping a local fallback makes direct imports deterministic and preserves the old
+    behavior for callers that intentionally bypass the public compatibility facade.
+    """
+    rects=[]
+    for event in rows:
+        rect,visibility=_phase_settled_rect(event,phase)
+        if visibility>0.05:rects.append((event,rect))
+    return rects
+
+
 def composition_plan_qa(motion_plan:dict)->dict:
     failures=[];warnings=[];cards=(motion_plan.get('visual_cards') or {}).get('cards') or [];events=motion_plan.get('events') or [];fps=float(motion_plan.get('fps') or 30.0)
     by_card={str(c.get('card_id')):[] for c in cards}
@@ -153,15 +168,17 @@ def composition_plan_qa(motion_plan:dict)->dict:
         cid=str(c.get('card_id'));evs=by_card.get(cid,[]);phase_plan=c.get('story_phase_plan') or {};phases=phase_plan.get('phases') or []
         if not phases:failures.append(f'{cid}: no visual story phases compiled');continue
         em={str(e.get('event_id')):e for e in evs}
-        # Settled phase geometry is a hard readability contract.
+        # Bounds are an actor-local settled contract. Pair overlap and occupancy are
+        # different: they are meaningful only at one timestamp where all participating
+        # actors are simultaneously settled. The installed phase QA contract computes
+        # that common stable interval and returns an empty set for transition-only beats.
         for ph in phases:
             rows=[em[x] for x in ph.get('event_ids') or [] if x in em]
-            rects=[]
             for e in rows:
                 r,vis=_phase_settled_rect(e,ph)
                 if vis<=0.05:continue
                 if not _in_safe(r):failures.append(f"{cid}/{ph.get('phase_id')}:{e.get('event_id')}: settled bbox outside safe frame")
-                rects.append((e,r))
+            rects=_phase_common_settled_rects(rows,ph)
             for i,(a,ra) in enumerate(rects):
                 for b,rb in rects[i+1:]:
                     total_pairs+=1;ov=overlap_ratio(ra,rb);pa=_norm(a.get('attention_priority'))=='PRIMARY';pb=_norm(b.get('attention_priority'))=='PRIMARY';limit=0.002 if pa and pb else (0.01 if pa or pb else 0.025)
@@ -177,4 +194,4 @@ def composition_plan_qa(motion_plan:dict)->dict:
     # dedupe messages while preserving order
     failures=list(dict.fromkeys(failures));warnings=list(dict.fromkeys(warnings))
     viewport=viewport_clipping_qa(events,fps);failures.extend(viewport['failures'])
-    return {'pass':not failures,'failures':failures,'warnings':warnings,'checked_pair_count':total_pairs,'dynamic_pair_samples':dynamic_samples,'bad_pair_count':bad_pairs,'visual_card_count':len(cards),'viewport_clipping_qa':viewport,'authority':'V31_PHASE_DESTINATION_COMPOSITION__SETTLED_AND_MOTION_PATH_HARD_GATE'}
+    return {'pass':not failures,'failures':failures,'warnings':warnings,'checked_pair_count':total_pairs,'dynamic_pair_samples':dynamic_samples,'bad_pair_count':bad_pairs,'visual_card_count':len(cards),'viewport_clipping_qa':viewport,'authority':'V31_PHASE_DESTINATION_COMPOSITION__COMMON_SETTLED_AND_MOTION_PATH_HARD_GATE'}
