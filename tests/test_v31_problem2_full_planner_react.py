@@ -61,8 +61,11 @@ with tempfile.TemporaryDirectory(prefix='hexa_full_planner_react_') as raw:
     assert engine.get('actionable_interaction_count')==1,engine
     assert engine.get('embodied_interaction_count')==1 and engine.get('embodiment_ratio')==1.0,engine
     assert engine.get('react_reverse_direction_count')==1,engine
-    assert engine.get('semantic_promoted_reaction_count')==1,engine
-    assert engine.get('retimed_existing_motion_count')==1,engine
+    # Canonical phase topology now starts the reaction carrier at its semantic phase.
+    # No legal source lifetime exists for the old reaction pre-roll/promotion path, so
+    # Interaction V3 must adopt the existing in-place appearance at carrier onset.
+    assert engine.get('semantic_promoted_reaction_count')==0,engine
+    assert engine.get('retimed_existing_motion_count')==0,engine
     intent=next(x for x in engine['intents'] if x.get('semantic_action')=='REACT')
     assert intent['causal_source_event_id']=='S_REACT_CAUSE_PHYS' and intent['causal_target_event_id']=='S_REACT_REACTOR_PHYS',intent
     rows=sorted((x for x in engine['physical_actions'] if x['interaction_id']==intent['interaction_id']),key=lambda x:float(x['start_seconds']))
@@ -70,30 +73,34 @@ with tempfile.TemporaryDirectory(prefix='hexa_full_planner_react_') as raw:
     assert [x['event_id'] for x in rows]==['S_REACT_CAUSE_PHYS','S_REACT_REACTOR_PHYS'],rows
     assert all('TRANSLATE' not in set(x.get('required_operations') or []) for x in rows),rows
     assert float(rows[1]['start_seconds'])>=float(rows[0]['end_seconds'])+1/30.-1e-6,rows
+    assert rows[1].get('carrier_onset_reaction') and rows[1].get('semantic_anchor_basis')=='PHYSICAL_CARRIER_ONSET',rows[1]
     by={e['event_id']:e for e in motion['events']}
     cause=by['S_REACT_CAUSE_PHYS'];reaction=by['S_REACT_REACTOR_PHYS'];old_reaction=base_by['S_REACT_REACTOR_PHYS']
     assert not cause.get('translation_safe_after_occlusion') and not reaction.get('translation_safe_after_occlusion')
     assert (cause.get('preset_entry') or {}).get('name')=='APPEAR_HIGH_SCALE' and (reaction.get('preset_entry') or {}).get('name')=='APPEAR_HIGH_SCALE'
+    # Interaction adoption is read-only with respect to the canonical planner's entry
+    # timing and physical carrier lifetime in this topology.
     assert abs(float(cause['preset_entry']['start_seconds'])-float(base_by['S_REACT_CAUSE_PHYS']['preset_entry']['start_seconds']))<1e-6
-    expected_reaction_start=float(intent['semantic_hit_seconds'])-.70*float(reaction['preset_entry']['duration_seconds'])
-    assert abs(float(reaction['preset_entry']['start_seconds'])-expected_reaction_start)<=1/30.+1e-6,(reaction,intent)
-    assert float(reaction['preset_entry']['start_seconds'])>float(old_reaction['preset_entry']['start_seconds'])+.5
+    assert abs(float(reaction['preset_entry']['start_seconds'])-float(old_reaction['preset_entry']['start_seconds']))<1e-6
+    assert abs(float(reaction['preset_entry']['start_seconds'])-float(reaction['physical_start_seconds']))<1e-6
+    assert abs(float(reaction['preset_entry']['start_seconds'])-float(intent['semantic_hit_seconds']))<=1/30.+1e-6,(reaction,intent)
     assert abs(float(reaction['start_seconds'])-float(reaction['preset_entry']['start_seconds']))<1e-6
     assert abs(float(reaction['settle_seconds'])-(float(reaction['preset_entry']['start_seconds'])+float(reaction['preset_entry']['duration_seconds'])))<1e-6
-    retime=(reaction['preset_entry'].get('interaction_causal_retime') or {})
-    assert retime.get('reason')=='REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT',retime
-    assert reaction['preset_entry'].get('semantic_promotion_authority')=='REACT_SOURCE_INTERVAL_FALLBACK_PROMOTED_TO_SEMANTIC_HIT'
-    assert float(reaction['physical_start_seconds'])==float(old_reaction['physical_start_seconds'])==0.0
-    assert float(reaction['physical_end_seconds'])==float(old_reaction['physical_end_seconds'])==4.0
+    assert not reaction['preset_entry'].get('interaction_causal_retime'),reaction['preset_entry']
+    assert not reaction['preset_entry'].get('semantic_promotion_authority'),reaction['preset_entry']
+    assert reaction['preset_entry'].get('interaction_authority_bridge')=='SEMANTICALLY_ALIGNED_EXISTING_ENTRY',reaction['preset_entry']
+    assert float(reaction['physical_start_seconds'])==float(old_reaction['physical_start_seconds'])
+    assert float(reaction['physical_end_seconds'])==float(old_reaction['physical_end_seconds'])
+    assert float(reaction['physical_start_seconds'])>float(base_by['S_REACT_CAUSE_PHYS']['physical_start_seconds'])
     entry_interval=next(x for x in reaction.get('motion_intervals') or [] if str(x.get('kind')).upper()=='ENTRY')
     assert abs(float(entry_interval['start_seconds'])-float(reaction['preset_entry']['start_seconds']))<1e-6,entry_interval
     assert abs(float(entry_interval.get('effective_end_seconds',0))-(float(reaction['preset_entry']['start_seconds'])+float(reaction['preset_entry']['duration_seconds'])))<1e-6,entry_interval
-    assert abs(float(rows[1]['perceptual_impact_seconds'])-float(intent['semantic_hit_seconds']))<=1/30.+1e-6,rows[1]
+    assert abs(float(rows[1]['start_seconds'])-float(intent['semantic_hit_seconds']))<=1/30.+1e-6,rows[1]
     for row in rows:
         e=by[row['event_id']];assert float(row['start_seconds'])>=float(e['physical_start_seconds'])-1e-6;assert float(row['end_seconds'])<=float(e['physical_end_seconds'])+1e-6
 
     # Render the exact production-planner result.  The interaction is not certified
-    # unless the encoded pixels prove both the early cause and the promoted reaction.
+    # unless encoded pixels prove the cause first and the carrier-onset reaction later.
     edit_events=[]
     for e in motion['events']:
         row=copy.deepcopy(e);row['source_path']=row.get('source_layer_path');row['base_fit_scale_percent']=100.0;rect=row.get('planned_rect_norm') or [.4,.4,.2,.2];row['object_rest_position_px']=[(float(rect[0])+float(rect[2])/2)*1920,(float(rect[1])+float(rect[3])/2)*1080];row['sequence_width']=1920;row['sequence_height']=1080;edit_events.append(row)
@@ -102,4 +109,4 @@ with tempfile.TemporaryDirectory(prefix='hexa_full_planner_react_') as raw:
     assert pixel.get('pass') and pixel.get('verified_action_count')==2 and not pixel.get('vacuous'),pixel
     assert manifest.get('visual_timeline_coverage_qa',{}).get('pass'),manifest.get('visual_timeline_coverage_qa')
     assert manifest.get('encoded_visual_gap_qa',{}).get('pass'),manifest.get('encoded_visual_gap_qa')
-    print('V31_PROBLEM2_FULL_PLANNER_REACT_PASS',json.dumps({'semantic_promoted_reaction_count':engine.get('semantic_promoted_reaction_count'),'cause_entry_start':cause['preset_entry']['start_seconds'],'reaction_entry_start':reaction['preset_entry']['start_seconds'],'semantic_hit_seconds':intent['semantic_hit_seconds'],'physical_actions':engine['physical_action_count'],'pixel_verified':pixel.get('verified_action_count')},sort_keys=True))
+    print('V31_PROBLEM2_FULL_PLANNER_REACT_PASS',json.dumps({'carrier_onset_reaction':True,'semantic_promoted_reaction_count':engine.get('semantic_promoted_reaction_count'),'cause_entry_start':cause['preset_entry']['start_seconds'],'reaction_entry_start':reaction['preset_entry']['start_seconds'],'semantic_hit_seconds':intent['semantic_hit_seconds'],'physical_actions':engine['physical_action_count'],'pixel_verified':pixel.get('verified_action_count')},sort_keys=True))
