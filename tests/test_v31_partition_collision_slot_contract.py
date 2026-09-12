@@ -7,7 +7,15 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'extension/py'))
 
+import hexa_v31.composition_qa as composition_qa_module
 from hexa_v31.composition_qa import card_motion_conflicts, composition_plan_qa
+from hexa_v31.planning import preset_story_planner
+
+# This is a shipping import-path regression, not just a helper-unit test. The
+# planner imports ``card_motion_conflicts`` by value, so the contract must already
+# be installed by the public composition_qa facade before planner import occurs.
+assert getattr(composition_qa_module, '_partition_collision_contract_installed', False)
+assert preset_story_planner.card_motion_conflicts is card_motion_conflicts
 
 
 def event(event_id: str, scene_id: str, root_id: str, *, complete: bool = True) -> dict:
@@ -43,6 +51,7 @@ def event(event_id: str, scene_id: str, root_id: str, *, complete: bool = True) 
 a = event('PART_A', 'SCENE_A', 'ROOT_A')
 b = event('PART_B', 'SCENE_A', 'ROOT_A')
 assert card_motion_conflicts([a, b], 0.0, 3.0, 30.0) == []
+assert preset_story_planner.card_motion_conflicts([a, b], 0.0, 3.0, 30.0) == []
 
 plan = {
     'fps': 30.0,
