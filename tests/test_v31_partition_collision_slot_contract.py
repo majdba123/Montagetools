@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import pathlib
 import sys
 
@@ -33,11 +34,12 @@ def event(event_id: str, scene_id: str, root_id: str, *, complete: bool = True) 
         'preset_entry': None,
         'preset_exit': None,
         'preset_actions': [],
+        'position_animated': False,
     }
 
 
-# Two physical children of one complete source partition are one semantic
-# composition slot. Their internal bbox intersection is not an actor collision.
+# Two recovered/static physical children of one complete source partition are one
+# semantic composition slot. Their internal bbox intersection is not an actor collision.
 a = event('PART_A', 'SCENE_A', 'ROOT_A')
 b = event('PART_B', 'SCENE_A', 'ROOT_A')
 assert card_motion_conflicts([a, b], 0.0, 3.0, 30.0) == []
@@ -64,7 +66,20 @@ plan = {
 qa = composition_plan_qa(plan)
 assert qa['pass'], qa
 assert qa['partition_internal_pair_count'] >= 1, qa
-assert qa['partition_collision_authority'] == 'CERTIFIED_PARTITION_IS_ONE_SEMANTIC_COMPOSITION_SLOT'
+assert qa['partition_collision_authority'] == 'CERTIFIED_PARTITION_IS_ONE_SEMANTIC_COMPOSITION_SLOT_AFTER_SPATIAL_RECOVERY'
+
+# Internal partition trajectories are NOT exempt. They must first pass the normal
+# collision recovery, which protects encoded visual coverage and prevents actors from
+# crossing through one another merely because they share a source partition.
+spatial = copy.deepcopy(b)
+spatial['event_id'] = 'PART_SPATIAL'
+spatial['position_animated'] = True
+spatial['preset_entry'] = {
+    'name': 'ENTRY_LEFT_TO_MIDDLE',
+    'start_seconds': 0.0,
+    'duration_seconds': 1.44,
+}
+assert card_motion_conflicts([a, spatial], 0.0, 3.0, 30.0)
 
 # The exemption is deliberately narrow. Different roots in the same scene are
 # still independent slots and must collide under the existing hard threshold.
@@ -78,8 +93,8 @@ cross_scene = event('NEXT_SCENE', 'SCENE_B', 'ROOT_A')
 rows = card_motion_conflicts([a, cross_scene], 0.0, 3.0, 30.0)
 assert rows and {rows[0]['event_a'], rows[0]['event_b']} == {'PART_A', 'NEXT_SCENE'}, rows
 
-# Mixed case matching production recovery: internal sibling overlap disappears,
-# while both cross-scene conflicts remain for the bounded lifetime handoff authority.
+# Mixed case matching production after safe spatial recovery: internal sibling overlap
+# disappears, while cross-scene conflicts remain for the bounded lifetime handoff authority.
 rows = card_motion_conflicts([a, b, cross_scene], 0.0, 3.0, 30.0)
 pairs = [{row['event_a'], row['event_b']} for row in rows]
 assert {'PART_A', 'PART_B'} not in pairs, rows
