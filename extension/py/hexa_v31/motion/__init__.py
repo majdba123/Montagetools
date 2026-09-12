@@ -13,6 +13,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.layout.reference_joint_interval_framing import finalize_reference_joint_interval_framing
     from hexa_v31.layout.reference_staggered_sequence_v2 import finalize_reference_staggered_sequence
     from hexa_v31.motion.pacing_qa import build_final_card_pacing_report
+    from hexa_v31.motion.cross_card_editorial import finalize_cross_card_editorial
 
     plan = build_interaction_motion_plan(*args, **kwargs)
     fps = float(plan.get('fps') or kwargs.get('fps', 30.0))
@@ -64,6 +65,13 @@ def _build_final_motion_plan(*args, **kwargs):
 
     stagger_stats = finalize_reference_staggered_sequence(plan, fps=fps)
     plan['reference_staggered_sequence_finalizer'] = stagger_stats
+
+    # Round 3 cross-card choreography deliberately runs after every reference geometry
+    # finalizer. Motion adapts to the final certified footprint; geometry is never shrunk
+    # or relocated merely to satisfy a later handoff request.
+    cross_card_editorial_stats = finalize_cross_card_editorial(plan, fps=fps)
+    plan['cross_card_editorial_finalizer'] = cross_card_editorial_stats
+
     pacing_stats = build_final_card_pacing_report(plan)
     plan['final_card_pacing_qa'] = pacing_stats
 
@@ -77,6 +85,7 @@ def _build_final_motion_plan(*args, **kwargs):
         or perceptual_residual_stats.get('changed')
         or joint_interval_stats.get('changed')
         or stagger_stats.get('changed')
+        or cross_card_editorial_stats.get('changed')
     ):
         # Final reference passes mutate only already-certified source-backed
         # state. Re-run the same lifetime/physical authority once so the final
@@ -91,6 +100,7 @@ def _build_final_motion_plan(*args, **kwargs):
         plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
         plan['reference_joint_interval_framing_finalizer'] = joint_interval_stats
         plan['reference_staggered_sequence_finalizer'] = stagger_stats
+        plan['cross_card_editorial_finalizer'] = cross_card_editorial_stats
         plan['final_card_pacing_qa'] = pacing_stats
     return plan
 
