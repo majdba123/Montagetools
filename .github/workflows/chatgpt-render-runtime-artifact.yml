@@ -222,22 +222,72 @@ jobs:
           print('HEXA_RELOCATED_FOUNDATION_RUNTIME_PASS')
           PY
 
-      - name: Pack verified runtime
+      - name: Pack and split verified runtime
         shell: bash
         run: |
           set -euo pipefail
           ARCHIVE="hexa-engineering-runtime-linux-x64-py312-${GITHUB_SHA}.tar.gz"
           tar -C "$GITHUB_WORKSPACE" -czf "$ARCHIVE" runtime
           sha256sum "$ARCHIVE" | tee "$ARCHIVE.sha256"
+          mkdir -p runtime-parts
+          split -b 300M -d -a 2 "$ARCHIVE" "runtime-parts/${ARCHIVE}.part-"
+          cp "$ARCHIVE.sha256" runtime-parts/
+          (cd runtime-parts && sha256sum "${ARCHIVE}.part-"* > PARTS.sha256)
+          PART_COUNT="$(find runtime-parts -maxdepth 1 -type f -name "${ARCHIVE}.part-*" | wc -l | tr -d ' ')"
+          if [[ "$PART_COUNT" -lt 2 || "$PART_COUNT" -gt 4 ]]; then
+            echo "Unexpected runtime part count: $PART_COUNT" >&2
+            exit 1
+          fi
           echo "HEXA_RUNTIME_ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+          echo "HEXA_RUNTIME_PART_COUNT=$PART_COUNT" >> "$GITHUB_ENV"
+          cat runtime-parts/PARTS.sha256
 
-      - name: Upload verified runtime artifact
+      - name: Upload runtime metadata
         uses: actions/upload-artifact@v4
         with:
-          name: hexa-engineering-runtime-linux-x64-py312-${{ github.sha }}
+          name: hexa-engineering-runtime-metadata-${{ github.sha }}
           path: |
-            ${{ env.HEXA_RUNTIME_ARCHIVE }}
-            ${{ env.HEXA_RUNTIME_ARCHIVE }}.sha256
+            runtime-parts/${{ env.HEXA_RUNTIME_ARCHIVE }}.sha256
+            runtime-parts/PARTS.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Upload runtime part 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: hexa-engineering-runtime-part-00-${{ github.sha }}
+          path: runtime-parts/${{ env.HEXA_RUNTIME_ARCHIVE }}.part-00
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Upload runtime part 01
+        if: ${{ env.HEXA_RUNTIME_PART_COUNT >= '2' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hexa-engineering-runtime-part-01-${{ github.sha }}
+          path: runtime-parts/${{ env.HEXA_RUNTIME_ARCHIVE }}.part-01
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Upload runtime part 02
+        if: ${{ env.HEXA_RUNTIME_PART_COUNT >= '3' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hexa-engineering-runtime-part-02-${{ github.sha }}
+          path: runtime-parts/${{ env.HEXA_RUNTIME_ARCHIVE }}.part-02
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Upload runtime part 03
+        if: ${{ env.HEXA_RUNTIME_PART_COUNT >= '4' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hexa-engineering-runtime-part-03-${{ github.sha }}
+          path: runtime-parts/${{ env.HEXA_RUNTIME_ARCHIVE }}.part-03
           if-no-files-found: error
           compression-level: 0
           retention-days: 90
