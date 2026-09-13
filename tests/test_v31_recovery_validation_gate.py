@@ -149,6 +149,10 @@ def main():
     _causal_retime_is_truthful()
     _handoff_preserves_only_preexisting_visibility()
     _residual_recovery_is_strictly_monotonic()
+    # The final-density recovery is a separate production failure family, but this
+    # existing early suite entry invokes its dedicated regression so CI cannot omit it.
+    from test_v31_final_density_recovery import main as density_recovery_main
+    density_recovery_main()
     print('V31_RECOVERY_VALIDATION_GATE_PASS')
 
 
