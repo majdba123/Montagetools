@@ -45,11 +45,19 @@ def build_store(root: pathlib.Path, solutions: list[dict]) -> RecoveryStore:
                 'problem_id': 'HEXA_MOTION_PATH_OVERLAP',
                 'canonical_name': 'motion-path overlap',
                 'allowed_sources': ['CI', 'RENDER'],
+                'reusable_fingerprint_fields': [
+                    'conflict_type', 'actor_a_role', 'actor_b_role',
+                    'cross_scene', 'same_visual_card',
+                ],
             },
             {
                 'problem_id': 'HEXA_RENDER_BAD_HANDOFF',
                 'canonical_name': 'bad handoff',
                 'allowed_sources': ['RENDER'],
+                'reusable_fingerprint_fields': [
+                    'actor_a_role', 'actor_b_role', 'cross_scene',
+                    'same_visual_card', 'semantic_relation', 'severity',
+                ],
             },
         ],
     })
@@ -77,6 +85,7 @@ def main():
         engine = RecoveryEngine(build_store(pathlib.Path(temp_dir), []))
         incident = engine.detect(ci_message, 'CI', metadata=fp)
         assert incident.problem_id == 'HEXA_MOTION_PATH_OVERLAP'
+        assert incident.fingerprint['conflict_type'] == 'MOTION_PATH'
         try:
             engine.resolve(incident)
         except RecoverySolutionNotFound as exc:
@@ -104,8 +113,8 @@ def main():
         assert ci_decision.strategy == 'STRATEGY_C'
         assert ci_decision.status == 'PROVEN'
 
-        # The same underlying problem discovered from encoded render uses the same
-        # canonical identity and therefore the same proven recovery knowledge.
+        # The same underlying problem discovered from encoded render must produce
+        # the same canonical identity AND reusable fingerprint.
         render_incident = engine.detect(
             'encoded trajectory visibly intersects the outgoing primary',
             'RENDER',
@@ -113,6 +122,7 @@ def main():
             metadata=fp,
         )
         assert render_incident.problem_id == ci_incident.problem_id
+        assert render_incident.fingerprint == ci_incident.fingerprint
         render_decision = engine.resolve(render_incident)
         assert render_decision.solution_id == ci_decision.solution_id
 
