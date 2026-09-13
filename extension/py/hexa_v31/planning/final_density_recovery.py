@@ -21,8 +21,26 @@ def _replace_plan(target:dict, source:dict)->None:
 
 
 def _metric(plan:dict, card_id:str)->dict:
-    return next((row for row in build_visual_density_report(plan).get('cards') or []
-                 if str(row.get('card_id') or '')==str(card_id)),{})
+    """Return the canonical density row for one card without scanning all cards.
+
+    ``build_visual_density_report`` is card-separable: each row depends on the target
+    card interval plus the complete event set. Supplying exactly one card therefore
+    produces the same row while avoiding 20+ unrelated timeline scans during bounded
+    candidate search. No threshold or density definition changes.
+    """
+    card = next(
+        (row for row in (plan.get('visual_cards') or {}).get('cards') or []
+         if str(row.get('card_id') or '') == str(card_id)),
+        None,
+    )
+    if card is None:
+        return {}
+    focused = {
+        'visual_cards': {'cards': [card]},
+        'events': plan.get('events') or [],
+    }
+    rows = build_visual_density_report(focused).get('cards') or []
+    return rows[0] if rows else {}
 
 
 def _pair_states(event:dict, event_a:str, event_b:str)->list[dict]:
@@ -66,19 +84,20 @@ def _advance_incoming_entry(plan:dict, incoming_id:str, frames:int, fps:float)->
     return True
 
 
-def _candidate_passes_final_state(plan:dict, card_id:str, fps:float)->bool:
-    """Accept density recovery only after cheap QA *and* exact final certification."""
+def _candidate_passes_pre_finalization(plan:dict, card_id:str)->bool:
+    """Cheap candidate gate before the owning final-certification barrier.
+
+    Final density recovery may evaluate several bounded timing/layout candidates.
+    Re-running the full interaction finalizer for every rejected candidate is both
+    redundant and prohibitively expensive. A candidate is therefore admitted to
+    the batch only when measured density is fixed and unchanged composition QA is
+    green. ``hexa_v31.motion`` owns the subsequent full lifetime/physical
+    recertification for the entire accepted batch, then re-measures density and
+    performs another bounded recovery round only if finalization changed it.
+    """
     if _metric(plan,card_id).get('hard_under_density'):
         return False
-    if not composition_plan_qa(plan).get('pass'):
-        return False
-    from hexa_v31.interaction.director import finalize_interaction_motion_plan
-    try:
-        finalize_interaction_motion_plan(plan,fps=fps)
-    except (ValueError,RuntimeError):
-        return False
-    metric=_metric(plan,card_id)
-    return not metric.get('hard_under_density') and composition_plan_qa(plan).get('pass')
+    return bool(composition_plan_qa(plan).get('pass'))
 
 
 def _apply_hold(plan:dict, outgoing_id:str, card_id:str, frames:int, fps:float)->bool:
@@ -130,7 +149,7 @@ def _recover_hard_card(plan:dict, card_id:str, fps:float)->dict|None:
         for frames in range(1,_MAX_ENTRY_ADVANCE_FRAMES+1):
             candidate=copy.deepcopy(plan)
             if not _advance_incoming_entry(candidate,incoming_id,frames,fps):continue
-            if _candidate_passes_final_state(candidate,card_id,fps):
+            if _candidate_passes_pre_finalization(candidate,card_id):
                 _replace_plan(plan,candidate)
                 accepted=next(event for event in plan.get('events') or [] if str(event.get('event_id') or '')==incoming_id)
                 return {'card_id':str(card_id),'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_ENTRY_ADVANCE','advance_frames':accepted.get('final_density_overlap_advance_frames'),'advance_seconds':accepted.get('final_density_overlap_advance_seconds'),'requested_frames':int(frames),'hold_frames':0,'pair_fit':False}
@@ -138,11 +157,11 @@ def _recover_hard_card(plan:dict, card_id:str, fps:float)->dict|None:
             raw_candidate=copy.deepcopy(plan)
             if not _apply_hold(raw_candidate,outgoing_id,card_id,frames,fps):continue
             candidate=copy.deepcopy(raw_candidate)
-            if _candidate_passes_final_state(candidate,card_id,fps):
+            if _candidate_passes_pre_finalization(candidate,card_id):
                 _replace_plan(plan,candidate)
                 return {'card_id':str(card_id),'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_OUTGOING_HOLD','advance_frames':0,'hold_frames':int(frames),'pair_fit':False}
             fitted=copy.deepcopy(raw_candidate)
-            if _fit_authored_pair_states(fitted,outgoing_id,incoming_id) and _candidate_passes_final_state(fitted,card_id,fps):
+            if _fit_authored_pair_states(fitted,outgoing_id,incoming_id) and _candidate_passes_pre_finalization(fitted,card_id):
                 _replace_plan(plan,fitted)
                 return {'card_id':str(card_id),'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_OUTGOING_HOLD_WITH_PAIR_FIT','advance_frames':0,'hold_frames':int(frames),'pair_fit':True}
     return None
@@ -152,8 +171,11 @@ def recover_final_density(plan:dict,fps:float=30.0)->dict:
     """Repair final measured density troughs using only existing source actors.
 
     Hard multi-object serialization is repaired by bounded existing-source timing.
-    Every accepted candidate must survive the exact final lifetime/certification
-    pass; thresholds are never relaxed and no package-specific IDs are used.
+    Candidates first pass measured density plus unchanged composition QA. The
+    motion orchestration layer then performs the exact final lifetime/physical
+    recertification once per accepted batch, re-measures density, and may invoke
+    another bounded round. Thresholds are never relaxed and no package-specific
+    IDs are used.
     """
     before=build_visual_density_report(plan)
     repaired=[];hard_repairs=[];unresolved=[]
