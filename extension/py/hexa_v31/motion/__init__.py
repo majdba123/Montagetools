@@ -11,6 +11,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.planning.round2_editorial import install as _install_round2_editorial
     from hexa_v31.planning.same_scene_collision_recovery_contract import install as _install_same_scene_collision_recovery
     from hexa_v31.planning.final_cross_scene_handoff_recovery_contract import install as _install_final_cross_scene_handoff_recovery
+    from hexa_v31.planning.cross_scene_collision_recovery_contract import install as _install_cross_scene_safe_reveal_recovery
     from hexa_v31.planning.phase_optimizer_contract import install as _install_phase_optimizer_contract
     from hexa_v31.planning.final_certification_phase_contract import install as _install_final_certification_phase_contract
     from hexa_v31.planning.phase_entry_contract import install as _install_phase_entry_contract
@@ -24,6 +25,10 @@ def _build_final_motion_plan(*args, **kwargs):
     # the outgoing root. Close only that residual interval with a bounded, fail-closed
     # visible-onset handoff search before final certification executes.
     _install_final_cross_scene_handoff_recovery(_preset_story_planner)
+    # If semantic retirement is still illegal, the remaining collision is usually the
+    # incoming spatial trajectory itself. Degrade only that independent ROOT_ATOMIC
+    # entry to the approved scale/opacity reveal while preserving its exact hit time.
+    _install_cross_scene_safe_reveal_recovery(_preset_story_planner)
     # Round 2 owns the phase-authoring implementation. Install the compatibility
     # guard after it so every shipping caller protects that final phase authority
     # from legacy late optimizers before the final hard certification wrapper runs.
