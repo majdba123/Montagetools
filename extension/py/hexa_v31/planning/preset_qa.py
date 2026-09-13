@@ -79,6 +79,12 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
         if e.get('suppressed_by_card_density'):continue
         eid=str(e.get('event_id'))
         primary=str(e.get('attention_priority') or '').upper()=='PRIMARY'
+        if e.get('render_mode')=='RESIDUAL_SUPPORT':
+            # Static residual reconstruction is deliberately not an animated
+            # preset event. Hierarchical QA above already proves it cannot move.
+            if e.get('preset_entry') or e.get('preset_exit') or e.get('preset_actions') or e.get('position_animated'):
+                failures.append(f'{eid}: residual support retained motion metadata after final lifetime commit')
+            continue
         for key in ('preset_entry','preset_exit'):
             p=e.get(key)
             if not p:failures.append(f'{eid}: missing {key}');continue
@@ -137,10 +143,50 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
     }
 
 
+def _vision_planner_partition_completeness_qa(motion_plan:dict, vision_results:list[dict])->dict:
+    """Prove the planner preserved every member of each certified Vision partition."""
+    failures=[];rows=[]
+    events=list(motion_plan.get('events') or [])
+    by_scene={}
+    for e in events:
+        by_scene.setdefault(str(e.get('scene_id')),[]).append(e)
+    for v in vision_results:
+        sid=str(v.get('scene_id'))
+        reconstruction=((v.get('artifacts') or {}).get('foundation_vision') or {}).get('reconstruction_qa') or {}
+        if not reconstruction.get('partition_complete'):
+            continue
+        units=list(v.get('units') or [])
+        expected=[u for u in units if (u.get('candidate_source') and u.get('mask_path')) or (u.get('foundation_residual_support') and u.get('mask_path'))]
+        if not expected:
+            continue
+        expected_ids={str(u.get('physical_id')) for u in expected}
+        scene_events=by_scene.get(sid,[])
+        selected=[e for e in scene_events if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} and not e.get('suppressed_by_card_density')]
+        selected_ids={str(e.get('physical_id')) for e in selected}
+        suppressed_ids={str(e.get('physical_id')) for e in scene_events if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} and e.get('suppressed_by_card_density')}
+        root_fallbacks=[e for e in scene_events if e.get('render_mode')=='ROOT_ATOMIC' and not e.get('suppressed_by_card_density')]
+        missing=sorted(expected_ids-selected_ids)
+        extra=sorted(selected_ids-expected_ids)
+        complete_partition=not missing and not suppressed_ids and not extra and bool(selected)
+        root_atomic_fallback=bool(root_fallbacks) and not selected and not suppressed_ids
+        valid=complete_partition or root_atomic_fallback
+        if not valid:
+            failures.append(f"{sid}: certified Foundation partition membership mismatch expected={sorted(expected_ids)} selected={sorted(selected_ids)} suppressed={sorted(suppressed_ids)} root_fallbacks={[str(e.get('physical_id')) for e in root_fallbacks]}")
+        rows.append({'scene_id':sid,'expected_member_ids':sorted(expected_ids),'selected_member_ids':sorted(selected_ids),
+                     'suppressed_member_ids':sorted(suppressed_ids),'missing_member_ids':missing,'extra_member_ids':extra,
+                     'root_atomic_fallback_ids':[str(e.get('physical_id')) for e in root_fallbacks],
+                     'selection_mode':'COMPLETE_PARTITION' if complete_partition else ('ROOT_ATOMIC_FALLBACK' if root_atomic_fallback else 'INVALID_PARTIAL_PARTITION'),
+                     'pass':valid})
+    return {'pass':not failures,'failures':failures,'groups':rows}
+
+
 def preset_story_plan_qa(motion_plan:dict,vision_results:list[dict]|None=None,duration_seconds:float|None=None)->dict:
     qa=preset_motion_qa(motion_plan,float(motion_plan.get('fps') or 30.0))
     failures=list(qa['failures']);warnings=list(qa['warnings'])
+    partition_completeness={'pass':True,'failures':[],'groups':[]}
     if vision_results is not None:
+        partition_completeness=_vision_planner_partition_completeness_qa(motion_plan,vision_results)
+        failures.extend(partition_completeness.get('failures') or [])
         for v in vision_results:
             sid=str(v.get('scene_id'))
             children=[u for u in (v.get('units') or []) if int(u.get('hierarchy_level') or 0)>0]
@@ -163,4 +209,5 @@ def preset_story_plan_qa(motion_plan:dict,vision_results:list[dict]|None=None,du
         'transition_policy':'NO_FULL_FRAME_BLEND__OBJECT_PRESETS_ONLY',
         'authority':qa['authority'],
         'visual_timeline_coverage_qa':coverage,
+        'vision_planner_partition_completeness_qa':partition_completeness,
     }

@@ -1,0 +1,54 @@
+{
+  "schema": "HEXA_RECOVERY_DATA_SCHEMA_V1",
+  "version": 1,
+  "problem_sources": [
+    "CI",
+    "RENDER"
+  ],
+  "statuses": [
+    "DETECTED",
+    "CANDIDATE_IMPLEMENTED",
+    "CI_VERIFIED_RENDER_PENDING",
+    "RENDER_REJECTED",
+    "PROVEN",
+    "DEPRECATED"
+  ],
+  "promotion_rule": {
+    "target_status": "PROVEN",
+    "requires": {
+      "technical_approval.status": "PASS",
+      "technical_approval.source_commit": "valid 40-hex Git SHA",
+      "technical_approval.ci_run_id": "positive integer",
+      "visual_approval.status": "PASS",
+      "visual_approval.source_commit": "must equal technical_approval.source_commit",
+      "visual_approval.render_sha256": "valid 64-hex SHA256",
+      "visual_approval.reviewed_against": "non-empty",
+      "successful_visual_validations": "integer >= 1"
+    },
+    "notes": "CI success alone never promotes a recovery solution. The exact encoded render from the same source commit must also pass visual review."
+  },
+  "fingerprint_policy": {
+    "reusable_only": true,
+    "forbidden_identity_fields": [
+      "event_id",
+      "event_a",
+      "event_b",
+      "scene_id",
+      "card_id",
+      "project_name",
+      "project_id",
+      "package_name",
+      "package_id",
+      "timestamp",
+      "time_seconds"
+    ],
+    "notes": "Instance identifiers may exist in diagnostic history metadata, but never in reusable solution matching constraints."
+  },
+  "runtime_policy": {
+    "unknown_problem": "FAIL_CLOSED",
+    "known_problem_without_proven_solution": "RECOVERY_SOLUTION_NOT_FOUND",
+    "candidate_mutation": "SNAPSHOT_APPLY_VALIDATE_COMMIT_OR_ROLLBACK",
+    "qa_threshold_relaxation": false,
+    "semantic_event_suppression": false
+  }
+}

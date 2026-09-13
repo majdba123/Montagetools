@@ -5,7 +5,7 @@ from hexa_v31.framing import compute_reference_camera_fit
 from hexa_v31.preset_authority import authority as preset_authority, duration as preset_duration, choose_entry_for_center, choose_exit_for_center, is_primary_semantic
 from hexa_v31.visual_cards import build_visual_cards
 from hexa_v31.scene_grammar import classify_card
-from hexa_v31.composition_solver import build_story_phases, solve_card_layout, within_preset_safe, repair_story_phases, repartition_story_phases, candidate_middle_envelope_geometry, _in_safe, _fp, _rect, SAFE_X, SAFE_Y, MOTION_ENVELOPE_SCALE
+from hexa_v31.composition_solver import build_story_phases, solve_card_layout, solve_phase_layouts, within_preset_safe, repair_story_phases, repartition_story_phases, candidate_middle_envelope_geometry, _in_safe, _fp, _rect, SAFE_X, SAFE_Y, MOTION_ENVELOPE_SCALE
 from hexa_v31.composition_qa import card_motion_conflicts
 from hexa_v31.visual_density import build_visual_density_report
 from hexa_v31.editorial_motion import EditorialMotionGrammarDirector, PacingDirector
@@ -112,6 +112,17 @@ def _optical_scale_optimize(events, cards, fps):
         for e in primaries:
             eid=str(e.get('event_id'))
             if eid in optimized:continue
+            # A carrier can enter during the preceding card. Its scale is a
+            # lifetime-wide destination, not a placement local to that sliver.
+            # Validate every affected card before marking the actor optimized.
+            affected=[]
+            est=float(e.get('physical_start_seconds',e.get('start_seconds',0)))
+            een=float(e.get('physical_end_seconds',e.get('end_seconds',0)))
+            for scope in cards.get('cards') or []:
+                ss=float(scope.get('start_seconds',0));se=float(scope.get('end_seconds',ss))
+                if est>=se or een<=ss:continue
+                neighbors=[other for other in events if not other.get('suppressed_by_card_density') and float(other.get('physical_start_seconds',other.get('start_seconds',0)))<se and float(other.get('physical_end_seconds',other.get('end_seconds',0)))>ss]
+                affected.append((neighbors,ss,se))
             old_scale=float(e.get('layout_scale_multiplier') or 1.0);old_rect=list(map(float,e.get('planned_rect_norm')));cx=old_rect[0]+old_rect[2]/2;cy=old_rect[1]+old_rect[3]/2
             overlap_count=sum(
                 1 for other in local
@@ -127,7 +138,7 @@ def _optical_scale_optimize(events, cards, fps):
                 stats['candidates_evaluated']+=1;nw=old_rect[2]*factor;nh=old_rect[3]*factor;nr=[cx-nw/2,cy-nh/2,nw,nh]
                 if not _in_safe(nr):continue
                 e['layout_scale_multiplier']=round(old_scale*factor,6);e['planned_rect_norm']=[round(x,6) for x in nr];e['collision_envelope_rect_norm']=e['planned_rect_norm']
-                if card_motion_conflicts(local,cs,ce,fps):
+                if any(card_motion_conflicts(neighbors,ss,se,fps) for neighbors,ss,se in affected):
                     e['layout_scale_multiplier']=old_scale;e['planned_rect_norm']=old_rect;e['collision_envelope_rect_norm']=old_rect;continue
                 e['premium_optical_scale_factor']=factor;stats['candidates_committed']+=1
                 if cid not in stats['cards_improved']:stats['cards_improved'].append(cid)
@@ -145,7 +156,7 @@ def _spatial_choreography_optimize(events, cards, fps):
     stats={'candidates_evaluated':0,'candidates_committed':0,'event_ids':[],'rejections':{}}
     card_rows=list(cards.get('cards') or []);card_index={str(c.get('card_id')):i for i,c in enumerate(card_rows)}
     for e in events:
-        if e.get('suppressed_by_card_density') or e.get('preset_actions'):continue
+        if e.get('suppressed_by_card_density') or e.get('preset_actions') or e.get('progressive_phase_authority'):continue
         rest=e.get('card_rest_position_norm') or [0,0]
         if abs(float(rest[0])-.5)>.035 or abs(float(rest[1])-.5)>.075:continue
         pe=e.get('preset_entry') or {};px=e.get('preset_exit') or {}
@@ -204,6 +215,61 @@ def _recomposition_optimize(events, cards, fps):
             if card_motion_conflicts(local,cs,ce,fps):
                 current.clear();current.update(snap);stats['rejections']['COLLISION_OR_PATH']=stats['rejections'].get('COLLISION_OR_PATH',0)+1;continue
             current['premium_within_frame_recomposition']=True;current['interaction_grammar']=_interaction_grammar(current,nxt);current['screen_memory_reuse']=True;current['handoff_target_event_id']=str(nxt.get('event_id'));stats['candidates_committed']+=1;stats['event_ids'].append(str(current.get('event_id')))
+    return stats
+
+
+def _adaptive_composition_state_optimize(events, cards, fps):
+    """Compile deterministic semantic layout states for long, material-rich cards."""
+    from hexa_v31.visual_density import build_visual_density_report
+    stats={'candidates_evaluated':0,'candidates_committed':0,'encoded_verification_required':0,'event_ids':[],'rejections':{}}
+    for card in cards.get('cards') or []:
+        cs=float(card.get('start_seconds',0));ce=float(card.get('end_seconds',cs))
+        if ce-cs<2.4:continue
+        local=sorted((e for e in events if not e.get('suppressed_by_card_density') and float(e.get('start_seconds',0))<ce and float(e.get('end_seconds',0))>cs),key=lambda e:(float(e.get('perceptual_hit_seconds',e.get('start_seconds',0))),str(e.get('event_id'))))
+        if len(local)<2:continue
+        for current,nxt in zip(local,local[1:]):
+            if current.get('composition_states') or current.get('preset_actions'):continue
+            physical_end=float(current.get('physical_end_seconds',current.get('end_seconds',0)));next_hit=float(nxt.get('perceptual_hit_seconds',nxt.get('start_seconds',0)))
+            transition_duration=.48;transition_start=max(float(current.get('settle_seconds',current.get('start_seconds',0)))+.22,next_hit-transition_duration)
+            if transition_start+transition_duration>physical_end-.12:continue
+            base=list(current.get('card_rest_position_norm') or [.5,.5]);target=list(base);translation_safe=bool(current.get('translation_safe_after_occlusion',current.get('animation_safe',True))) and str(current.get('render_mode') or '')!='RESIDUAL_SUPPORT'
+            if translation_safe:
+                next_center=nxt.get('card_rest_position_norm') or [.5,.5];target=[.28 if float(next_center[0])>=.5 else .72,float(base[1])]
+                state_scale=.92
+            else:
+                state_scale=1.14
+            if math.hypot(float(target[0])-float(base[0]),float(target[1])-float(base[1]))<.10 and abs(state_scale-1.0)<.10:continue
+            stats['candidates_evaluated']+=1;snapshot=copy.deepcopy(current);next_snapshot=copy.deepcopy(nxt)
+            # A relationship state names both actors, so both actors must own an
+            # encoded change. Translation-unsafe sources keep their solved centers;
+            # the support briefly yields, then assumes its final hierarchy as the
+            # focal actor completes the handoff. These are participant states, not
+            # additional recompositions, and therefore remain subordinate to B.
+            participant_base=list(nxt.get('card_rest_position_norm') or [.5,.5])
+            participant_reveal=max(float(nxt.get('motion_start_seconds',nxt.get('start_seconds',cs))),float(nxt.get('physical_start_seconds',nxt.get('start_seconds',cs))),float(nxt.get('start_seconds',cs)))
+            participant_handoff=max(transition_start,participant_reveal)
+            participant_start=max(participant_reveal,participant_handoff-.32)
+            participant_duration=participant_handoff-participant_start
+            participant_end=min(physical_end,float(nxt.get('physical_end_seconds',nxt.get('end_seconds',ce))))
+            participant_transition=min(transition_duration,participant_end-participant_handoff)
+            if participant_transition<.10 or str(nxt.get('render_mode') or '')=='RESIDUAL_SUPPORT':
+                stats['rejections']['PARTICIPANT_LIFECYCLE']=stats['rejections'].get('PARTICIPANT_LIFECYCLE',0)+1
+                continue
+            nxt.setdefault('composition_participant_states',[]).extend([
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A::'+str(nxt.get('event_id')),'owner_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','semantic_beat':'SUPPORT_YIELDS_FOR_FOCAL_ESTABLISHMENT','start_seconds':round(participant_start,6),'transition_duration_seconds':round(participant_duration,6),'center_norm':[round(float(participant_base[0]),6),round(float(participant_base[1]),6)],'scale_multiplier':.86,'visibility':1.0,'translation_safe':False},
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B::'+str(nxt.get('event_id')),'owner_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','semantic_beat':'SUPPORT_ASSUMES_RELATIONSHIP_HIERARCHY','start_seconds':round(participant_handoff,6),'transition_duration_seconds':round(participant_transition,6),'center_norm':[round(float(participant_base[0]),6),round(float(participant_base[1]),6)],'scale_multiplier':1.10,'visibility':1.0,'translation_safe':False,'previous_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A::'+str(nxt.get('event_id'))}])
+            current['composition_states']=[
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A','scene_id':current.get('scene_id'),'card_id':card.get('card_id'),'semantic_beat':'FOCAL_ESTABLISHED','start_seconds':round(float(current.get('settle_seconds',current.get('start_seconds',cs))),6),'transition_duration_seconds':0.0,'participating_event_ids':[str(current.get('event_id'))],'role':current.get('composition_role') or current.get('attention_priority'),'center_norm':[round(float(base[0]),6),round(float(base[1]),6)],'scale_multiplier':1.0,'visibility':1.0,'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'state_reason':'INITIAL_SOLVED_COMPOSITION','translation_safe':translation_safe},
+                {'state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::B','scene_id':current.get('scene_id'),'card_id':card.get('card_id'),'semantic_beat':'SUPPORT_OR_RELATIONSHIP_REVEAL','start_seconds':round(transition_start,6),'transition_duration_seconds':transition_duration,'participating_event_ids':[str(current.get('event_id')),str(nxt.get('event_id'))],'role':'YIELD_FOCUS','center_norm':[round(float(target[0]),6),round(float(target[1]),6)],'scale_multiplier':state_scale,'visibility':1.0,'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'state_reason':'SEMANTIC_FOCUS_TRANSFER_TO_NEXT_ACTOR','translation_safe':translation_safe,'previous_state_id':str(card.get('card_id'))+'::'+str(current.get('event_id'))+'::A'}]
+            current['adaptive_composition_authority']='SEMANTIC_CARD_PHASE_STATE_SEQUENCE';current['meaningful_recomposition']=True
+            conflicts=card_motion_conflicts(local,cs,ce,fps)
+            density=build_visual_density_report({'events':local,'visual_cards':{'cards':[card]},'fps':fps})
+            density_serialized=len(local)>=2 and density['cards'][0]['peak_visible_object_count']<2
+            if conflicts or density_serialized:
+                current.clear();current.update(snapshot);nxt.clear();nxt.update(next_snapshot)
+                reason='COLLISION_OR_PATH' if conflicts else 'DENSITY_CONCURRENCY'
+                stats['rejections'][reason]=stats['rejections'].get(reason,0)+1;continue
+            stats['candidates_committed']+=1;stats['encoded_verification_required']+=1;stats['event_ids'].append(str(current.get('event_id')))
     return stats
 
 
@@ -326,9 +392,15 @@ def _finalize_secondary_character_geometry(events):
 def _final_physical_certification(events, cards, fps):
     """Perform one bounded repair, then certify the exact immutable plan state."""
     from hexa_v31.composition_qa import composition_plan_qa, _settled_rect
+    cross_card_placement={'pass':True,'initial_conflict_count':0,'repairs':[]}
+    # Ink-aware layouts may share a final physical interval with another card.
+    # Certify static placement across that interval without changing its owner.
+    if any(e.get('visible_ink_fraction_basis')=='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX' for e in events):
+        from hexa_v31.composition_solver import certify_cross_card_placements
+        cross_card_placement=certify_cross_card_placements(events,cards,fps)
     def qa(): return composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     before=qa(); repairs=[]
-    if before.get('pass'): return {'pass':True,'repair_passes':0,'before':before,'after':before,'repairs':repairs}
+    if before.get('pass'): return {'pass':True,'repair_passes':int(bool(cross_card_placement['repairs'])),'before':before,'after':before,'repairs':repairs,'cross_card_placement':cross_card_placement}
     # Settled conflicts are repaired by the same phase-aware solver that owns
     # composition. Every geometry field is committed as one tuple.
     for card in cards.get('cards') or []:
@@ -373,7 +445,7 @@ def _final_physical_certification(events, cards, fps):
                     e['final_physical_repair']='CERTIFIED_STATIC_SCALE_FALLBACK';repairs.append({'card_id':cid,'event_id':e.get('event_id'),'type':'STATIC_SCALE_FALLBACK'})
     after=qa()
     if not after.get('pass'):raise ValueError('FINAL_PHYSICAL_CERTIFICATION_FAILED: '+' | '.join(after.get('failures') or [])[:2000])
-    return {'pass':True,'repair_passes':1,'before':before,'after':after,'repairs':repairs}
+    return {'pass':True,'repair_passes':1,'before':before,'after':after,'repairs':repairs,'cross_card_placement':cross_card_placement}
 
 def _atomic_handoff_optimize(events, cards, fps):
     """Pre-commit, frame deterministic handoff optimization.
@@ -391,6 +463,8 @@ def _atomic_handoff_optimize(events, cards, fps):
         groups={}
         for event in members: groups.setdefault(round(float(event.get('perceptual_hit_seconds',0))*fps)/fps,[]).append(event)
         for anchor, group in sorted(groups.items()):
+            if any(e.get('progressive_phase_authority') for e in group):
+                continue
             # Do not disturb already compliant transitions.
             deltas=[_hit_delta_frames(e,anchor,fps) for e in group]
             if max((abs(x) for x in deltas),default=0)<=4: continue
@@ -562,7 +636,7 @@ def _solve_semantic_segments(events, cards, fps):
     by_card={str(c.get('card_id')):c for c in cards.get('cards') or []}
     blocked=[]
     for e in events:
-        if e.get('suppressed_by_card_density') or not e.get('preset_entry'): continue
+        if e.get('suppressed_by_card_density') or not e.get('preset_entry') or e.get('progressive_phase_authority'): continue
         delta=_hit_delta_frames(e,float(e.get('perceptual_hit_seconds',0)),fps)
         if abs(delta)>4: blocked.append(e)
     groups={}
@@ -1007,6 +1081,11 @@ def _consolidate_card_identity(evs:list[dict]):
         if key not in masters:
             masters[key]=e;e['persistent_master_event_id']=e['event_id'];e['persistent_source_scene_ids']=[e.get('scene_id')];continue
         m=masters[key]
+        # Certified Foundation reconstruction members are source-survival atomic.
+        # Semantic identity persistence may merge logical states, but it may not
+        # suppress one physical member and redefine a partial partition as complete.
+        if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} or m.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            continue
         if key[1].startswith('PHYS::'):continue
         e['suppressed_by_card_density']=True;e['suppression_reason']='CARD_IDENTITY_PERSISTENCE';e['persistent_master_event_id']=m['event_id']
         m.setdefault('persistent_source_scene_ids',[]).append(e.get('scene_id'));m['perceptual_hit_seconds']=min(float(m.get('perceptual_hit_seconds',0)),float(e.get('perceptual_hit_seconds',0)))
@@ -1027,15 +1106,20 @@ def _select_render_units(vision_row:dict)->tuple[list[dict],dict]:
     units=list(vision_row.get('units') or [])
     foundation=[u for u in units if u.get('candidate_source') and u.get('mask_path')]
     residual=[u for u in units if u.get('foundation_residual_support') and u.get('mask_path')]
-    reconstruction=((vision_row.get('artifacts') or {}).get('foundation_vision') or {}).get('reconstruction_qa') or {}
-    if foundation and reconstruction.get('partition_complete') and all(u.get('partition_complete') for u in foundation+residual):
+    foundation_artifact=((vision_row.get('artifacts') or {}).get('foundation_vision') or {})
+    reconstruction=foundation_artifact.get('reconstruction_qa') or {}
+    actor_quality=foundation_artifact.get('actor_qa') or {}
+    partition_quality=foundation_artifact.get('partition_eligibility_pass')
+    if partition_quality is None:
+        partition_quality=actor_quality.get('pass',True)
+    if foundation and bool(partition_quality) and reconstruction.get('partition_complete') and all(u.get('partition_complete') for u in foundation+residual):
         selected=[]
         for index,actor in enumerate(sorted(foundation,key=lambda u:str(u.get('physical_id') or ''))):
             row=dict(actor);row['render_mode']='CHILD_PARTITION';row['partition_root_id']='ROOT_COMPOSITE';row['partition_complete']=True
             row['independent_motion_allowed']=bool(row.get('translation_safe_after_occlusion',row.get('animation_safe')));row['partition_primary_member']=bool(index==0 and is_primary_semantic(row));selected.append(row)
         for support in residual:
             row=dict(support);row['render_mode']='RESIDUAL_SUPPORT';row['independent_motion_allowed']=False;row['partition_primary_member']=False;selected.append(row)
-        return selected,{'partition_root_ids':['ROOT_COMPOSITE'],'atomic_root_ids':['ROOT_COMPOSITE_FALLBACK'],'hierarchical_motion_unit_count':len(foundation),'foundation_actor_partition':True,'residual_support_present':bool(residual),'reconstruction_qa':reconstruction}
+        return selected,{'partition_root_ids':['ROOT_COMPOSITE'],'atomic_root_ids':['ROOT_COMPOSITE_FALLBACK'],'hierarchical_motion_unit_count':len(foundation),'foundation_actor_partition':True,'residual_support_present':bool(residual),'reconstruction_qa':reconstruction,'actor_qa':actor_quality,'partition_quality_pass':True}
     roots=[u for u in units if int(u.get('hierarchy_level') or 0)==0]
     children=[u for u in units if int(u.get('hierarchy_level') or 0)>0]
     decisions={str(d.get('root_id')):d for d in ((vision_row.get('artifacts') or {}).get('hierarchy_decisions') or [])}
@@ -1060,12 +1144,76 @@ def _select_render_units(vision_row:dict)->tuple[list[dict],dict]:
             row['partition_primary_member']=bool(index==0 and is_primary_semantic(root))
             selected.append(row)
     return selected,{'partition_root_ids':partition_roots,'atomic_root_ids':fallback_roots,
-                     'hierarchical_motion_unit_count':sum(1 for u in selected if u.get('render_mode')=='CHILD_PARTITION')}
+                     'hierarchical_motion_unit_count':sum(1 for u in selected if u.get('render_mode')=='CHILD_PARTITION'),
+                     'foundation_actor_partition':False,'foundation_partition_fallback_reasons':foundation_artifact.get('partition_fallback_reasons') or ([] if partition_quality else ['FOUNDATION_ACTOR_QUALITY_NOT_CERTIFIED']),
+                     'actor_qa':actor_quality,'reconstruction_qa':reconstruction}
 
 def _phase_for_event(phase_plan:dict,eid:str):
     rows=[p for p in (phase_plan.get('phases') or []) if eid in (p.get('event_ids') or [])]
     if not rows:return None
     return float(rows[0]['start_seconds']),float(rows[-1]['end_seconds'])
+
+def _record_progressive_phase_authority(event:dict, phase_plan:dict):
+    if not phase_plan.get('progressive_reveal_compiled'):
+        return
+    eid=str(event.get('event_id'))
+    entering=next((p for p in (phase_plan.get('phases') or []) if eid in (p.get('entering_event_ids') or [])),None)
+    if entering is None:
+        return
+    event['progressive_phase_start_seconds']=round(float(entering['start_seconds']),6)
+    event['progressive_phase_authority']=str(phase_plan.get('choreography_authority') or 'PRE_LAYOUT_PROGRESSIVE_SCENE_BEATS_V1')
+
+def _commit_editorial_phase_geometry(events:list[dict],card:dict,phase_plan:dict,layout:dict)->None:
+    """Commit phase-owned destinations before motion selection and sealing."""
+    phase_placements=layout.get('phase_placements') or {}
+    by_id={str(event.get('event_id')):event for event in events}
+    for event in events:
+        for container in ('composition_states','composition_participant_states'):
+            event[container]=[
+                state for state in event.get(container) or []
+                if state.get('state_reason')!='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY'
+            ]
+            if not event[container]:event.pop(container,None)
+    previous_state={}
+    for index,phase in enumerate(phase_plan.get('phases') or []):
+        phase_id=str(phase.get('phase_id'))
+        placements=phase_placements.get(phase_id) or {}
+        start=float(phase.get('start_seconds',card.get('start_seconds',0)))
+        duration=max(0.0,float(phase.get('end_seconds',start))-start)
+        transition=0.0 if index==0 else min(.48,max(.24,duration*.18))
+        for event_id,placement in placements.items():
+            event=by_id.get(str(event_id))
+            if event is None:continue
+            base=layout.get('placements',{}).get(str(event_id)) or placement
+            scale=float(placement['scale'])/max(1e-9,float(base['scale']))
+            state_id=f'{phase_id}::{event_id}::EDITORIAL_GEOMETRY'
+            state={
+                'state_id':state_id,'scene_id':event.get('scene_id'),'card_id':card.get('card_id'),
+                'semantic_beat':phase.get('semantic_beat'),'start_seconds':round(start,6),
+                'transition_duration_seconds':round(transition,6),'center_norm':list(base['center_norm']),
+                'scale_multiplier':round(scale,6),'visibility':1.0,'role':placement.get('role'),
+                'focus_event_id':phase.get('focus_event_id'),'participating_event_ids':list(phase.get('event_ids') or []),
+                'layout_archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),
+                'state_reason':'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY',
+                'translation_safe':bool(event.get('translation_safe_after_occlusion',event.get('animation_safe',True))),
+            }
+            if str(event_id) in previous_state:state['previous_state_id']=previous_state[str(event_id)]
+            container='composition_states' if str(event_id)==str(phase.get('focus_event_id')) else 'composition_participant_states'
+            event.setdefault(container,[]).append(state)
+            event['editorial_phase_geometry_authority']='SEMANTIC_ARCHETYPE_TEMPORAL_TOPOLOGY_V2'
+            previous_state[str(event_id)]=state_id
+            if len(placements)==1 and scale>1.001 and index<len(phase_plan.get('phases') or [])-1:
+                handoff_duration=min(.42,max(.24,duration*.16))
+                handoff_id=f'{phase_id}::{event_id}::HANDOFF_GEOMETRY'
+                handoff=dict(
+                    state,state_id=handoff_id,semantic_beat='HANDOFF_GEOMETRY',
+                    start_seconds=round(float(phase.get('end_seconds'))-handoff_duration,6),
+                    transition_duration_seconds=round(handoff_duration,6),
+                    center_norm=list(base['center_norm']),scale_multiplier=1.0,
+                    previous_state_id=state_id,
+                )
+                event.setdefault('composition_states',[]).append(handoff)
+                previous_state[str(event_id)]=handoff_id
 
 def _clamp(v,a,b):return max(a,min(b,v))
 
@@ -1089,6 +1237,617 @@ def _foundation_partition_motion_contract(events:list[dict])->dict:
     eligible=sum(bool(e.get('translation_safe_after_occlusion') and e.get('independent_motion_allowed')) for e in rows)
     signatures={(str((e.get('preset_entry') or {}).get('name')),tuple(str(a.get('name')) for a in (e.get('preset_actions') or []))) for e in independent}
     return {'eligible_foundation_actor_count':eligible,'independently_animated_actor_count':len(independent),'independent_actor_motion_ratio':round(len(independent)/max(1,eligible),4),'spatially_displaced_actor_count':len(independent),'distinct_motion_signature_count':len(signatures),'static_support_actor_count':sum(e.get('attention_priority')=='SUPPORTING' and not e.get('position_animated') for e in rows),'reveal_only_actor_count':sum(e.get('foundation_motion_decision')=='REVEAL_ONLY' for e in rows)}
+
+def _motion_interval_effective_fraction(kind:str, preset_name:str)->float:
+    """Return the source-visible fraction of a certified preset interval.
+
+    Preset duration remains the exact user authority.  Lifetime certification
+    cares about the interval that can still affect visible source pixels.  For
+    disappearance presets, an authored zero-opacity tail is therefore not a
+    physical motion escape.
+    """
+    if str(kind).upper()!='EXIT' or not preset_name:
+        return 1.0
+    definition=(preset_authority().get('preset_motion') or {}).get(str(preset_name)) or {}
+    if str(definition.get('family') or '').upper()!='DISAPPEARANCE':
+        return 1.0
+    keys=definition.get('opacity_keyframes') or []
+    for index,row in enumerate(keys):
+        try:
+            fraction=float(row[0]);opacity=float(row[1])
+        except (TypeError,ValueError,IndexError):
+            continue
+        if opacity>1e-6:
+            continue
+        trailing=keys[index:]
+        try:
+            if trailing and all(float(item[1])<=1e-6 for item in trailing):
+                return max(0.0,min(1.0,fraction))
+        except (TypeError,ValueError,IndexError):
+            pass
+    return 1.0
+
+
+def _compile_final_motion_intervals(e:dict)->tuple[list[dict],float,float]:
+    """Compile nominal preset records plus their effective visible envelopes."""
+    rows=[]
+    raw=[]
+    if e.get('preset_entry'):raw.append(('ENTRY',e['preset_entry']))
+    raw.extend(('ACTION',a) for a in (e.get('preset_actions') or []))
+    raw.extend(('COMPOSITION_STATE',dict(s,duration_seconds=float(s.get('transition_duration_seconds') or 0.0))) for s in (e.get('composition_states') or []))
+    raw.extend(('COMPOSITION_PARTICIPANT_STATE',dict(s,duration_seconds=float(s.get('transition_duration_seconds') or 0.0))) for s in (e.get('composition_participant_states') or []))
+    if e.get('preset_exit'):raw.append(('EXIT',e['preset_exit']))
+    starts=[float(e.get('start_seconds',0))]
+    ends=[float(e.get('end_seconds',e.get('start_seconds',0)))]
+    for kind,source in raw:
+        row=dict(kind=kind,**source)
+        st=float(row.get('start_seconds',e.get('start_seconds',0)))
+        nominal=max(0.0,float(row.get('duration_seconds') or 0.0))
+        fraction=_motion_interval_effective_fraction(kind,str(row.get('name') or ''))
+        effective_end=st+nominal*fraction
+        row['effective_start_seconds']=round(st,6)
+        row['effective_end_seconds']=round(effective_end,6)
+        row['effective_duration_seconds']=round(max(0.0,effective_end-st),6)
+        row['effective_visible_fraction']=round(fraction,6)
+        rows.append(row);starts.append(st);ends.append(effective_end)
+    return rows,min(starts),max(ends)
+
+
+def _retime_exit_to_effective_end(e:dict, effective_end:float, minimum_start:float)->None:
+    exit_row=e.get('preset_exit')
+    if not exit_row:return
+    duration=max(0.0,float(exit_row.get('duration_seconds') or 0.0))
+    fraction=_motion_interval_effective_fraction('EXIT',str(exit_row.get('name') or ''))
+    visible_duration=duration*fraction
+    exit_row['start_seconds']=round(max(float(minimum_start),float(effective_end)-visible_duration),6)
+
+
+def _reconcile_final_partition_handoffs(events:list[dict], cards:dict, fps:float)->dict:
+    """Resolve late cross-scene collisions on the exact committed lifetimes.
+
+    This is a bounded final-state search, not a density/suppression shortcut.
+    Outgoing source carriers may retire earlier only when an incoming source has
+    become readable. Incoming reveal timing may move by at most six frames, the
+    existing perceptual-sync tolerance. Certified Foundation partitions remain
+    atomic and no source member is deleted.
+    """
+    from hexa_v31.composition_qa import card_motion_conflicts, _state
+
+    step=1.0/max(1.0,float(fps))
+    max_sync_frames=6
+    card_by={str(row.get('card_id')):row for row in (cards.get('cards') or [])}
+    active=[e for e in events if not e.get('suppressed_by_card_density')]
+
+    groups={}
+    def cohort_key(e):
+        card_id=str(e.get('visual_card_id'))
+        scene_id=str(e.get('scene_id'))
+        if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            return (card_id,scene_id,'PARTITION',str(e.get('partition_root_id')))
+        return (card_id,scene_id,'EVENT',str(e.get('event_id')))
+    for e in active:
+        groups.setdefault(cohort_key(e),[]).append(e)
+
+    stats={'candidate_conflict_count':0,'candidate_schedules_evaluated':0,
+           'handoffs_committed':0,'handoffs_rejected':0,
+           'trimmed_partition_group_count':0,'trimmed_source_group_count':0,
+           'motion_fallback_count':0,'incoming_delay_frames':[],
+           'trimmed_event_ids':[],'repairs':[]}
+
+    def source_order(e):
+        return float(e.get('source_scene_start_seconds',
+                           e.get('perceptual_hit_seconds',
+                                 e.get('physical_start_seconds',e.get('start_seconds',0.0)))))
+
+    def _restore(rows,snaps):
+        for live,snap in zip(rows,snaps):
+            live.clear();live.update(copy.deepcopy(snap))
+
+    def _clip_motion_to_carrier(e,new_end):
+        intervals,motion_start,_=_compile_final_motion_intervals(e)
+        clipped=[]
+        for row in intervals:
+            row=dict(row)
+            start=float(row.get('effective_start_seconds',row.get('start_seconds',0.0)))
+            old_end=float(row.get('effective_end_seconds',start))
+            end=min(float(new_end),old_end)
+            row['effective_end_seconds']=round(end,6)
+            row['effective_duration_seconds']=round(max(0.0,end-start),6)
+            if old_end>new_end+1e-6:
+                row['clipped_by_final_source_handoff']=True
+            clipped.append(row)
+        motion_end=max([float(r.get('effective_end_seconds',motion_start)) for r in clipped] or [motion_start])
+        return clipped,motion_start,motion_end
+
+    def _entry_family(e):
+        name=str((e.get('preset_entry') or {}).get('name') or '')
+        return str(((preset_authority().get('preset_motion') or {}).get(name) or {}).get('family') or '')
+
+    def _compile_event_after_trim(e,new_end):
+        current_end=max(float(e.get('end_seconds',0.0)),
+                        float(e.get('physical_end_seconds',e.get('end_seconds',0.0))))
+        if current_end<=new_end+1e-6:
+            return True,False
+
+        physical_start=float(e.get('physical_start_seconds',e.get('start_seconds',0.0)))
+        if new_end<=physical_start+step*.5:
+            return False,False
+
+        if e.get('render_mode')=='RESIDUAL_SUPPORT':
+            e['end_seconds']=round(new_end,6)
+            e['physical_end_seconds']=round(new_end,6)
+            e['visibility_interval_seconds']=[round(physical_start,6),round(new_end,6)]
+            e['motion_start_seconds']=round(physical_start,6)
+            e['motion_end_seconds']=round(physical_start,6)
+            e['motion_intervals']=[]
+            e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
+            if e.get('partition_carrier_end_seconds') is not None:
+                e['partition_carrier_end_seconds']=round(new_end,6)
+            e['final_cross_source_handoff_authority']='SOURCE_STATE_TO_READABLE_SUCCESSOR'
+            return True,False
+
+        dd=preset_duration('DISAPPEAR_DOWN_SCALE')
+        visible_dd=dd*_motion_interval_effective_fraction('EXIT','DISAPPEAR_DOWN_SCALE')
+        latest_exit_start=float(new_end)-visible_dd
+        if latest_exit_start<=physical_start+step*.25:
+            return False,False
+
+        fallback=False
+        intervals,_,_=_compile_final_motion_intervals(e)
+        non_exit_end=max(
+            [float(row.get('effective_end_seconds',row.get('start_seconds',physical_start)))
+             for row in intervals if str(row.get('kind')).upper()!='EXIT']
+            or [float(e.get('start_seconds',physical_start))]
+        )
+        if non_exit_end>latest_exit_start-step*.25 and e.get('preset_actions'):
+            e['preset_actions']=[]
+            fallback=True
+            intervals,_,_=_compile_final_motion_intervals(e)
+            non_exit_end=max(
+                [float(row.get('effective_end_seconds',row.get('start_seconds',physical_start)))
+                 for row in intervals if str(row.get('kind')).upper()!='EXIT']
+                or [float(e.get('start_seconds',physical_start))]
+            )
+
+        # Scale/opacity appearance and scale/opacity disappearance may overlap in
+        # a short legal beat. The carrier boundary clips the authored tail; this
+        # is materially different from shortening/deleting the source. Position
+        # travel still cannot overlap because two absolute motion paths would
+        # compete for the same object transform.
+        if non_exit_end>latest_exit_start-step*.25 and _entry_family(e)!='APPEARANCE':
+            ad=preset_duration('APPEAR_HIGH_SCALE')
+            original_hit=float(e.get('perceptual_hit_seconds',
+                               (e.get('preset_entry') or {}).get('start_seconds',physical_start)))
+            entry_start=original_hit-_entry_fraction({'preset_entry':{'name':'APPEAR_HIGH_SCALE'}})*ad
+            entry_start=max(physical_start,entry_start)
+            if entry_start>=latest_exit_start-step*.25:
+                return False,fallback
+            e['preset_entry']={'name':'APPEAR_HIGH_SCALE','start_seconds':round(entry_start,6),
+                               'duration_seconds':ad,
+                               'authority':'FINAL_CROSS_SOURCE_REVEAL_FALLBACK'}
+            e['preset_actions']=[]
+            e['start_seconds']=round(entry_start,6)
+            e['settle_seconds']=round(entry_start+ad,6)
+            e['appearance_method']='SCALE_POP'
+            e['position_animated']=False
+            e['entry_direction']=None
+            if e.get('render_mode')=='CHILD_PARTITION':
+                e['foundation_motion_decision']='REVEAL_ONLY'
+            fallback=True
+
+        e['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE',
+                          'start_seconds':round(latest_exit_start,6),
+                          'duration_seconds':dd,
+                          'authority':'FINAL_CROSS_SOURCE_HANDOFF'}
+        e['disappearance_method']='PRESET_DISAPPEARANCE'
+        e['end_seconds']=round(new_end,6)
+        e['physical_end_seconds']=round(new_end,6)
+        e['visibility_interval_seconds']=[round(physical_start,6),round(new_end,6)]
+        if e.get('partition_carrier_end_seconds') is not None:
+            e['partition_carrier_end_seconds']=round(new_end,6)
+
+        clipped,motion_start,motion_end=_clip_motion_to_carrier(e,new_end)
+        e['motion_intervals']=clipped
+        e['motion_start_seconds']=round(motion_start,6)
+        e['motion_end_seconds']=round(motion_end,6)
+        e['partition_exit_retimed_to_carrier_end']=bool(
+            e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'})
+        e['final_cross_source_handoff_authority']='SOURCE_STATE_TO_READABLE_SUCCESSOR'
+
+        # A voice-owned semantic result must still be materially visible at its
+        # anchor after the shortened handoff. Otherwise the candidate is illegal.
+        anchor=float(e.get('perceptual_hit_seconds',e.get('start_seconds',physical_start)))
+        if anchor<new_end-step*.25:
+            state=_state(e,anchor)
+            if state is None or float(state[2])<=.22:
+                return False,fallback
+        elif str(e.get('perceptual_hit_source') or '').upper()=='VOICE_TRIGGER':
+            return False,fallback
+
+        if fallback:
+            e['final_cross_source_motion_fallback']='OPTIONAL_MOTION_TO_SAFE_REVEAL'
+        if any(r.get('clipped_by_final_source_handoff') for r in clipped):
+            e['final_cross_source_motion_tail_clipped']=True
+        return True,fallback
+
+    def apply_end(members,new_end):
+        snapshots=[copy.deepcopy(e) for e in members]
+        fallback_count=0
+        for e in members:
+            ok,fallback=_compile_event_after_trim(e,new_end)
+            if not ok:
+                _restore(members,snapshots)
+                return False,0
+            fallback_count+=1 if fallback else 0
+
+        if any(e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} for e in members):
+            ends={round(float(e.get('physical_end_seconds',e.get('end_seconds',0.0))),6)
+                  for e in members}
+            if len(ends)>1:
+                _restore(members,snapshots)
+                return False,0
+        return True,fallback_count
+
+    def first_readable_frame(e,card):
+        start=max(float(card.get('start_seconds',0.0)),float(e.get('start_seconds',0.0)))
+        end=min(float(card.get('end_seconds',start)),float(e.get('end_seconds',card.get('end_seconds',start))))
+        first=max(0,int(math.floor(start*fps)))
+        last=max(first,int(math.ceil(end*fps)))
+        for fi in range(first,last+1):
+            t=fi/fps
+            state=_state(e,t)
+            if state and float(state[2])>.22:
+                return t
+        return None
+
+    def shift_incoming_reveal(e,delay_frames):
+        if delay_frames<=0:
+            return True
+        if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            return False
+        entry=e.get('preset_entry')
+        if not entry:
+            return False
+        delta=float(delay_frames)*step
+        new_start=float(entry.get('start_seconds',e.get('start_seconds',0.0)))+delta
+        duration=float(entry.get('duration_seconds') or preset_duration(str(entry.get('name') or 'APPEAR_HIGH_SCALE')))
+        impact=new_start+_entry_fraction(e)*duration
+        anchor=float(e.get('perceptual_hit_seconds',impact))
+        if abs(impact-anchor)*fps>max_sync_frames+1e-6:
+            return False
+        old_start=float(e.get('start_seconds',new_start-delta))
+        e['start_seconds']=round(max(old_start+delta,new_start),6)
+        entry['start_seconds']=round(new_start,6)
+        prior_ps=float(e.get('physical_start_seconds',old_start))
+        e['physical_start_seconds']=round(max(prior_ps+delta,e['start_seconds']),6)
+        e['visibility_interval_seconds']=[e['physical_start_seconds'],
+                                          float(e.get('physical_end_seconds',e.get('end_seconds',e['start_seconds'])))]
+        intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+        e['motion_intervals']=intervals
+        e['motion_start_seconds']=round(motion_start,6)
+        e['motion_end_seconds']=round(motion_end,6)
+        e['final_cross_source_incoming_delay_frames']=int(delay_frames)
+        return True
+
+    max_passes=max(1,len(groups)*4)
+    for _ in range(max_passes):
+        committed=False
+        for cid,card in card_by.items():
+            local=[e for e in active if str(e.get('visual_card_id'))==cid]
+            conflicts=card_motion_conflicts(local,float(card.get('start_seconds',0.0)),
+                                            float(card.get('end_seconds',0.0)),fps)
+            if not conflicts:
+                continue
+            local_by_id={str(e.get('event_id')):e for e in local}
+            before_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b')))))
+                          for x in conflicts}
+            for row in sorted(conflicts,key=lambda x:(float(x.get('time_seconds',0.0)),
+                                                      str(x.get('event_a')),str(x.get('event_b')))):
+                a=local_by_id.get(str(row.get('event_a')))
+                b=local_by_id.get(str(row.get('event_b')))
+                if not a or not b or str(a.get('scene_id'))==str(b.get('scene_id')):
+                    continue
+                if (str(a.get('visual_card_id'))!=str(b.get('visual_card_id')) and
+                    any(str(e.get('render_mode') or '') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'} for e in (a,b))):
+                    # P1 partitions cannot be shortened merely because their
+                    # carrier crosses nominal card ownership. Static placement
+                    # authority must resolve this class instead.
+                    continue
+                stats['candidate_conflict_count']+=1
+
+                if source_order(a)<source_order(b)-1e-6:
+                    outgoing,incoming=a,b
+                elif source_order(b)<source_order(a)-1e-6:
+                    outgoing,incoming=b,a
+                else:
+                    continue
+
+                members=groups.get(cohort_key(outgoing)) or []
+                incoming_members=groups.get(cohort_key(incoming)) or [incoming]
+                current_end=max(float(e.get('physical_end_seconds',e.get('end_seconds',0.0)))
+                                for e in members)
+                group_start=min(float(e.get('physical_start_seconds',e.get('start_seconds',0.0)))
+                                for e in members)
+                trigger_pair=tuple(sorted((str(row.get('event_a')),str(row.get('event_b')))))
+                outgoing_snap=[copy.deepcopy(e) for e in members]
+                incoming_snap=[copy.deepcopy(e) for e in incoming_members]
+                global_start=min(float(e.get('physical_start_seconds',e.get('start_seconds',0.0))) for e in active)
+                global_end=max(float(e.get('physical_end_seconds',e.get('end_seconds',0.0))) for e in active)
+                global_before_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b'))))) for x in card_motion_conflicts(active,global_start,global_end,fps)}
+
+                # Prefer a collision-free shared relationship composition over
+                # serializing the sources. The incoming actor remains in its
+                # certified base slot until its later focus state.
+                if len(incoming_members)==1 and str(incoming.get('render_mode') or 'ROOT_ATOMIC')=='ROOT_ATOMIC':
+                    live=incoming_members[0];t=float(row.get('time_seconds',0.0));base_center=list(live.get('card_rest_position_norm') or [])
+                    state_snap=copy.deepcopy(live)
+                    centers=[tuple(base_center),(.18,.20),(.38,.20),(.62,.20),(.82,.20),(.18,.52),(.38,.52),(.62,.52),(.82,.52),(.18,.80),(.38,.80),(.62,.80),(.82,.80)]
+                    for candidate_center in centers:
+                        live.clear();live.update(copy.deepcopy(state_snap));active_states=[]
+                        for container in ('composition_states','composition_participant_states'):
+                            ordered=sorted(live.get(container) or [],key=lambda state:float(state.get('start_seconds',0.0)))
+                            state=next((item for item in reversed(ordered) if float(item.get('start_seconds',0.0))<=t+1e-6),None)
+                            if state is not None:active_states.append(state)
+                        if len(candidate_center)<2 or not active_states:continue
+                        for state in active_states:
+                            state['center_norm']=[float(candidate_center[0]),float(candidate_center[1])]
+                            state['cross_scene_shared_phase_geometry_authority']='FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+                        after_rows=card_motion_conflicts(local,float(card.get('start_seconds',0.0)),float(card.get('end_seconds',0.0)),fps)
+                        after_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b'))))) for x in after_rows}
+                        live_start=float(live.get('physical_start_seconds',live.get('start_seconds',0.0)));live_end=float(live.get('physical_end_seconds',live.get('end_seconds',live_start)))
+                        global_live_conflicts=[x for x in card_motion_conflicts(active,live_start,live_end,fps) if str(live.get('event_id')) in (str(x.get('event_a')),str(x.get('event_b')))]
+                        if trigger_pair not in after_pairs and len(after_pairs)<len(before_pairs) and not global_live_conflicts:
+                            stats['handoffs_committed']+=1
+                            stats['repairs'].append({'visual_card_id':cid,'scene_id':str(outgoing.get('scene_id')),'incoming_scene_id':str(live.get('scene_id')),'trigger_conflict':dict(row),'event_ids':[str(live.get('event_id'))],'authority':'FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH','geometry_mode':'READABLE_SHARED_NEGATIVE_SPACE_SLOT'})
+                            committed=True
+                            break
+                    if committed:break
+                    live.clear();live.update(state_snap)
+
+                for delay_frames in range(0,max_sync_frames+1):
+                    stats['candidate_schedules_evaluated']+=1
+                    _restore(members,outgoing_snap)
+                    _restore(incoming_members,incoming_snap)
+                    incoming_live=next((e for e in incoming_members
+                                        if str(e.get('event_id'))==str(incoming.get('event_id'))),incoming_members[0])
+                    if delay_frames and (len(incoming_members)!=1 or not shift_incoming_reveal(incoming_live,delay_frames)):
+                        continue
+
+                    readable=first_readable_frame(incoming_live,card)
+                    if readable is None:
+                        continue
+                    handoff=min(current_end,float(readable)-step)
+                    handoff=max(handoff,group_start+step)
+                    if handoff>=current_end-step*.25:
+                        continue
+                    ok,fallback_count=apply_end(members,handoff)
+                    if not ok:
+                        continue
+
+                    after_rows=card_motion_conflicts(local,float(card.get('start_seconds',0.0)),
+                                                     float(card.get('end_seconds',0.0)),fps)
+                    after_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b')))))
+                                 for x in after_rows}
+                    if trigger_pair in after_pairs or len(after_pairs)>=len(before_pairs):
+                        continue
+
+                    ids=[str(e.get('event_id')) for e in members]
+                    partition_ids=[e for e in members
+                                   if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}]
+                    stats['handoffs_committed']+=1
+                    stats['trimmed_source_group_count']+=1
+                    if partition_ids:
+                        stats['trimmed_partition_group_count']+=1
+                    stats['motion_fallback_count']+=fallback_count
+                    stats['incoming_delay_frames'].append(int(delay_frames))
+                    stats['trimmed_event_ids'].extend(ids)
+                    stats['repairs'].append({
+                        'visual_card_id':cid,'scene_id':str(outgoing.get('scene_id')),
+                        'handoff_seconds':round(handoff,6),
+                        'incoming_scene_id':str(incoming_live.get('scene_id')),
+                        'incoming_delay_frames':int(delay_frames),
+                        'trigger_conflict':dict(row),'event_ids':ids,
+                        'motion_fallback_count':fallback_count,
+                        'authority':'FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH',
+                    })
+                    committed=True
+                    break
+
+                if committed:
+                    break
+                _restore(members,outgoing_snap)
+                _restore(incoming_members,incoming_snap)
+                # If the overlap occurs while the successor is only beginning
+                # to appear, retiring the source would violate readable-successor
+                # authority. Keep the incoming root at its already certified base
+                # slot for the shared relationship state; later solo/focus states
+                # retain their authored destinations. Accept only when exact card
+                # QA proves the conflict set strictly decreases.
+                if len(incoming_members)==1 and str(incoming.get('render_mode') or 'ROOT_ATOMIC')=='ROOT_ATOMIC':
+                    live=incoming_members[0];t=float(row.get('time_seconds',0.0));base_center=list(live.get('card_rest_position_norm') or [])
+                    state_snap=copy.deepcopy(live)
+                    active_states=[]
+                    for container in ('composition_states','composition_participant_states'):
+                        ordered=sorted(live.get(container) or [],key=lambda state:float(state.get('start_seconds',0.0)))
+                        active_state=next((state for state in reversed(ordered) if float(state.get('start_seconds',0.0))<=t+1e-6),None)
+                        if active_state is not None:active_states.append(active_state)
+                    if len(base_center)>=2 and active_states:
+                        for state in active_states:
+                            state['center_norm']=[float(base_center[0]),float(base_center[1])]
+                            state['cross_scene_shared_phase_geometry_authority']='FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+                        after_rows=card_motion_conflicts(local,float(card.get('start_seconds',0.0)),float(card.get('end_seconds',0.0)),fps)
+                        after_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b'))))) for x in after_rows}
+                        global_after_pairs={tuple(sorted((str(x.get('event_a')),str(x.get('event_b'))))) for x in card_motion_conflicts(active,global_start,global_end,fps)}
+                        if trigger_pair not in after_pairs and len(after_pairs)<len(before_pairs) and not (global_after_pairs-global_before_pairs):
+                            stats['handoffs_committed']+=1
+                            stats['repairs'].append({'visual_card_id':cid,'scene_id':str(outgoing.get('scene_id')),'incoming_scene_id':str(live.get('scene_id')),'trigger_conflict':dict(row),'event_ids':[str(live.get('event_id'))],'authority':'FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH','geometry_mode':'INCOMING_BASE_SLOT_UNTIL_READABLE_HANDOFF'})
+                            committed=True
+                            break
+                    live.clear();live.update(state_snap)
+                stats['handoffs_rejected']+=1
+            if committed:
+                break
+        if not committed:
+            break
+
+    stats['trimmed_event_ids']=sorted(set(stats['trimmed_event_ids']))
+    return stats
+
+
+def _finalize_visual_lifetimes(events:list[dict], cards:dict, fps:float=30.0)->dict:
+    """Commit physical carrier lifetimes from the final immutable motion state.
+
+    Scheduling establishes provisional timing only. Downstream optimizers may
+    legally retime entry/action/exit presets, so physical lifetime is committed
+    once, after every timing-mutating pass. Certified partition members share
+    one carrier envelope while retaining independent motion intervals.
+    """
+    card_by={str(c.get('card_id')):c for c in (cards.get('cards') or [])}
+    active=[e for e in events if not e.get('suppressed_by_card_density')]
+    stats={'event_count':len(active),'partition_group_count':0,'partition_member_count':0,
+           'suppressed_partition_member_count':0,'recommitted_event_count':0}
+
+    # A certified partition is source-survival atomic. Never allow density or
+    # identity suppression to silently turn it into a partial reconstruction.
+    partition_all={}
+    for e in events:
+        if e.get('render_mode') not in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            continue
+        key=(str(e.get('visual_card_id')),str(e.get('scene_id')),str(e.get('partition_root_id')))
+        partition_all.setdefault(key,[]).append(e)
+    partial=[]
+    for key,members in partition_all.items():
+        suppressed=[e for e in members if e.get('suppressed_by_card_density')]
+        live=[e for e in members if not e.get('suppressed_by_card_density')]
+        if suppressed and live:
+            stats['suppressed_partition_member_count']+=len(suppressed)
+            partial.append((key,[str(e.get('event_id')) for e in suppressed]))
+    if partial:
+        detail=' | '.join(f"{k[0]}:{k[1]}:{k[2]} suppressed={ids}" for k,ids in partial[:8])
+        raise ValueError('PARTIAL_CERTIFIED_PARTITION_SUPPRESSION: '+detail)
+
+    for e in active:
+        intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+        prior_start=float(e.get('physical_start_seconds',motion_start))
+        prior_end=float(e.get('physical_end_seconds',motion_end))
+        e['motion_start_seconds']=round(motion_start,6)
+        e['motion_end_seconds']=round(motion_end,6)
+        e['motion_intervals']=intervals
+        e['physical_start_seconds']=round(min(prior_start,motion_start),6)
+        e['physical_end_seconds']=round(max(prior_end,motion_end),6)
+        e['visibility_interval_seconds']=[e['physical_start_seconds'],e['physical_end_seconds']]
+        e['final_lifetime_authority']='FINAL_COMMITTED_MOTION_AND_CARRIER_STATE'
+        stats['recommitted_event_count']+=1
+
+    groups={}
+    for e in active:
+        if e.get('render_mode') not in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            continue
+        key=(str(e.get('visual_card_id')),str(e.get('scene_id')),str(e.get('partition_root_id')))
+        groups.setdefault(key,[]).append(e)
+    for key,members in groups.items():
+        carrier_start=min(float(e['physical_start_seconds']) for e in members)
+        carrier_end=max(float(e['physical_end_seconds']) for e in members)
+        card=card_by.get(key[0])
+        if card is not None:
+            carrier_start=max(float(card.get('start_seconds',carrier_start)),carrier_start)
+            carrier_end=min(float(card.get('end_seconds',carrier_end)),carrier_end)
+        if carrier_end<=carrier_start+1e-6:
+            raise ValueError(f"{key[0]}:{key[1]}:{key[2]} invalid Foundation partition carrier lifetime")
+        for e in members:
+            # Composition states are motion and cannot outlive the certified
+            # source carrier. Preserve every state and its destination while
+            # clipping only the transition envelope at the immutable card /
+            # partition boundary.
+            composition_state_timing_clamped=False
+            for state in (e.get('composition_states') or [])+(e.get('composition_participant_states') or []):
+                old_start=float(state.get('start_seconds',carrier_start))
+                old_duration=max(0.0,float(state.get('transition_duration_seconds') or 0.0))
+                new_start=max(carrier_start,min(old_start,carrier_end))
+                new_duration=min(old_duration,max(0.0,carrier_end-new_start))
+                if abs(new_start-old_start)>1e-6 or abs(new_duration-old_duration)>1e-6:
+                    state['start_seconds']=round(new_start,6)
+                    state['transition_duration_seconds']=round(new_duration,6)
+                    state['carrier_timing_authority']='FINAL_PARTITION_CARRIER_BOUNDARY'
+                    composition_state_timing_clamped=True
+            if composition_state_timing_clamped:
+                e['final_partition_composition_state_timing_clamped']=True
+                intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+                e['motion_intervals']=intervals
+                e['motion_start_seconds']=round(motion_start,6)
+                e['motion_end_seconds']=round(motion_end,6)
+            # Existence is group-owned; reveal/action timing remains actor-owned.
+            # If this member's disappearance was scheduled before the group
+            # carrier ends, move only that final exit to the carrier boundary.
+            # Otherwise the renderer would correctly preserve physical lifetime
+            # but visibly exit and then reappear as a held state.
+            if e.get('render_mode')!='RESIDUAL_SUPPORT' and e.get('preset_exit'):
+                exit_row=e['preset_exit']
+                exit_start=float(exit_row.get('start_seconds',e.get('end_seconds',carrier_end)))
+                exit_duration=max(0.0,float(exit_row.get('duration_seconds') or 0.0))
+                exit_fraction=_motion_interval_effective_fraction('EXIT',str(exit_row.get('name') or ''))
+                exit_effective_end=exit_start+exit_duration*exit_fraction
+                if carrier_end>exit_effective_end+1e-6:
+                    _retime_exit_to_effective_end(e,carrier_end,float(e.get('motion_start_seconds',carrier_start)))
+                    e['end_seconds']=round(carrier_end,6)
+                    intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+                    e['motion_intervals']=intervals
+                    e['motion_start_seconds']=round(motion_start,6)
+                    e['motion_end_seconds']=round(motion_end,6)
+                    e['partition_exit_retimed_to_carrier_end']=True
+            e['partition_carrier_start_seconds']=round(carrier_start,6)
+            e['partition_carrier_end_seconds']=round(carrier_end,6)
+            e['physical_start_seconds']=round(carrier_start,6)
+            e['physical_end_seconds']=round(carrier_end,6)
+            e['visibility_interval_seconds']=[e['physical_start_seconds'],e['physical_end_seconds']]
+            motion_escapes=(float(e.get('motion_start_seconds',carrier_start))<carrier_start-1e-6 or
+                            float(e.get('motion_end_seconds',carrier_end))>carrier_end+1e-6)
+            if motion_escapes and e.get('render_mode')!='RESIDUAL_SUPPORT':
+                # Final semantic/card ownership is harder authority than an
+                # optional animated path. Preserve the complete source member
+                # and compile a bounded reveal/hold/exit instead of deleting it
+                # or allowing motion to escape the carrier.
+                ad=preset_duration('APPEAR_HIGH_SCALE');dd=preset_duration('DISAPPEAR_DOWN_SCALE')
+                disappear_fraction=_motion_interval_effective_fraction('EXIT','DISAPPEAR_DOWN_SCALE')
+                visible_dd=dd*disappear_fraction
+                latest_entry=max(carrier_start,carrier_end-visible_dd-ad-0.10)
+                old_entry=float((e.get('preset_entry') or {}).get('start_seconds',e.get('start_seconds',carrier_start)))
+                st=max(carrier_start,min(old_entry,latest_entry))
+                xs=max(st+ad+0.05,carrier_end-visible_dd)
+                if xs+visible_dd>carrier_end+1e-6:
+                    xs=max(st+ad,carrier_end-visible_dd)
+                e['preset_entry']={'name':'APPEAR_HIGH_SCALE','start_seconds':round(st,6),'duration_seconds':ad,
+                                   'authority':'FINAL_PARTITION_CARRIER_REVEAL_FALLBACK'}
+                e['preset_actions']=[]
+                e['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':round(xs,6),'duration_seconds':dd,
+                                  'authority':'FINAL_PARTITION_CARRIER_REVEAL_FALLBACK'}
+                e['start_seconds']=round(st,6);e['settle_seconds']=round(st+ad,6);e['end_seconds']=round(carrier_end,6)
+                e['appearance_method']='SCALE_POP';e['disappearance_method']='PRESET_DISAPPEARANCE'
+                e['position_animated']=False;e['entry_direction']=None
+                e['foundation_motion_decision']='REVEAL_ONLY'
+                e['final_partition_motion_fallback']='MOTION_ENVELOPE_OUTSIDE_CARRIER'
+                intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+                e['motion_intervals']=intervals;e['motion_start_seconds']=round(motion_start,6);e['motion_end_seconds']=round(motion_end,6)
+                motion_escapes=False
+            if motion_escapes and e.get('render_mode')!='RESIDUAL_SUPPORT':
+                raise ValueError(f"{e.get('event_id')}: motion lifetime cannot fit certified partition carrier")
+            if e.get('render_mode')=='RESIDUAL_SUPPORT':
+                # Residual reconstruction is physical source preservation, not
+                # an actor. The renderer keeps it static for the whole carrier,
+                # so the final plan must not retain fake appearance/exit motion.
+                e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
+                e['start_seconds']=round(carrier_start,6);e['settle_seconds']=round(carrier_start,6);e['end_seconds']=round(carrier_end,6)
+                e['motion_start_seconds']=round(carrier_start,6);e['motion_end_seconds']=round(carrier_start,6);e['motion_intervals']=[]
+                e['appearance_method']='STATIC_SUPPORT';e['disappearance_method']='STATIC_SUPPORT'
+                e['independent_motion_allowed']=False
+                e['position_animated']=False
+                e['final_lifetime_authority']='FOUNDATION_STATIC_RESIDUAL_CARRIER'
+        stats['partition_group_count']+=1
+        stats['partition_member_count']+=len(members)
+    handoff_stats=_reconcile_final_partition_handoffs(events,cards,fps)
+    stats['partition_handoff_repair']=handoff_stats
+    return stats
+
 
 def _hierarchical_render_metadata(unit:dict)->dict:
     return {
@@ -1268,6 +2027,16 @@ def _recover_trajectory_conflicts(card:dict,events:list[dict],phase_plan:dict,re
         involved={eid for row in conflicts for eid in (row['event_a'],row['event_b'])}
         for e in events:
             if e.get('event_id') not in involved:continue
+            expanded=False
+            for state in e.get('composition_states') or []:
+                if state.get('state_reason')=='SEMANTIC_ARCHETYPE_PHASE_GEOMETRY' and float(state.get('scale_multiplier') or 1.0)>1.001:
+                    state['scale_multiplier']=1.0;state['editorial_expansion_rollback']='SWEPT_TRAJECTORY_CONFLICT';expanded=True
+            if expanded:changed=True
+        conflicts=card_motion_conflicts(events,float(card['start_seconds']),float(card['end_seconds']),fps)
+    if conflicts:
+        involved={eid for row in conflicts for eid in (row['event_a'],row['event_b'])}
+        for e in events:
+            if e.get('event_id') not in involved:continue
             pe=e.get('preset_entry') or {};px=e.get('preset_exit') or {}
             if e.get('position_animated') or str(pe.get('name','')).startswith('ENTRY_') or str(px.get('name','')).startswith('EXIT_'):
                 window=_phase_for_event(phase_plan,str(e.get('event_id')))
@@ -1309,6 +2078,11 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
                 'reference_camera_scale':float(camera_fit['camera_scale']),'layout_scale_multiplier':1.0,'hierarchy_level':int(u.get('hierarchy_level') or 0),'parent_semantic_unit_id':u.get('parent_semantic_unit_id'),'composition_slot_id':u.get('composition_slot_id') or u.get('semantic_unit_id') or u.get('physical_id'),'fifth_element_overlay':False,
                 **_hierarchical_render_metadata(u),'reveal_safe':bool(u.get('reveal_safe',True)),'animation_safe':bool(u.get('animation_safe',True)),'matting':u.get('matting'),'semantic_mapping_confidence':float(u.get('semantic_mapping_confidence',0.0)),'cutout_policy':'TOP_LEVEL_SEMANTIC_GROUP_ONLY__PRESERVE_ATTACHED_DETAILS','relationship_motion_policy':'EXPLICIT_METADATA_ONLY__UNSAFE_TRAVEL_BECOMES_TEMPORAL_HANDOFF','attention_priority':'PRIMARY' if primary else 'SUPPORTING','motion_energy':'HIGH' if primary else 'MEDIUM','budget_cost':0.25 if primary else 0.12,
             }
+            from hexa_v31.composition_solver import source_object_visible_fraction
+            object_ink=source_object_visible_fraction(e)
+            if object_ink is not None:
+                e['visible_ink_fraction']=object_ink
+                e['visible_ink_fraction_basis']='SOURCE_ALPHA_WITHIN_DECLARED_OBJECT_BBOX'
             e['composite_atomic']=_event_is_atomic(e);events.append(e);scene_events.append(e)
         scenes_out.append({'scene_id':sid,'start_seconds':float(st['start']),'end_seconds':float(st['end']),'duration_seconds':float(st['end'])-float(st['start']),'duration_class':'CARD_MEMBER','vision_mode':vr.get('mode'),'choreography_profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','relation_to_previous':_relation(scene),'transition':{'mode':'OBJECT_PRESETS_ONLY__NO_FRAME_BLEND','duration_seconds':0.0,'white_reset':False,'relation':_relation(scene),'profile':'V31_0_25_PREMIUM_MOTION_LANGUAGE','energy_cost':0.0,'strong':False},'visual_card_id':card['card_id'],'reference_camera_fit':camera_fit,'event_ids':[e['event_id'] for e in scene_events],'internal_change_count':len(scene_events),'semantic_focus_count':0,'story_beat_count':0,'story_action_count':0,'physical_story_action_count':0,'max_story_gap_seconds':min(1.4,float(card['duration_seconds'])),'hierarchical_motion_unit_count':hierarchy_selection['hierarchical_motion_unit_count'],'hierarchy_render_selection':hierarchy_selection,'composition_slot_count':len(set(str(e.get('composition_slot_id')) for e in scene_events)),'short_beat':False,'motion_budget':{'budget_points':10.0,'duration_class':'CARD_MEMBER'},'estimated_motion_cost':sum(e['budget_cost'] for e in scene_events),'budget_utilization':0.0})
 
@@ -1317,10 +2091,41 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     # voice anchor. A source scene may straddle an editorial boundary; its
     # physical state must follow the anchor rather than an obsolete scene map.
     ordered_cards=cards['cards']
-    for e in events:
-        hit=float(e.get('perceptual_hit_seconds',e.get('source_scene_start_seconds',0)))
+    def _target_card_for_anchor(hit):
         target=next((c for c in ordered_cards if float(c['start_seconds'])-1e-6<=hit<float(c['end_seconds'])-1e-6),None)
-        if target is None and ordered_cards:target=min(ordered_cards,key=lambda c:min(abs(hit-float(c['start_seconds'])),abs(hit-float(c['end_seconds']))))
+        if target is None and ordered_cards:
+            target=min(ordered_cards,key=lambda c:min(abs(hit-float(c['start_seconds'])),abs(hit-float(c['end_seconds']))))
+        return target
+    # Certified Foundation partitions are one source visual. Card ownership is
+    # therefore group-owned even when individual children have staggered voice
+    # anchors. Splitting children of one reconstruction across cards creates a
+    # partial source state and invalid carrier lifetimes.
+    partition_groups={}
+    for e in events:
+        if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+            key=(str(e.get('scene_id')),str(e.get('partition_root_id')))
+            partition_groups.setdefault(key,[]).append(e)
+    assigned_partition_ids=set()
+    for members in partition_groups.values():
+        focus=next((e for e in members if str(e.get('attention_priority') or '').upper()=='PRIMARY'),None)
+        if focus is None:
+            focus=min(members,key=lambda e:(float(e.get('perceptual_hit_seconds',e.get('source_scene_start_seconds',0))),str(e.get('event_id'))))
+        hit=float(focus.get('perceptual_hit_seconds',focus.get('source_scene_start_seconds',0)))
+        target=_target_card_for_anchor(hit)
+        if target:
+            for e in members:
+                assigned_partition_ids.add(str(e.get('event_id')))
+                if e.get('visual_card_id')!=target['card_id']:
+                    e['repartitioned_from_visual_card_id']=e.get('visual_card_id')
+                    e['visual_card_id']=target['card_id']
+                    e['card_repartition_strategy']='FOUNDATION_PARTITION_GROUP_ANCHOR'
+                if e.get('scene_id') not in target.get('source_scene_ids',[]):
+                    target.setdefault('source_scene_ids',[]).append(e.get('scene_id'))
+    for e in events:
+        if str(e.get('event_id')) in assigned_partition_ids:
+            continue
+        hit=float(e.get('perceptual_hit_seconds',e.get('source_scene_start_seconds',0)))
+        target=_target_card_for_anchor(hit)
         if target and e.get('visual_card_id')!=target['card_id']:
             e['repartitioned_from_visual_card_id']=e.get('visual_card_id');e['visual_card_id']=target['card_id'];e['card_repartition_strategy']='ANCHOR_INTERVAL_CARD_SPLIT'
             if e.get('scene_id') not in target.get('source_scene_ids',[]):target.setdefault('source_scene_ids',[]).append(e.get('scene_id'))
@@ -1331,7 +2136,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     for card in cards['cards']:
         evs=[e for e in events if e['visual_card_id']==card['card_id']];_consolidate_card_identity(evs);active=[e for e in evs if not e.get('suppressed_by_card_density')]
         source_scenes=[scene_map[sid] for sid in card.get('source_scene_ids') or [] if sid in scene_map]
-        grammar=classify_card(card,active,source_scenes);phase_plan=repartition_story_phases(card,active,[])
+        grammar=classify_card(card,active,source_scenes);phase_plan=build_story_phases(card,active,grammar)
         card['semantic_phase_repartition']={'detected_conflicts':0,'resolved_by_internal_phase_split':len(phase_plan.get('phases') or []),'cards_split':0,'authority':'ANCHOR_OWNED_PHASE_TOPOLOGY'}
         # Topology-aware solve: do not discard future-state objects before the
         # real phase-aware composition solver can reserve/reuse their geometry.
@@ -1339,16 +2144,22 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         # in time are legal candidates rather than permanent card occupancy.
         selected_events=list(active)
         card['topology_solver_authority']='CARD_WIDE_FUTURE_REVEAL__TIME_SEPARATED_OCCUPANCY'
-        layout=solve_card_layout(selected_events,grammar,phase_plan)
+        layout=solve_phase_layouts(selected_events,grammar,phase_plan)
         if not layout.get('pass'):
             phase_plan=repair_story_phases(card,selected_events,grammar)
             dropped=set(phase_plan.get('suppressed_event_ids') or [])
             for e in selected_events:
                 if e['event_id'] in dropped:
+                    if e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:
+                        # Never solve density by deleting certified source pixels.
+                        # Keep the full partition; the subsequent layout/static
+                        # fallback must either fit it or fail safely.
+                        e['partition_suppression_blocked']='CERTIFIED_SOURCE_SURVIVAL_ATOMICITY'
+                        continue
                     e['suppressed_by_card_density']=True
                     e['suppression_reason']='V31_0_25_ADAPTIVE_COLLISION_RECOVERY'
             selected_events=[e for e in selected_events if not e.get('suppressed_by_card_density')]
-            layout=solve_card_layout(selected_events,grammar,phase_plan)
+            layout=solve_phase_layouts(selected_events,grammar,phase_plan)
         if not layout.get('pass'):
             raise ValueError(f"{card['card_id']}: V31.0.25 adaptive composition recovery exhausted: {layout.get('reason')}")
         composition_variant=_apply_composition_history_variant(layout,grammar,composition_history)
@@ -1357,21 +2168,28 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
         for e in selected_events:
             if _sid(e) in rel_sources:e['relationship_source_requested']=True
             pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['composite_atomic']=bool(pl['atomic']);e['planned_rect_norm']=pl['rect_norm'];window=_phase_for_event(phase_plan,e['event_id'])
+        card['universal_scene_grammar']=grammar
+        _commit_editorial_phase_geometry(selected_events,card,phase_plan,layout)
         foundation_contract=_plan_foundation_partition_choreography(selected_events,phase_plan)
         for e in selected_events:
             window=_phase_for_event(phase_plan,e['event_id'])
-            if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=not bool(e.get('independent_motion_allowed',True)),local_events=selected_events,fps=fps)
+            if window:
+                _schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=not bool(e.get('independent_motion_allowed',True)),local_events=selected_events,fps=fps)
+                _record_progressive_phase_authority(e,phase_plan)
         pre_conflicts=card_motion_conflicts(selected_events,float(card['start_seconds']),float(card['end_seconds']),fps)
         if pre_conflicts:
             phase_plan=repartition_story_phases(card,selected_events,pre_conflicts)
-            layout=solve_card_layout(selected_events,grammar,phase_plan)
+            layout=solve_phase_layouts(selected_events,grammar,phase_plan)
             if not layout.get('pass'):
                 raise ValueError(f"{card['card_id']}: semantic phase repartition layout failed: {layout.get('reason')}")
             composition_variant=_apply_composition_history_variant(layout,grammar,composition_history)
             for e in selected_events:
                 pl=layout['placements'][e['event_id']];e['card_rest_position_norm']=pl['center_norm'];e['layout_scale_multiplier']=pl['scale'];e['composition_role']=pl['role'];e['planned_rect_norm']=pl['rect_norm'];e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
                 window=_phase_for_event(phase_plan,e['event_id'])
-                if window:_schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True,local_events=selected_events,fps=fps)
+                if window:
+                    _schedule_event(e,window,card,selected_events.index(e),len(selected_events),force_static=True,local_events=selected_events,fps=fps)
+                    _record_progressive_phase_authority(e,phase_plan)
+            _commit_editorial_phase_geometry(selected_events,card,phase_plan,layout)
             card['semantic_phase_repartition']={'detected_conflicts':len(pre_conflicts),'resolved_by_internal_phase_split':len(pre_conflicts),'cards_split':0}
         relationship_resolutions=_safe_relationship_motion(card,selected_events,rels)
         relationship_resolutions=_recover_trajectory_conflicts(card,selected_events,phase_plan,relationship_resolutions,fps)
@@ -1394,6 +2212,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     lifetime_stats=_commit_persistent_lifetimes(events,scenes_out,fps)
     segment_stats=_solve_semantic_segments(events,cards,fps)
     readable_hold_stats=_commit_readable_state_holds(events,cards,fps)
+    adaptive_composition_stats=_adaptive_composition_state_optimize(events,cards,fps)
     recomposition_stats=_recomposition_optimize(events,cards,fps)
     optical_scale_stats=_optical_scale_optimize(events,cards,fps)
     spatial_choreography_stats=_spatial_choreography_optimize(events,cards,fps)
@@ -1413,12 +2232,12 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     cross_card_stats=_cross_card_handoff_optimize(events,cards,fps)
     atomic_stats=_atomic_handoff_optimize(events,cards,fps)
     final_secondary_geometry=_finalize_secondary_character_geometry(events)
+    final_lifetime_commit=_finalize_visual_lifetimes(events,cards,fps)
+    # Lifetime finalization owns the bounded cross-scene handoff search.  Its
+    # committed carrier timing must therefore precede the physical gate; the
+    # gate certifies the final geometry rather than rejecting a provisional
+    # overlap before the handoff solver is allowed to run.
     final_physical_certification=_final_physical_certification(events,cards,fps)
-    for e in events:
-        if not e.get('suppressed_by_card_density'):
-            e['motion_start_seconds']=e.get('start_seconds')
-            e['motion_end_seconds']=e.get('end_seconds')
-            e['motion_intervals']=([dict(kind='ENTRY',**e['preset_entry'])] if e.get('preset_entry') else [])+[dict(kind='ACTION',**a) for a in (e.get('preset_actions') or [])]+([dict(kind='EXIT',**e['preset_exit'])] if e.get('preset_exit') else [])
     from hexa_v31.composition_qa import composition_plan_qa
     final_composition_qa=composition_plan_qa({'events':events,'visual_cards':cards,'fps':fps})
     # This is intentionally retained as an authoritative final-plan record.
@@ -1436,6 +2255,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['semantic_segment_solver']=segment_stats
     out['readable_state_hold_optimizer']=readable_hold_stats
     out['premium_recomposition_optimizer']=recomposition_stats
+    out['adaptive_composition_state_optimizer']=adaptive_composition_stats
     out['effect_variety_director']=effect_variety_stats
     out['editorial_motion_grammar_director']=editorial_motion_grammar
     out['semantic_visual_sentence_compiler']=semantic_visual_sentences
@@ -1449,6 +2269,7 @@ def build_preset_story_motion_plan(plan:dict, alignment:dict, vision_results:lis
     out['final_semantic_timing_composition_qa']=final_composition_qa
     out['final_secondary_character_geometry_event_ids']=final_secondary_geometry
     out['final_physical_certification']=final_physical_certification
+    out['final_lifetime_commit']=final_lifetime_commit
     out['premium_optical_scale_optimizer']=optical_scale_stats
     out['premium_spatial_choreography_optimizer']=spatial_choreography_stats
     out['instance_metrics']={'visual_instances_total':len(visual_instances),'semantic_events_total':len(semantic_events),'persistent_instances_total':sum(1 for x in visual_instances if len((x.get('persistence_source_evidence') or {}).get('source_states') or [])>1),'duplicate_same_identity_overlap_count':0,'illegal_persistence_count':0,'logical_instance_reentry_without_source_reset':0,**lifetime_stats}

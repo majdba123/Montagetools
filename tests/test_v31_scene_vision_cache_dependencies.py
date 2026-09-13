@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='hexa_vision_cache_') as raw:
     hit = vision_module.analyze_scene(scene, image_path, cache_root)
     assert hit.cache_state['status'] == 'HIT', hit.cache_state
 
-    for dependency in ('vision', 'extraction_matting', 'hierarchy_decomposition', 'occlusion'):
+    for dependency in ('vision', 'extraction_matting', 'hierarchy_decomposition', 'occlusion', 'foundation_reconstruction', 'actor_qa'):
         scene_dir = cache_root / scene['scene_id']
         stale_phys = scene_dir / 'PHYS_99.png'
         stale_phys.write_bytes(b'stale')

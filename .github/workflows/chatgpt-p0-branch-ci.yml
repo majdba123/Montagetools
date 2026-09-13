@@ -1,0 +1,242 @@
+name: ChatGPT P0 Branch CI
+
+on:
+  pull_request:
+    branches:
+      - old-final-package
+  workflow_dispatch:
+
+concurrency:
+  group: chatgpt-p0-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-v31-suite:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Preserve repository bytes
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify exact branch head
+        shell: pwsh
+        env:
+          EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $actual = (& git rev-parse HEAD | Out-String).Trim()
+          if ($env:EXPECTED_PR_HEAD -and $actual -ne $env:EXPECTED_PR_HEAD) {
+            throw "CI checkout mismatch: actual=$actual expected_pr_head=$env:EXPECTED_PR_HEAD"
+          }
+          Write-Host "CI_SOURCE_COMMIT=$actual"
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --timeout 120 --retries 5 --upgrade pip==24.3.1
+          python -m pip install --disable-pip-version-check --timeout 120 --retries 5 "numpy>=1.24,<3" "Pillow>=10,<13" "opencv-python-headless>=4.8,<5" "ortools==9.15.6755" "shapely==2.1.2" "faster-whisper>=1.0,<2" "arabic-reshaper>=3,<4" "python-bidi>=0.6,<1" "uharfbuzz==0.56.0"
+
+      - name: FFmpeg
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg -y --no-progress
+          }
+          ffmpeg -version | Select-Object -First 1
+          if (Get-Command ffprobe -ErrorAction SilentlyContinue) {
+            ffprobe -version | Select-Object -First 1
+          }
+
+      - name: Preset byte authority diagnostics
+        shell: pwsh
+        run: |
+          $preset = "extension/resources/presets.prfpset"
+          $authority = Get-Content "extension/resources/HEXA_USER_PRESET_AUTHORITY_V31.json" -Raw | ConvertFrom-Json
+          $actual = (Get-FileHash $preset -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = $authority.source_files.prfpset_sha256.ToLowerInvariant()
+          Write-Host "PRFPSET_ACTUAL_SHA256=$actual"
+          Write-Host "PRFPSET_EXPECTED_SHA256=$expected"
+          Write-Host "PRFPSET_BYTES=$((Get-Item $preset).Length)"
+          git check-attr -a -- $preset
+          if ($actual -ne $expected) { throw "PRFPSET authority bytes mismatch" }
+
+      - name: Full deterministic V31 suite
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: python tests/run_v31_test_suite.py
+
+      - name: Bootstrap CI runtime contract
+        shell: pwsh
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+          $python = (Get-Command python).Source
+          $ffmpeg = (Get-Command ffmpeg).Source
+          $ffprobeCmd = Get-Command ffprobe -ErrorAction SilentlyContinue
+          $ffprobe = if ($ffprobeCmd) { $ffprobeCmd.Source } else { $null }
+          $cfg = [ordered]@{
+            schema = 'HEXA_V31_RUNTIME_CONFIG'
+            version = 'CI_SHIPPING_GATE'
+            python_exe = $python
+            python_import_roots = @()
+            python_import_contract_sha256 = 'CI_SHIPPING_GATE'
+            ffmpeg_path = $ffmpeg
+            ffprobe_path = $ffprobe
+            media_probe_backend = if ($ffprobe) { 'FFPROBE_JSON' } else { 'FFMPEG_STDERR_FALLBACK' }
+            downloads_during_build = $false
+            allow_whisper = $false
+            cpu_threads = 2
+            build_cache_root = (Join-Path $runtimeDir 'builds')
+            foundation_vision_enabled = $false
+            source_commit = ((& git rev-parse HEAD | Out-String).Trim())
+          }
+          $cfgPath = Join-Path $runtimeDir 'runtime_config.json'
+          $cfg | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $cfgPath -Encoding UTF8
+          if (-not (Test-Path -LiteralPath $cfgPath -PathType Leaf)) {
+            throw "CI runtime_config.json was not created"
+          }
+          Write-Host "CI_RUNTIME_CONFIG=$cfgPath"
+          Write-Host "CI_PYTHON=$python"
+          Write-Host "CI_FFMPEG=$ffmpeg"
+          Write-Host "CI_FFPROBE=$ffprobe"
+
+      - name: Build actual shipping release
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          ./tools/build_latest_release.ps1
+          $identity = Get-Content "dist/latest/release_identity.json" -Raw | ConvertFrom-Json
+          $head = (& git rev-parse HEAD | Out-String).Trim()
+          if ($identity.source_commit -ne $head) {
+            throw "Release identity mismatch: $($identity.source_commit) != $head"
+          }
+          if ($identity.project_package_validation -ne 'DEFERRED_TO_PREMIERE_BUILD') {
+            throw "Release package-selection contract regressed"
+          }
+
+      - name: Install shipping release through root launcher
+        shell: cmd
+        env:
+          HEXA_V31_NONINTERACTIVE: '1'
+        run: |
+          call bayer.bat
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Interaction runtime contract
+        shell: pwsh
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          $cfg = Get-Content (Join-Path $runtimeDir 'runtime_config.json') -Raw | ConvertFrom-Json
+          $lock = Get-Content (Join-Path $runtimeDir 'runtime_lock.json') -Raw | ConvertFrom-Json
+          $roots = @((Join-Path $lock.extension_root 'py')) + @($cfg.python_import_roots)
+          $old = $env:PYTHONPATH
+          $env:PYTHONPATH = ($roots -join ';')
+          try {
+            & $cfg.python_exe -c "from ortools.sat.python import cp_model; from shapely.geometry import box; m=cp_model.CpModel(); x=m.NewIntVar(0,2,'x'); m.Add(x==2); s=cp_model.CpSolver(); s.parameters.num_search_workers=1; s.parameters.random_seed=0; assert s.Solve(m) in (cp_model.OPTIMAL,cp_model.FEASIBLE) and s.Value(x)==2; assert abs(box(0,0,1,1).area-1.0)<1e-9; print('V31_INTERACTION_RUNTIME_CONTRACT_PASS')"
+            if ($LASTEXITCODE -ne 0) { throw "Installed interaction runtime capability probe failed" }
+          } finally {
+            $env:PYTHONPATH = $old
+          }
+
+      - name: Installed Foundation worker initialization
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          $cfgPath = Join-Path $runtimeDir 'runtime_config.json'
+          $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json
+          $lock = Get-Content (Join-Path $runtimeDir 'runtime_lock.json') -Raw | ConvertFrom-Json
+          if (-not $cfg.foundation_vision_enabled) { throw "Installed Foundation Vision is not enabled" }
+          $roots = @((Join-Path $lock.extension_root 'py')) + @($cfg.python_import_roots)
+          $old = $env:PYTHONPATH
+          $env:PYTHONPATH = ($roots -join ';')
+          $env:HEXA_CI_RUNTIME_CONFIG = $cfgPath
+          $env:HEXA_CI_EXTENSION_ROOT = $lock.extension_root
+          $probe = @'
+          import json,os
+          from hexa_v31.vision.foundation.backend import FoundationVisionClient
+          with open(os.environ['HEXA_CI_RUNTIME_CONFIG'],'r',encoding='utf-8-sig') as f: cfg=json.load(f)
+          client=FoundationVisionClient(cfg,os.environ['HEXA_CI_EXTENSION_ROOT'])
+          try:
+              ok=client.start()
+              print('FOUNDATION_STARTUP_ATTEMPTS='+json.dumps(client.startup_attempts,ensure_ascii=False))
+              if not ok: raise RuntimeError(client.failure or 'Foundation worker failed to initialize')
+              print('V31_INSTALLED_FOUNDATION_WORKER_READY_PASS')
+          finally:
+              client.close()
+          '@
+          try {
+            & $cfg.python_exe -c $probe
+            if ($LASTEXITCODE -ne 0) { throw "Installed Foundation worker initialization failed" }
+          } finally {
+            $env:PYTHONPATH = $old
+            Remove-Item Env:HEXA_CI_RUNTIME_CONFIG -ErrorAction SilentlyContinue
+            Remove-Item Env:HEXA_CI_EXTENSION_ROOT -ErrorAction SilentlyContinue
+          }
+
+      - name: Installed Foundation real inference smoke
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          $cfg = Get-Content (Join-Path $runtimeDir 'runtime_config.json') -Raw | ConvertFrom-Json
+          $lock = Get-Content (Join-Path $runtimeDir 'runtime_lock.json') -Raw | ConvertFrom-Json
+          $roots = @((Join-Path $lock.extension_root 'py')) + @($cfg.python_import_roots)
+          $old = $env:PYTHONPATH
+          $env:PYTHONPATH = ($roots -join ';')
+          try {
+            & $cfg.foundation_python_exe tools/foundation_real_smoke.py --registry $cfg.foundation_model_registry --models-root $cfg.foundation_models_root --profile $cfg.foundation_profile --device $cfg.foundation_device
+            if ($LASTEXITCODE -ne 0) { throw "Installed real Florence/SAM2 inference smoke failed" }
+          } finally {
+            $env:PYTHONPATH = $old
+          }
+
+      - name: Installed interaction production certification
+        shell: pwsh
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          $runtimeDir = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31'
+          $cfg = Get-Content (Join-Path $runtimeDir 'runtime_config.json') -Raw | ConvertFrom-Json
+          $lock = Get-Content (Join-Path $runtimeDir 'runtime_lock.json') -Raw | ConvertFrom-Json
+          $head = (& git rev-parse HEAD | Out-String).Trim()
+          if ($cfg.source_commit -ne $head) { throw "Installed runtime source mismatch: $($cfg.source_commit) != $head" }
+          $roots = @((Join-Path $lock.extension_root 'py')) + @($cfg.python_import_roots)
+          $old = $env:PYTHONPATH
+          $env:PYTHONPATH = ($roots -join ';')
+          try {
+            & $cfg.python_exe tests/test_v31_problem2_short_card_production_replay.py
+            if ($LASTEXITCODE -ne 0) { throw "Installed short-card production replay failed" }
+            & $cfg.python_exe tests/test_v31_problem2_full_planner_react.py
+            if ($LASTEXITCODE -ne 0) { throw "Installed full-planner REACT render certification failed" }
+            & $cfg.python_exe tests/test_v31_problem2_closure.py
+            if ($LASTEXITCODE -ne 0) { throw "Installed encoded interaction pixel certification failed" }
+          } finally {
+            $env:PYTHONPATH = $old
+          }
+
+      - name: Premiere host integration contract
+        shell: pwsh
+        run: node tests/test_v31_premiere_animated_host_mock.js

@@ -79,18 +79,33 @@ def visual_timeline_coverage_qa(motion_plan: dict, fps: float | None = None,
         card_rows.append({'visual_card_id': cid, 'sample_count': samples, 'active_visual_carrier_count_min': 0 if uncovered else 1, 'coverage_ratio': round((samples-uncovered)/samples, 6)})
     groups: dict[tuple[str, str, str], list[dict]] = {}
     for event in events:
-        if event.get('render_mode') in {'CHILD_PARTITION', 'RESIDUAL_SUPPORT'} and not event.get('suppressed_by_card_density'):
+        if event.get('render_mode') in {'CHILD_PARTITION', 'RESIDUAL_SUPPORT'}:
             key = (str(event.get('visual_card_id')), str(event.get('scene_id')), str(event.get('partition_root_id')))
             groups.setdefault(key, []).append(event)
     group_rows = []
-    for key, members in groups.items():
+    for key, all_members in groups.items():
+        members = [e for e in all_members if not e.get('suppressed_by_card_density')]
+        suppressed = [e for e in all_members if e.get('suppressed_by_card_density')]
         starts = {_window(e)[0] for e in members}; ends = {_window(e)[1] for e in members}
         residuals = [e for e in members if e.get('render_mode') == 'RESIDUAL_SUPPORT']
-        valid = len(starts) == 1 and len(ends) == 1
+        carrier_starts = {float(e.get('partition_carrier_start_seconds', _window(e)[0])) for e in members}
+        carrier_ends = {float(e.get('partition_carrier_end_seconds', _window(e)[1])) for e in members}
+        valid = bool(members) and len(starts) == 1 and len(ends) == 1 and len(carrier_starts) == 1 and len(carrier_ends) == 1
         if residuals:
             valid = valid and all(not e.get('independent_motion_allowed') and not e.get('translation_safe_after_occlusion') and not e.get('position_animated') for e in residuals)
-        if not valid: failures.append(f"{key[0]}:{key[1]}:{key[2]}: Foundation partition physical lifetime is incomplete")
-        group_rows.append({'visual_card_id': key[0], 'scene_id': key[1], 'partition_root_id': key[2], 'member_count': len(members), 'residual_support_count': len(residuals), 'collective_lifetime_pass': valid})
+        if suppressed and members:
+            valid = False
+            failures.append(f"{key[0]}:{key[1]}:{key[2]}: certified partition has individually suppressed members")
+        if not valid:
+            failures.append(f"{key[0]}:{key[1]}:{key[2]}: Foundation partition physical lifetime is incomplete")
+        group_rows.append({
+            'visual_card_id': key[0], 'scene_id': key[1], 'partition_root_id': key[2],
+            'member_count': len(members), 'total_partition_member_count': len(all_members),
+            'suppressed_member_ids': [str(e.get('event_id')) for e in suppressed],
+            'residual_support_count': len(residuals), 'collective_lifetime_pass': valid,
+            'partition_carrier_start_seconds': next(iter(carrier_starts)) if len(carrier_starts)==1 else None,
+            'partition_carrier_end_seconds': next(iter(carrier_ends)) if len(carrier_ends)==1 else None,
+        })
     if gaps: failures.append('VISUAL_TIMELINE_COVERAGE_GAP')
     if truncated: failures.append('collision recovery prematurely truncated visual carriers')
     planned_end = max((float(c.get('end_seconds', 0)) for c in cards), default=0.0)

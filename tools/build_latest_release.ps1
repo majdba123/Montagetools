@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
+    [Parameter(Mandatory = $false)]
     [string]$PackagePath
 )
 
@@ -12,6 +12,7 @@ $stage = Join-Path $dist ('.latest-stage-' + [guid]::NewGuid().ToString('N'))
 $backup = Join-Path $dist ('.latest-backup-' + [guid]::NewGuid().ToString('N'))
 $template = Join-Path $root 'tools\release\INSTALL_HEXA_V31.bat'
 $runtimeConfig = Join-Path $env:LOCALAPPDATA 'HEXA\VideoBuilderV31\runtime_config.json'
+$recoveryData = Join-Path $root 'recovery_data'
 $sourceCommit = (& git -C $root rev-parse HEAD 2>&1 | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[0-9a-f]{40}$') { throw "Cannot resolve source Git commit: $sourceCommit" }
 & git -C $root diff --quiet --
@@ -42,17 +43,37 @@ function Invoke-Checked([string]$Executable, [string[]]$Arguments, [string]$Work
 
 try {
     if (-not (Test-Path -LiteralPath $template -PathType Leaf)) { throw "Installer template missing: $template" }
-    if (-not (Test-Path -LiteralPath $PackagePath -PathType Leaf)) { throw "V1.0 validation package missing: $PackagePath" }
+    if ($PackagePath -and -not (Test-Path -LiteralPath $PackagePath -PathType Leaf)) { throw "Optional validation package missing: $PackagePath" }
     if (-not (Test-Path -LiteralPath $runtimeConfig -PathType Leaf)) { throw "Runtime config missing: $runtimeConfig" }
+    $recoveryRequired = @('recovery_schema.json','problem_registry.json','proven_solutions.json','recovery_history.json')
+    if (-not (Test-Path -LiteralPath $recoveryData -PathType Container)) { throw "Recovery data root missing: $recoveryData" }
+    foreach ($name in $recoveryRequired) {
+        $path = Join-Path $recoveryData $name
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Recovery data file missing: $path" }
+        try { $null = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json }
+        catch { throw "Recovery data JSON invalid: $path`n$($_.Exception.Message)" }
+    }
 
     New-Item -ItemType Directory -Force -Path (Join-Path $stage 'tools') | Out-Null
     Copy-Item -LiteralPath (Join-Path $root 'extension') -Destination (Join-Path $stage 'extension') -Recurse
+    # Source authority stays at repo-root/recovery_data. The release also materializes
+    # a read-only copy inside the extension payload so the installed CEP runtime can
+    # rank only visually PROVEN strategies without depending on the Git checkout.
+    Copy-Item -LiteralPath $recoveryData -Destination (Join-Path $stage 'recovery_data') -Recurse
+    Copy-Item -LiteralPath $recoveryData -Destination (Join-Path $stage 'extension\recovery_data') -Recurse
     Copy-Item -LiteralPath (Join-Path $root 'tools\install_v31.py') -Destination (Join-Path $stage 'tools\install_v31.py')
     Copy-Item -LiteralPath (Join-Path $root 'tools\selftest_v31.py') -Destination (Join-Path $stage 'tools\selftest_v31.py')
     Copy-Item -LiteralPath (Join-Path $root 'tools\provision_foundation_vision.py') -Destination (Join-Path $stage 'tools\provision_foundation_vision.py')
     Copy-Item -LiteralPath $template -Destination (Join-Path $stage 'INSTALL_HEXA_V31.bat')
     Copy-Item -LiteralPath (Join-Path $root 'README_FIRST.txt') -Destination (Join-Path $stage 'README_FIRST.txt')
-    $releaseIdentity = [ordered]@{ schema='HEXA_V31_RELEASE_IDENTITY'; source_commit=$sourceCommit; source_branch=(& git -C $root branch --show-current | Out-String).Trim(); built_at=(Get-Date).ToUniversalTime().ToString('o') }
+    $releaseIdentity = [ordered]@{
+        schema='HEXA_V31_RELEASE_IDENTITY'
+        source_commit=$sourceCommit
+        source_branch=(& git -C $root branch --show-current | Out-String).Trim()
+        built_at=(Get-Date).ToUniversalTime().ToString('o')
+        release_validation='RUNTIME_SELFTEST_AND_PAYLOAD_CONTRACT'
+        project_package_validation='DEFERRED_TO_PREMIERE_BUILD'
+    }
     $releaseIdentityJson = $releaseIdentity | ConvertTo-Json
     Set-Content -LiteralPath (Join-Path $stage 'release_identity.json') -Value $releaseIdentityJson -Encoding UTF8
     Set-Content -LiteralPath (Join-Path $stage 'extension\resources\HEXA_RELEASE_IDENTITY_V31.json') -Value $releaseIdentityJson -Encoding UTF8
@@ -74,14 +95,16 @@ try {
     $origin = Invoke-Checked $python @('-c', "import pathlib,hexa_v31; p=pathlib.Path(hexa_v31.__file__).resolve(); root=pathlib.Path.cwd().resolve(); assert root in p.parents,(root,p); print(p)") $stage $environment
     if (-not $origin.Trim().StartsWith($stage, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'Staged import escaped the release payload' }
     [void](Invoke-Checked $python @('-m','hexa_v31.cli','--help') $stage $environment)
-    [void](Invoke-Checked $python @('-m','hexa_v31.cli','validate-package','--package',([System.IO.Path]::GetFullPath($PackagePath))) $stage $environment)
+    if ($PackagePath) {
+        [void](Invoke-Checked $python @('-m','hexa_v31.cli','validate-package','--package',([System.IO.Path]::GetFullPath($PackagePath))) $stage $environment)
+    }
     $selftestReport = Join-Path $stage 'runtime_selftest.json'
     [void](Invoke-Checked $python @('tools\selftest_v31.py','--extension-root','extension','--out',$selftestReport) $stage $environment)
     $report = Get-Content -LiteralPath $selftestReport -Raw | ConvertFrom-Json
     if ($report.status -ne 'PASS') { throw 'Staged runtime selftest did not pass' }
     Remove-Item -LiteralPath $selftestReport -Force
 
-    foreach ($required in @('release_identity.json','extension\CSXS\manifest.xml','extension\jsx\host.jsx','extension\resources\HEXA_RELEASE_IDENTITY_V31.json','extension\resources\HEXA_USER_PRESET_AUTHORITY_V31.json','extension\resources\HEXA_FOUNDATION_VISION_MODELS_V31.json','extension\resources\THIRD_PARTY_LICENSES_V31.json','tools\install_v31.py','tools\provision_foundation_vision.py','INSTALL_HEXA_V31.bat')) {
+    foreach ($required in @('release_identity.json','extension\CSXS\manifest.xml','extension\jsx\host.jsx','extension\resources\HEXA_RELEASE_IDENTITY_V31.json','extension\resources\HEXA_USER_PRESET_AUTHORITY_V31.json','extension\resources\HEXA_FOUNDATION_VISION_MODELS_V31.json','extension\resources\THIRD_PARTY_LICENSES_V31.json','recovery_data\recovery_schema.json','recovery_data\problem_registry.json','recovery_data\proven_solutions.json','recovery_data\recovery_history.json','extension\recovery_data\proven_solutions.json','tools\install_v31.py','tools\provision_foundation_vision.py','INSTALL_HEXA_V31.bat')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) { throw "Validated payload missing: $required" }
     }
 

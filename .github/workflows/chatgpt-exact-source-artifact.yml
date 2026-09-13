@@ -1,0 +1,47 @@
+name: ChatGPT Exact Source Artifact
+
+on:
+  pull_request:
+    branches:
+      - old-final-package
+
+permissions:
+  contents: read
+
+jobs:
+  exact-source-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify exact source commit
+        shell: bash
+        env:
+          EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          if [[ -n "${EXPECTED_PR_HEAD}" && "${actual}" != "${EXPECTED_PR_HEAD}" ]]; then
+            echo "Source artifact checkout mismatch: actual=${actual} expected=${EXPECTED_PR_HEAD}" >&2
+            exit 1
+          fi
+          printf '%s\n' "${actual}" > EXACT_SOURCE_COMMIT.txt
+          echo "EXACT_SOURCE_COMMIT=${actual}"
+
+      - name: Upload exact render source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: hexa-render-source-${{ github.event.pull_request.head.sha }}
+          path: |
+            EXACT_SOURCE_COMMIT.txt
+            extension/
+            recovery/
+            recovery_data/
+          if-no-files-found: error
+          include-hidden-files: true
+          compression-level: 6
+          retention-days: 14

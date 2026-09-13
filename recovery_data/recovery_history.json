@@ -1,0 +1,43 @@
+{
+  "schema": "HEXA_RECOVERY_HISTORY_V1",
+  "version": 1,
+  "records": [
+    {
+      "history_id": "REC-20260913-001",
+      "problem_id": "HEXA_MOTION_PATH_OVERLAP",
+      "problem_source": "CI",
+      "status": "CI_VERIFIED_RENDER_PENDING",
+      "fingerprint": {
+        "conflict_type": "MOTION_PATH",
+        "actor_a_role": "PRIMARY",
+        "actor_b_role": "PRIMARY",
+        "cross_scene": true,
+        "same_visual_card": true,
+        "render_mode_a": "ROOT_ATOMIC",
+        "render_mode_b": "ROOT_ATOMIC"
+      },
+      "candidate_strategy": "FINAL_CROSS_SCENE_RECOVERY_CHAIN",
+      "technical_approval": {
+        "status": "PASS",
+        "source_commit": "4255d569c0556ab29bc848a183014c215e00e750",
+        "ci_run_id": 34728459580,
+        "ci_job_id": 103646770265,
+        "suite_evidence": [
+          "V31_FAILURE_LOG_CARD_COMPILER_PASS 27",
+          "V31_0_9_SEMANTIC_PHASE_REPARTITION_COMPILER_TEST_SUITE_PASS"
+        ]
+      },
+      "visual_approval": {
+        "status": "PENDING",
+        "render_sha256": "",
+        "reviewed_against": "",
+        "notes": "Do not promote until an exact encoded MP4 from the candidate recovery is rendered and visually reviewed."
+      },
+      "diagnostic_instance": {
+        "failing_source_commit": "c8a078395e4ad48af1e1ea5e6cd42d82fc2eda87",
+        "failing_ci_run_id": 34724432816,
+        "raw_failure": "VCARD_009@31.58s: motion-path overlap S017_P_M017 x S019_P_M019=0.050>0.015"
+      }
+    }
+  ]
+}

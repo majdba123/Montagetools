@@ -12,11 +12,19 @@ def run(cmd,timeout=300):
     if cp.returncode:raise SystemExit(cp.returncode)
 count=0
 for p in (ROOT/'extension/py').rglob('*.py'):ast.parse(p.read_text(encoding='utf-8'));count+=1
+for p in (ROOT/'recovery').rglob('*.py'):ast.parse(p.read_text(encoding='utf-8'));count+=1
 for p in [ROOT/'tools/install_v31.py',ROOT/'tools/selftest_v31.py']:ast.parse(p.read_text(encoding='utf-8-sig'));count+=1
+for p in sorted((ROOT/'recovery_data').glob('*.json')):json.loads(p.read_text(encoding='utf-8'))
 ET.parse(ROOT/'extension/CSXS/manifest.xml');print('PYTHON_XML_SYNTAX_PASS',count)
 run(['node','--check',ROOT/'extension/js/main.js'])
 cp=subprocess.run(['node','--check'],input=(ROOT/'extension/jsx/host.jsx').read_bytes(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT);print(cp.stdout.decode('utf-8',errors='replace'));assert cp.returncode==0;print('HOST_JSX_SYNTAX_PASS')
-for f in ['test_v31_preset_authority.py','test_v31_motion_cards.py','test_v31_residual_support_qa.py','test_v31_visual_timeline_coverage.py','test_v31_foundation_source_survival.py','test_v31_foundation_planner_to_pixel.py','test_v31_explicit_relationships.py','test_v31_absolute_preset_state.py','test_v31_cutout_integrity.py','test_v31_stage_leak_matting.py','test_v31_edge_touching_white_foreground.py','test_v31_scene_vision_cache_dependencies.py','test_v31_foundation_scene_cache_routing.py','test_v31_foundation_vision_contracts.py','test_v31_foundation_actor_integration.py','test_v31_foundation_worker_fallback_cache.py','test_v31_continuous_render.py','test_v31_no_legacy_motion.py','test_v31_semantic_mapping_guard.py','test_v31_reference_critic_no_free_acting.py','test_v31_failure_log_card_compiler.py','test_v31_primary_wave_scheduler.py','test_v31_identity_persistence.py','test_v31_secondary_shortfall_review.py','test_v31_universal_scene_grammar.py','test_v31_visual_sample_calibration.py','test_v31_collision_solver.py','test_v31_generalization_layout_stress.py','test_v31_atomic_composite_exclusivity.py','test_v31_motion_path_collision_guard.py','test_v31_no_project_hardcoding.py']:
+# Recovery knowledge and promotion gates run early so data corruption or unsafe
+# CI-only learning fails before the expensive planner regressions.
+for f in ['test_recovery_detector.py','test_recovery_store.py','test_recovery_engine.py','test_recovery_repository_contract.py','test_v31_recovery_validation_gate.py','test_v31_recovery_memory.py','test_v31_recovery_release_contract.py']:
+    run([sys.executable,ROOT/'tests'/f],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_editorial_topology.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_phase_settled_qa_contract.py'],timeout=480)
+for f in ['test_v31_preset_authority.py','test_v31_motion_cards.py','test_v31_residual_support_qa.py','test_v31_residual_source_integrity.py','test_v31_visual_timeline_coverage.py','test_v31_planner_render_map_completeness.py','test_v31_final_visual_lifetime_contract.py','test_v31_foundation_source_survival.py','test_v31_foundation_planner_to_pixel.py','test_v31_explicit_relationships.py','test_v31_absolute_preset_state.py','test_v31_cutout_integrity.py','test_v31_stage_leak_matting.py','test_v31_edge_touching_white_foreground.py','test_v31_enclosed_light_foreground_integrity.py','test_v31_scene_vision_cache_dependencies.py','test_v31_foundation_scene_cache_routing.py','test_v31_foundation_vision_contracts.py','test_v31_foundation_actor_integration.py','test_v31_foundation_problem1_closure.py','test_v31_problem2_dependency_contract.py','test_v31_problem2_interaction_engine.py','test_v31_problem2_solver_reliability.py','test_v31_problem2_swept_geometry.py','test_v31_problem2_closure.py','test_v31_problem2_short_card_production_replay.py','test_v31_problem2_full_planner_react.py','test_v31_composition_actor_attribution.py','test_v31_p34_encoded_closure_contract.py','test_v31_composition_cross_card_placement.py','test_v31_composition_cross_card_scale.py','test_v31_composition_participant_contract.py','test_v31_composition_source_ink_basis.py','test_v31_composition_render_center_authority.py','test_v31_problem34_adaptive_composition.py','test_v31_final_perceptual_composition.py','test_v31_reference_quality_finalizers.py','test_v31_reference_joint_fitter.py','test_v31_reference_residual_closure.py','test_v31_reference_perceptual_residual.py','test_v31_reference_staggered_sequence.py','test_v31_same_scene_sequence_authority.py','test_v31_joint_interval_framing_contract.py','test_v31_sparse_source_preparation.py','test_v31_sustained_sparse_severity.py','test_v31_foundation_worker_fallback_cache.py','test_v31_continuous_render.py','test_v31_no_legacy_motion.py','test_v31_semantic_mapping_guard.py','test_v31_reference_critic_no_free_acting.py','test_v31_failure_log_card_compiler.py','test_v31_primary_wave_scheduler.py','test_v31_identity_persistence.py','test_v31_source_commit_identity.py','test_v31_secondary_shortfall_review.py','test_v31_universal_scene_grammar.py','test_v31_visual_sample_calibration.py','test_v31_collision_solver.py','test_v31_partition_collision_slot_contract.py','test_v31_generalization_layout_stress.py','test_v31_atomic_composite_exclusivity.py','test_v31_motion_path_collision_guard.py','test_v31_no_project_hardcoding.py','test_v31_sealed_title_planner_read_only.py']:
     run([sys.executable,ROOT/'tests'/f],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_middle_position_entry_geometry.py'],timeout=480)
 for f in ['test_v31_0_1_large_support_fallback.py','test_v31_0_1_atomic_character_split.py','test_v31_0_1_adaptive_phase_recovery.py','test_v31_0_1_large_geometry_stress.py']:
@@ -29,10 +37,13 @@ run([sys.executable,ROOT/'tests'/'test_v31_hierarchical_asset_decomposer.py'],ti
 run([sys.executable,ROOT/'tests'/'test_v31_topological_decomposition_validator.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_typography_director_v2.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_typography_v3_arabic_completeness.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_premium_typography_pixels.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_premium_title_copy_gate.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_appear_high_scale_fraction_contract.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_editorial_motion_pacing.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_semantic_visual_sentence_compiler.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_phrase_local_pacing.py'],timeout=480)
+run([sys.executable,ROOT/'tests'/'test_v31_final_card_pacing_qa.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_sprint2b_editorial_intelligence.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_continuity_character_director.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_sprint1_production_integration.py'],timeout=480)

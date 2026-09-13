@@ -1,0 +1,78 @@
+{
+  "schema": "HEXA_RECOVERY_PROBLEM_REGISTRY_V1",
+  "version": 1,
+  "problems": [
+    {
+      "problem_id": "HEXA_MOTION_PATH_OVERLAP",
+      "canonical_name": "motion-path overlap",
+      "family": "COLLISION",
+      "allowed_sources": ["CI", "RENDER"],
+      "severity": "HARD_GATE",
+      "description": "Two source-backed actors occupy an unsafe swept motion path during their physical lifetime.",
+      "reusable_fingerprint_fields": ["conflict_type", "actor_a_role", "actor_b_role", "cross_scene", "same_visual_card", "incoming_motion_family", "outgoing_motion_family", "render_mode_a", "render_mode_b", "semantic_relation"]
+    },
+    {
+      "problem_id": "HEXA_SETTLED_GEOMETRY_OVERLAP",
+      "canonical_name": "settled geometry overlap",
+      "family": "COLLISION",
+      "allowed_sources": ["CI", "RENDER"],
+      "severity": "HARD_GATE",
+      "description": "Actors are collision-safe in motion but settle into an illegal overlapping composition.",
+      "reusable_fingerprint_fields": ["conflict_type", "actor_a_role", "actor_b_role", "same_visual_card", "render_mode_a", "render_mode_b", "semantic_relation"]
+    },
+    {
+      "problem_id": "HEXA_VIEWPORT_CLIPPING",
+      "canonical_name": "viewport clipping",
+      "family": "COMPOSITION",
+      "allowed_sources": ["CI", "RENDER"],
+      "severity": "HARD_GATE",
+      "description": "A visible actor or its certified motion envelope leaves the safe frame.",
+      "reusable_fingerprint_fields": ["actor_a_role", "render_mode_a", "incoming_motion_family", "severity"]
+    },
+    {
+      "problem_id": "HEXA_RENDER_STALE_ACTOR",
+      "canonical_name": "stale actor",
+      "family": "LIFECYCLE",
+      "allowed_sources": ["RENDER"],
+      "severity": "VISUAL_REJECT",
+      "description": "An actor remains materially visible after its narrative purpose has ended.",
+      "reusable_fingerprint_fields": ["actor_a_role", "semantic_relation", "severity"]
+    },
+    {
+      "problem_id": "HEXA_RENDER_WEAK_FOCUS",
+      "canonical_name": "weak focus",
+      "family": "HIERARCHY",
+      "allowed_sources": ["RENDER"],
+      "severity": "VISUAL_REJECT",
+      "description": "The encoded composition lacks a clear narrative hero/focus for the active beat.",
+      "reusable_fingerprint_fields": ["semantic_relation", "severity"]
+    },
+    {
+      "problem_id": "HEXA_RENDER_POSTER_LIKE_CARD",
+      "canonical_name": "poster-like card",
+      "family": "EDITORIAL_LIFECYCLE",
+      "allowed_sources": ["RENDER"],
+      "severity": "VISUAL_REJECT",
+      "description": "A card behaves like a static poster instead of a progressive visual sentence.",
+      "reusable_fingerprint_fields": ["semantic_relation", "severity"]
+    },
+    {
+      "problem_id": "HEXA_RENDER_BAD_HANDOFF",
+      "canonical_name": "bad handoff",
+      "family": "HANDOFF",
+      "allowed_sources": ["RENDER"],
+      "severity": "VISUAL_REJECT",
+      "description": "A source-to-source focus transfer is visually abrupt, ambiguous, stale, or otherwise editorially poor.",
+      "reusable_fingerprint_fields": ["actor_a_role", "actor_b_role", "cross_scene", "same_visual_card", "semantic_relation", "severity"]
+    },
+    {
+      "problem_id": "HEXA_RENDER_VISUAL_SYNC",
+      "canonical_name": "visual sync",
+      "family": "TIMING",
+      "allowed_sources": ["RENDER"],
+      "severity": "VISUAL_REJECT",
+      "description": "The encoded visual event feels early or late relative to narration despite structural timing checks.",
+      "reusable_fingerprint_fields": ["incoming_motion_family", "semantic_relation", "severity"]
+    }
+  ]
+}

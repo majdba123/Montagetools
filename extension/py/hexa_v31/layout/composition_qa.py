@@ -1,6 +1,6 @@
 from __future__ import annotations
 import math
-from hexa_v31.composition_solver import overlap_ratio, _fp, _rect, _in_safe
+from hexa_v31.composition_solver import overlap_ratio, _fp, _rect, _in_safe, composition_state_at
 from hexa_v31.preset_authority import preset as preset_def, progress as preset_progress, scale as preset_scale, opacity as preset_opacity
 
 
@@ -9,36 +9,72 @@ def _norm(v):return str(v or '').strip().upper()
 def _lerp(a,b,q):return float(a)+(float(b)-float(a))*float(q)
 
 def _state(e:dict,t:float):
+    """Evaluate visible state inside the physical carrier lifetime.
+
+    start_seconds/end_seconds bound authored motion. Physical lifetime is a
+    separate existence contract: after motion completes, a source-backed carrier
+    holds its last readable pose until physical_end_seconds. All lifetimes are
+    half-open [start,end), so one boundary frame cannot belong to both sources.
+    """
+    eps=1e-9
     st=float(e.get('start_seconds',0));en=float(e.get('end_seconds',st))
-    if t<st-1e-6 or t>en+1e-6:return None
-    rest=e.get('card_rest_position_norm') or [0.5,0.5];pos=[float(rest[0]),float(rest[1])];sc=1.0;op=1.0
+    physical_start=float(e.get('physical_start_seconds',st))
+    physical_end=float(e.get('physical_end_seconds',en))
+    if t<physical_start-eps or t>=physical_end-eps:return None
+    if t<st-eps:return None
+
+    motion_start=float(e.get('motion_start_seconds',st))
+    motion_end=float(e.get('motion_end_seconds',en))
+    eval_t=float(t)
+    if eval_t>motion_end+eps:
+        exit_start=float((e.get('preset_exit') or {}).get('start_seconds',motion_end))
+        hold_boundary=min(motion_end,exit_start)
+        eval_t=max(motion_start,hold_boundary-eps)
+
+    rest=e.get('card_rest_position_norm') or [0.5,0.5]
+    pos=[float(rest[0]),float(rest[1])];sc=1.0;op=1.0
     pe=e.get('preset_entry')
     if pe:
-        name=str(pe.get('name'));ps=float(pe.get('start_seconds',st));pd=float(pe.get('duration_seconds') or 0.8);d=preset_def(name);q=max(0.0,min(1.0,(t-ps)/max(1e-6,pd)))
-        fam=str(d.get('family') or '')
+        name=str(pe.get('name'));ps=float(pe.get('start_seconds',st));pd=float(pe.get('duration_seconds') or 0.8)
+        d=preset_def(name);q=max(0.0,min(1.0,(eval_t-ps)/max(1e-6,pd)));fam=str(d.get('family') or '')
         if fam in {'ENTRY_EXIT','WITHIN_FRAME'}:
-            a=d.get('start_norm') or [0.5,0.5];b=d.get('end_norm') or [0.5,0.5];pg=preset_progress(name,q);pos=[_lerp(a[0],b[0],pg),_lerp(a[1],b[1],pg)]
-        elif fam=='APPEARANCE':sc*=preset_scale(name,q);op*=preset_opacity(name,q)
+            a=d.get('start_norm') or [0.5,0.5];b=d.get('end_norm') or [0.5,0.5]
+            pg=preset_progress(name,q);pos=[_lerp(a[0],b[0],pg),_lerp(a[1],b[1],pg)]
+        elif fam=='APPEARANCE':
+            sc*=preset_scale(name,q);op*=preset_opacity(name,q)
+
     held=None
-    for a in sorted(e.get('preset_actions') or [],key=lambda x:float(x.get('start_seconds',0))):
-        name=str(a.get('name'));ast=float(a.get('start_seconds',0));ad=float(a.get('duration_seconds') or 0.8);d=preset_def(name)
-        if t<ast:continue
+    for action in sorted(e.get('preset_actions') or [],key=lambda x:float(x.get('start_seconds',0))):
+        name=str(action.get('name'));ast=float(action.get('start_seconds',0));ad=float(action.get('duration_seconds') or 0.8)
+        d=preset_def(name)
+        if eval_t<ast:continue
         if str(d.get('family'))=='WITHIN_FRAME':
             aa=d.get('start_norm') or [0.5,0.5];bb=d.get('end_norm') or [0.5,0.5]
-            if t>=ast+ad:held=[float(bb[0]),float(bb[1])]
+            if eval_t>=ast+ad:
+                held=[float(bb[0]),float(bb[1])]
             else:
-                q=max(0.0,min(1.0,(t-ast)/max(1e-6,ad)));pg=preset_progress(name,q);held=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
+                q=max(0.0,min(1.0,(eval_t-ast)/max(1e-6,ad)));pg=preset_progress(name,q)
+                held=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
     if held is not None:pos=held
+
+    pos,state_scale,state_visibility=composition_state_at(e,eval_t,pos)
+    sc*=state_scale;op*=state_visibility
+
     px=e.get('preset_exit')
     if px:
         name=str(px.get('name'));xs=float(px.get('start_seconds',en));xd=float(px.get('duration_seconds') or 0.6)
-        if t>=xs:
-            q=max(0.0,min(1.0,(t-xs)/max(1e-6,xd)));d=preset_def(name);fam=str(d.get('family') or '')
+        if eval_t>=xs:
+            q=max(0.0,min(1.0,(eval_t-xs)/max(1e-6,xd)));d=preset_def(name);fam=str(d.get('family') or '')
             if fam=='ENTRY_EXIT':
-                aa=d.get('start_norm') or [0.5,0.5];bb=d.get('end_norm') or [0.5,0.5];pg=preset_progress(name,q);pos=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
+                aa=d.get('start_norm') or [0.5,0.5];bb=d.get('end_norm') or [0.5,0.5]
+                pg=preset_progress(name,q);pos=[_lerp(aa[0],bb[0],pg),_lerp(aa[1],bb[1],pg)]
             elif fam=='DISAPPEARANCE':
-                dd=d.get('position_delta_norm') or [0,0];pos=[pos[0]+float(dd[0])*q,pos[1]+float(dd[1])*q];sc*=preset_scale(name,q);op*=preset_opacity(name,q)
-    fp=_fp(e);scale=float(e.get('layout_scale_multiplier') or 1.0)*sc;return pos,scale,op,_rect(pos,fp,scale)
+                dd=d.get('position_delta_norm') or [0,0]
+                pos=[pos[0]+float(dd[0])*q,pos[1]+float(dd[1])*q]
+                sc*=preset_scale(name,q);op*=preset_opacity(name,q)
+
+    fp=_fp(e);scale=float(e.get('layout_scale_multiplier') or 1.0)*sc
+    return pos,scale,op,_rect(pos,fp,scale)
 
 def _settled_rect(e:dict):
     fp=_fp(e);c=e.get('card_rest_position_norm') or [0.5,0.5];s=float(e.get('layout_scale_multiplier') or 1.0)
@@ -89,6 +125,39 @@ def viewport_clipping_qa(events,fps=30.0):
         if exit and not entry and any(b>a+1e-4 for a,b in zip(fractions,fractions[1:])):failures.append(f"{e.get('event_id')}: nonmonotonic exit clipping")
     return {'pass':not failures,'failures':failures,'sample_count':samples,'authority':'FINAL_COMMITTED_VISIBLE_FRACTION_OVER_TIME'}
 
+
+def _phase_settled_rect(e:dict, phase:dict):
+    """Evaluate the actual planner-authored destination for this semantic phase.
+
+    The old QA used one card-wide `card_rest_position_norm` for every phase. Once
+    editorial geometry became phase-owned, that produced false settled-overlap failures
+    and forced the final certification pass to erase valid recompositions. Motion-path
+    safety remains separately sampled by `card_motion_conflicts`.
+    """
+    start=float(phase.get('start_seconds',0));end=float(phase.get('end_seconds',start));dur=max(0.0,end-start)
+    # Sample shortly after the phase boundary: pre-boundary reflow has completed, while
+    # exit motion has not yet started.
+    t=start+min(.16,max(.03,dur*.18))
+    base=e.get('card_rest_position_norm') or [0.5,0.5]
+    center,state_scale,state_visibility=composition_state_at(e,t,base)
+    fp=_fp(e);scale=float(e.get('layout_scale_multiplier') or 1.0)*float(state_scale)
+    return _rect((float(center[0]),float(center[1])),fp,scale),float(state_visibility)
+
+
+def _phase_common_settled_rects(rows:list[dict], phase:dict)->list[tuple[dict,tuple]]:
+    """Fallback simultaneous-settled view used before the phase QA contract installs.
+
+    The shipping phase contract replaces this with a stable-window-aware evaluator.
+    Keeping a local fallback makes direct imports deterministic and preserves the old
+    behavior for callers that intentionally bypass the public compatibility facade.
+    """
+    rects=[]
+    for event in rows:
+        rect,visibility=_phase_settled_rect(event,phase)
+        if visibility>0.05:rects.append((event,rect))
+    return rects
+
+
 def composition_plan_qa(motion_plan:dict)->dict:
     failures=[];warnings=[];cards=(motion_plan.get('visual_cards') or {}).get('cards') or [];events=motion_plan.get('events') or [];fps=float(motion_plan.get('fps') or 30.0)
     by_card={str(c.get('card_id')):[] for c in cards}
@@ -99,14 +168,17 @@ def composition_plan_qa(motion_plan:dict)->dict:
         cid=str(c.get('card_id'));evs=by_card.get(cid,[]);phase_plan=c.get('story_phase_plan') or {};phases=phase_plan.get('phases') or []
         if not phases:failures.append(f'{cid}: no visual story phases compiled');continue
         em={str(e.get('event_id')):e for e in evs}
-        # Settled phase geometry is a hard readability contract.
+        # Bounds are an actor-local settled contract. Pair overlap and occupancy are
+        # different: they are meaningful only at one timestamp where all participating
+        # actors are simultaneously settled. The installed phase QA contract computes
+        # that common stable interval and returns an empty set for transition-only beats.
         for ph in phases:
             rows=[em[x] for x in ph.get('event_ids') or [] if x in em]
-            rects=[]
             for e in rows:
-                r=_settled_rect(e)
+                r,vis=_phase_settled_rect(e,ph)
+                if vis<=0.05:continue
                 if not _in_safe(r):failures.append(f"{cid}/{ph.get('phase_id')}:{e.get('event_id')}: settled bbox outside safe frame")
-                rects.append((e,r))
+            rects=_phase_common_settled_rects(rows,ph)
             for i,(a,ra) in enumerate(rects):
                 for b,rb in rects[i+1:]:
                     total_pairs+=1;ov=overlap_ratio(ra,rb);pa=_norm(a.get('attention_priority'))=='PRIMARY';pb=_norm(b.get('attention_priority'))=='PRIMARY';limit=0.002 if pa and pb else (0.01 if pa or pb else 0.025)
@@ -122,4 +194,4 @@ def composition_plan_qa(motion_plan:dict)->dict:
     # dedupe messages while preserving order
     failures=list(dict.fromkeys(failures));warnings=list(dict.fromkeys(warnings))
     viewport=viewport_clipping_qa(events,fps);failures.extend(viewport['failures'])
-    return {'pass':not failures,'failures':failures,'warnings':warnings,'checked_pair_count':total_pairs,'dynamic_pair_samples':dynamic_samples,'bad_pair_count':bad_pairs,'visual_card_count':len(cards),'viewport_clipping_qa':viewport,'authority':'V31_CONSTRAINT_SOLVED_COMPOSITION__SETTLED_AND_MOTION_PATH_HARD_GATE'}
+    return {'pass':not failures,'failures':failures,'warnings':warnings,'checked_pair_count':total_pairs,'dynamic_pair_samples':dynamic_samples,'bad_pair_count':bad_pairs,'visual_card_count':len(cards),'viewport_clipping_qa':viewport,'authority':'V31_PHASE_DESTINATION_COMPOSITION__COMMON_SETTLED_AND_MOTION_PATH_HARD_GATE'}

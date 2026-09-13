@@ -15,6 +15,9 @@ from hexa_v31.typography import build_text_plan, find_arabic_font, merge_support
 from hexa_v31.scene_media import render_scene_media, assemble_final_mp4
 from hexa_v31.reference_metrics import analyze_video, score_against_reference_floor
 from hexa_v31.graphics import build_graphics_plan
+from hexa_v31.interaction.graphics_guard import guard_relationship_graphics
+from hexa_v31.interaction.director import assert_final_motion_plan_immutable
+from hexa_v31.layout.encoded_composition_qa import verify_encoded_composition
 from hexa_v31.production_cert import certify_production
 from hexa_v31.orchestration import balance_presentation
 from hexa_v31.qa import build_qa_report, motion_rule_qa, alignment_qa, reference_plan_qa
@@ -79,6 +82,12 @@ def semantic_story_lock_status(report:dict)->dict:
     return {'semantic_story_lock_pass':coverage and not hard,'semantic_story_lock_review_required':not coverage and not hard,'semantic_story_lock_hard_failure':bool(hard),'semantic_hard_failures':hard}
 
 
+def _render_scene_media_with_guard(render_edit_map,motion_plan,vision_results,text_plan,graphics_plan,graphics_plan_path,out_dir,cache_dir,width=1920,height=1080,fps=30.0,logger=None):
+    guarded_graphics=guard_relationship_graphics(graphics_plan,motion_plan,fps=fps)
+    write_json(graphics_plan_path,guarded_graphics)
+    return render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,guarded_graphics,out_dir,cache_dir,width=width,height=height,fps=fps,logger=logger)
+
+
 def _default_runtime_cfg(extension_root:pathlib.Path):
     cfg_candidates=[]
     env=os.environ.get('HEXA_V31_RUNTIME_CONFIG') or os.environ.get('HEXA_V20_RUNTIME_CONFIG')
@@ -98,6 +107,16 @@ def _source_commit(extension_root:pathlib.Path,runtime_cfg:dict)->str:
     if identity.is_file():
         try:return str(read_json(identity).get('source_commit') or 'UNKNOWN')
         except Exception:pass
+    # A source-tree replay must identify the code it actually imports, rather
+    # than inherit the commit recorded by an older installed runtime config.
+    try:
+        cp=subprocess.run(['git','-C',str(extension_root),'rev-parse','HEAD'],
+                          stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
+                          text=True,timeout=5)
+        commit=(cp.stdout or '').strip()
+        if cp.returncode==0 and len(commit)==40:return commit
+    except (OSError,subprocess.SubprocessError):
+        pass
     return str(runtime_cfg.get('source_commit') or 'DEVELOPMENT_TREE')
 
 
@@ -300,8 +319,8 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         choreography_report['committed_plan_hash']=motion_hash_before_audit
         write_json(root/'HEXA_V31_PREMIUM_VISUAL_CHOREOGRAPHY_REPORT.json',choreography_report)
         log.log('PASS','PREMIUM_VISUAL_CHOREOGRAPHY_MEASURED',motion_units=choreography_report.get('independent_motion_unit_count'),text_opportunities=choreography_report.get('available_viewer_text_opportunities'),text_used=choreography_report.get('used_viewer_text_opportunities'),fade_only=choreography_report.get('fade_only_transition_count'),progressive_reveals=choreography_report.get('progressive_reveal_count'),handoffs=choreography_report.get('handoff_count'),static_poster_risks=choreography_report.get('static_poster_risk_count'),low_optical_impact=choreography_report.get('low_optical_impact_count'))
-        write_json(root/'HEXA_V31_SEMANTIC_GRAPHICS_PLAN.json',graphics_plan)
         write_json(root/'HEXA_V31_PRESENTATION_BUDGET_REPORT.json',budget_report)
+        assert_final_motion_plan_immutable(motion)
         pre_reference=preset_story_plan_qa(motion,vision,float(audio['duration_seconds']))
         write_json(root/'HEXA_V31_PRE_RENDER_STORY_PLAN_QA.json',pre_reference)
         if not pre_reference.get('pass'):
@@ -310,11 +329,12 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
         log.log('PASS','PRE_RENDER_USER_PRESET_PLAN_QA_PASS',visual_cards=pre_reference.get('visual_card_count'),preset_events=pre_reference.get('preset_event_count'),relationship_actions=pre_reference.get('relationship_action_count'),cutout_policy=pre_reference.get('cutout_policy'))
 
         log.phase('SCENE_MEDIA_RENDER')
+        assert_final_motion_plan_immutable(motion)
         render_map=build_layer_render_map(pkg,voice_over,alignment,vision,motion,ensure_dir(root/'render_map'),logger=log)
         render_edit_map=read_json(render_map['edit_map'])
         animated_dir=ensure_dir(root/'animated_scenes')
         animated_cache=ensure_dir(cache_root/'animated_timeline_v31_0_25_typography_director_v3')
-        scene_media=render_scene_media(render_edit_map,motion,vision,text_plan,graphics_plan,animated_dir,animated_cache,width=1920,height=1080,fps=30.0,logger=log)
+        scene_media=_render_scene_media_with_guard(render_edit_map,motion,vision,text_plan,graphics_plan,root/'HEXA_V31_SEMANTIC_GRAPHICS_PLAN.json',animated_dir,animated_cache,width=1920,height=1080,fps=30.0,logger=log)
         write_json(root/'HEXA_V31_ANIMATED_SCENE_MEDIA_MANIFEST.json',scene_media)
 
         log.phase('FINAL_MP4_ASSEMBLY')
@@ -345,12 +365,19 @@ def build(scene_package_zip:str, voice_over:str, work_root:str|None=None, extens
             log.log('PASS','PHYSICAL_ACTING_VERIFICATION_PASS',verified_ratio=physical_acting.get('verified_ratio'),planned=physical_acting.get('planned_physical_actions'),verified=physical_acting.get('verified_physical_actions'))
 
         log.phase('PREMIERE_HANDOFF')
+        assert_final_motion_plan_immutable(motion)
         prem=build_premiere_handoff_from_scene_media(pkg,voice_over,alignment,scene_media,motion,ensure_dir(root/'premiere'),logger=log,project_save_path=project_save_path,production_mp4_path=production_mp4,export_preset_path=None)
 
         log.phase('REFERENCE_QUALITY_PROXY')
         # V31 measures the actual final MP4 assembled from the exact same animated Scene clips
         # Premiere receives. There is no separate low-resolution synthetic preview authority.
         preview_metrics=analyze_video(production_mp4,root/'HEXA_V31_REFERENCE_PREVIEW_METRICS.json')
+        composition_sources=scene_media.get('composition_render_map_path')
+        encoded_composition_qa=verify_encoded_composition(production_mp4,motion,density_report,fps=30.0,
+            render_edit_map=read_json(pathlib.Path(composition_sources)) if composition_sources else None)
+        write_json(root/'HEXA_V31_ENCODED_ADAPTIVE_COMPOSITION_QA.json',encoded_composition_qa)
+        if not encoded_composition_qa.get('pass'):
+            raise BuildFailure('Encoded adaptive composition QA failed: '+str((encoded_composition_qa.get('failures') or [])[:4]))
         spike_report=attribute_spikes(preview_metrics,motion,root/'HEXA_V31_SPIKE_ATTRIBUTION.json')
         log.log('INFO','SPIKE_ATTRIBUTION',severe_spikes=spike_report.get('severe_spike_count'),attributed=spike_report.get('attributed_count'),by_cause=spike_report.get('by_cause_class'))
         preview_score=score_against_reference_floor(preview_metrics,ref)
