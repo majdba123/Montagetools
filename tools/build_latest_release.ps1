@@ -56,7 +56,11 @@ try {
 
     New-Item -ItemType Directory -Force -Path (Join-Path $stage 'tools') | Out-Null
     Copy-Item -LiteralPath (Join-Path $root 'extension') -Destination (Join-Path $stage 'extension') -Recurse
+    # Source authority stays at repo-root/recovery_data. The release also materializes
+    # a read-only copy inside the extension payload so the installed CEP runtime can
+    # rank only visually PROVEN strategies without depending on the Git checkout.
     Copy-Item -LiteralPath $recoveryData -Destination (Join-Path $stage 'recovery_data') -Recurse
+    Copy-Item -LiteralPath $recoveryData -Destination (Join-Path $stage 'extension\recovery_data') -Recurse
     Copy-Item -LiteralPath (Join-Path $root 'tools\install_v31.py') -Destination (Join-Path $stage 'tools\install_v31.py')
     Copy-Item -LiteralPath (Join-Path $root 'tools\selftest_v31.py') -Destination (Join-Path $stage 'tools\selftest_v31.py')
     Copy-Item -LiteralPath (Join-Path $root 'tools\provision_foundation_vision.py') -Destination (Join-Path $stage 'tools\provision_foundation_vision.py')
@@ -100,7 +104,7 @@ try {
     if ($report.status -ne 'PASS') { throw 'Staged runtime selftest did not pass' }
     Remove-Item -LiteralPath $selftestReport -Force
 
-    foreach ($required in @('release_identity.json','extension\CSXS\manifest.xml','extension\jsx\host.jsx','extension\resources\HEXA_RELEASE_IDENTITY_V31.json','extension\resources\HEXA_USER_PRESET_AUTHORITY_V31.json','extension\resources\HEXA_FOUNDATION_VISION_MODELS_V31.json','extension\resources\THIRD_PARTY_LICENSES_V31.json','recovery_data\recovery_schema.json','recovery_data\problem_registry.json','recovery_data\proven_solutions.json','recovery_data\recovery_history.json','tools\install_v31.py','tools\provision_foundation_vision.py','INSTALL_HEXA_V31.bat')) {
+    foreach ($required in @('release_identity.json','extension\CSXS\manifest.xml','extension\jsx\host.jsx','extension\resources\HEXA_RELEASE_IDENTITY_V31.json','extension\resources\HEXA_USER_PRESET_AUTHORITY_V31.json','extension\resources\HEXA_FOUNDATION_VISION_MODELS_V31.json','extension\resources\THIRD_PARTY_LICENSES_V31.json','recovery_data\recovery_schema.json','recovery_data\problem_registry.json','recovery_data\proven_solutions.json','recovery_data\recovery_history.json','extension\recovery_data\proven_solutions.json','tools\install_v31.py','tools\provision_foundation_vision.py','INSTALL_HEXA_V31.bat')) {
         if (-not (Test-Path -LiteralPath (Join-Path $stage $required) -PathType Leaf)) { throw "Validated payload missing: $required" }
     }
 
