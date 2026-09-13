@@ -29,6 +29,33 @@ def _roi(event,preset_name,width,height):
     x0=max(0,minx-rw/2-pad);y0=max(0,miny-rh/2-pad);x1=min(1,maxx+rw/2+pad);y1=min(1,maxy+rh/2+pad)
     return int(x0*width),int(y0*height),max(1,int(x1*width)),max(1,int(y1*height))
 
+def _event_roi_at(event:dict,t:float,width:int,height:int,preset_name:str):
+    """Return the actor ROI at the exact geometry rendered at ``t``.
+
+    Encoded interaction QA must follow the same composition-state authority as the
+    renderer. ``planned_rect_norm`` is only the authored/rest footprint; late
+    composition states may legally relocate or scale the actor during the action.
+    """
+    from hexa_v31.render.preview import _event_state
+
+    state=_event_state(event,float(t))
+    if state is None:
+        return _roi(event,preset_name,width,height),False
+    center,scale,_opacity=state
+    rect=event.get('planned_rect_norm') or [0,0,.18,.18]
+    rw=max(.04,float(rect[2]))*max(.05,abs(float(scale)))
+    rh=max(.04,float(rect[3]))*max(.05,abs(float(scale)))
+    cx=float(center[0])/1920.0;cy=float(center[1])/1080.0;pad=.035
+    x0=max(0.0,cx-rw/2-pad);y0=max(0.0,cy-rh/2-pad);x1=min(1.0,cx+rw/2+pad);y1=min(1.0,cy+rh/2+pad)
+    return (int(x0*width),int(y0*height),max(1,int(x1*width)),max(1,int(y1*height))),True
+
+def _union_roi(a,b,width,height):
+    return (max(0,min(a[0],b[0])),max(0,min(a[1],b[1])),min(width,max(a[2],b[2])),min(height,max(a[3],b[3])))
+
+def _crop(frame,roi):
+    x0,y0,x1,y1=roi
+    return frame[y0:y1,x0:x1]
+
 def verify_encoded_interactions(video_path:str,motion_plan:dict,fps:float|None=None)->dict:
     engine=motion_plan.get('interaction_engine') or {};actions=list(engine.get('physical_actions') or []);actionable=int(engine.get('actionable_interaction_count') or 0);embodied=int(engine.get('embodied_interaction_count') or 0)
     if not actions:
@@ -45,12 +72,12 @@ def verify_encoded_interactions(video_path:str,motion_plan:dict,fps:float|None=N
         f0=int(round((st+min(.08,max(.02,(en-st)*.08)))*actual_fps));f1=int(round((en-min(.08,max(.02,(en-st)*.08)))*actual_fps));a=_read(cap,f0,total);b=_read(cap,f1,total)
         if a is None or b is None:
             row={'interaction_id':action.get('interaction_id'),'event_id':action.get('event_id'),'pass':False,'reason':'ACTION_FRAME_DECODE_FAILED'};rows.append(row);fail.append(row);continue
-        x0,y0,x1,y1=_roi(event,str(action['preset']),width,height);aa=a[y0:y1,x0:x1];bb=b[y0:y1,x0:x1];diff=cv2.absdiff(aa,bb);changed=np.max(diff,axis=2)>8;changed_pixels=int(np.count_nonzero(changed));changed_fraction=changed_pixels/max(1,changed.size);mae=float(np.mean(diff));p=preset(str(action['preset']));sig=_preset_change_signature(p);nonwhite_a=int(np.count_nonzero(np.any(aa<248,axis=2)));nonwhite_b=int(np.count_nonzero(np.any(bb<248,axis=2)));authored_change=bool(sig['displacement']>=.01 or sig['scale_change']>=.01 or sig['opacity_change']>=.01);observed_change=bool(changed_pixels>=40 and (changed_fraction>=.0015 or mae>=.45));opacity_delta=sig['opacity_end']-sig['opacity_start']
+        t0=f0/actual_fps;t1=f1/actual_fps;preset_name=str(action['preset']);start_roi,start_state_ok=_event_roi_at(event,t0,width,height,preset_name);end_roi,end_state_ok=_event_roi_at(event,t1,width,height,preset_name);motion_roi=_union_roi(start_roi,end_roi,width,height);aa=_crop(a,motion_roi);bb=_crop(b,motion_roi);start_actor=_crop(a,start_roi);end_actor=_crop(b,end_roi);diff=cv2.absdiff(aa,bb);changed=np.max(diff,axis=2)>8;changed_pixels=int(np.count_nonzero(changed));changed_fraction=changed_pixels/max(1,changed.size);mae=float(np.mean(diff));p=preset(preset_name);sig=_preset_change_signature(p);nonwhite_a=int(np.count_nonzero(np.any(start_actor<248,axis=2)));nonwhite_b=int(np.count_nonzero(np.any(end_actor<248,axis=2)));authored_change=bool(sig['displacement']>=.01 or sig['scale_change']>=.01 or sig['opacity_change']>=.01);observed_change=bool(changed_pixels>=40 and (changed_fraction>=.0015 or mae>=.45));opacity_delta=sig['opacity_end']-sig['opacity_start']
         if opacity_delta>.05:visibility_ok=nonwhite_b>=20;visibility_contract='APPEARANCE_END_VISIBLE'
         elif opacity_delta<-.05:visibility_ok=nonwhite_a>=20;visibility_contract='DISAPPEARANCE_START_VISIBLE'
         else:visibility_ok=nonwhite_a>=20 and nonwhite_b>=20;visibility_contract='ACTOR_VISIBLE_BOTH_ENDPOINTS'
         ok=bool(authored_change and visibility_ok and observed_change)
-        row={'interaction_id':action.get('interaction_id'),'event_id':action.get('event_id'),'phase':action.get('phase'),'preset':action.get('preset'),'preset_family':p.get('family'),'visibility_contract':visibility_contract,'expected_displacement_norm':round(sig['displacement'],6),'expected_scale_change':round(sig['scale_change'],6),'expected_opacity_change':round(sig['opacity_change'],6),'opacity_start':round(sig['opacity_start'],6),'opacity_end':round(sig['opacity_end'],6),'changed_pixels':changed_pixels,'changed_fraction':round(changed_fraction,6),'mean_abs_difference':round(mae,4),'start_nonwhite_pixels':nonwhite_a,'end_nonwhite_pixels':nonwhite_b,'roi_px':[x0,y0,x1,y1],'pass':ok}
+        row={'interaction_id':action.get('interaction_id'),'event_id':action.get('event_id'),'phase':action.get('phase'),'preset':action.get('preset'),'preset_family':p.get('family'),'visibility_contract':visibility_contract,'expected_displacement_norm':round(sig['displacement'],6),'expected_scale_change':round(sig['scale_change'],6),'expected_opacity_change':round(sig['opacity_change'],6),'opacity_start':round(sig['opacity_start'],6),'opacity_end':round(sig['opacity_end'],6),'changed_pixels':changed_pixels,'changed_fraction':round(changed_fraction,6),'mean_abs_difference':round(mae,4),'start_nonwhite_pixels':nonwhite_a,'end_nonwhite_pixels':nonwhite_b,'roi_px':list(motion_roi),'start_roi_px':list(start_roi),'end_roi_px':list(end_roi),'start_state_geometry_resolved':bool(start_state_ok),'end_state_geometry_resolved':bool(end_state_ok),'pass':ok}
         if not ok:row['reason']='ENCODED_MOTION_BELOW_THRESHOLD_OR_ACTOR_VISIBILITY_CONTRACT_FAILED';fail.append(row)
         rows.append(row)
     cap.release();verified=sum(bool(x.get('pass')) for x in rows)
