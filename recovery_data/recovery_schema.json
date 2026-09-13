@@ -49,6 +49,10 @@
     "known_problem_without_proven_solution": "RECOVERY_SOLUTION_NOT_FOUND",
     "candidate_mutation": "SNAPSHOT_APPLY_VALIDATE_COMMIT_OR_ROLLBACK",
     "qa_threshold_relaxation": false,
-    "semantic_event_suppression": false
+    "semantic_event_suppression": false,
+    "known_ci_hard_gate": "AUTO_RECOVER_THEN_HARD_FAIL",
+    "known_problem_permanence": "EVERY_REGISTERED_CI_HARD_GATE_REQUIRES_SOURCE_RECOVERY_OWNER_AND_CANONICAL_POST_RECOVERY_QA",
+    "coordinator_recertification_limit": 1,
+    "known_problem_may_reach_encoder": false
   }
 }

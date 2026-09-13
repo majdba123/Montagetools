@@ -180,6 +180,21 @@ def _build_final_motion_plan(*args, **kwargs):
                 _restore_finalizer_metadata(plan)
             break
 
+    # Product permanence gate: after every late geometry/density finalizer, known
+    # CI hard-gate families get exactly one bounded full recertification through the
+    # installed source recovery chain. The same canonical composition QA must then
+    # pass; otherwise this build stops before Scene Media Render/encoding.
+    from hexa_v31.recovery.permanence import enforce_known_problem_permanence
+
+    plan = enforce_known_problem_permanence(
+        plan,
+        fps=fps,
+        recertify=lambda current, current_fps: finalize_interaction_motion_plan(
+            current, fps=current_fps
+        ),
+    )
+    _restore_finalizer_metadata(plan)
+
     final_density_report = build_visual_density_report(plan)
     all_repaired = sorted({
         str(event_id)
