@@ -149,7 +149,20 @@ def encoded_visual_gap_qa(path: str | pathlib.Path, motion_plan: dict, *, max_bl
             if (frame-run_start)/fps >= max_blank_seconds: runs.append({'start_frame': run_start, 'end_frame': frame, 'duration_seconds': round((frame-run_start)/fps, 6)})
             run_start = None
         reference=evidence.get(frame)
-        if reference and float(reference.get('total_ink') or 0)>0:
+        # Source-survival evidence is meaningful only when the unencoded reference
+        # contains a materially visible source actor. Entry/exit tails can contain
+        # sub-threshold anti-aliased ink while having zero foreground pixels, no
+        # foreground bbox and no actor above the renderer's meaningful-opacity gate.
+        # Treating those transition-tail frames as structural evidence creates a
+        # false H.264 survival failure even though there is nothing visually
+        # meaningful to preserve. Blank-gap detection above remains unchanged.
+        reference_has_material_source = bool(
+            reference
+            and int(reference.get('foreground_pixels') or 0) > 0
+            and reference.get('foreground_bbox_px')
+            and (reference.get('expected_active_actor_ids') or [])
+        )
+        if reference_has_material_source:
             actual=frame_survival_signature(cv2.cvtColor(image,cv2.COLOR_BGR2RGB),frame,t)
             ink_ratio=float(actual['total_ink'])/max(1.0,float(reference['total_ink']))
             area_ratio=float(actual['foreground_pixels'])/max(1,int(reference['foreground_pixels']))
