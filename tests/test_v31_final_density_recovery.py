@@ -8,7 +8,7 @@ import hexa_v31.planning.final_density_recovery as density
 FPS = 30.0
 
 
-def _plan():
+def _plan(source='SOURCE_INTERVAL_FALLBACK', anchor=10.65):
     outgoing = {
         'event_id': 'OUT', 'scene_id': 'SCENE_A', 'visual_card_id': 'CARD_A',
         'render_mode': 'ROOT_ATOMIC', 'start_seconds': 8.0, 'end_seconds': 10.4,
@@ -18,78 +18,114 @@ def _plan():
     incoming = {
         'event_id': 'IN', 'scene_id': 'SCENE_B', 'visual_card_id': 'CARD_A',
         'render_mode': 'ROOT_ATOMIC', 'partition_group_id': None,
-        'start_seconds': 10.0, 'settle_seconds': 10.8, 'end_seconds': 12.0,
+        'start_seconds': 10.1, 'settle_seconds': 10.9, 'end_seconds': 12.0,
         'physical_start_seconds': 10.0, 'physical_end_seconds': 12.0,
         'visibility_interval_seconds': [10.0, 12.0],
-        'preset_entry': {'name': 'APPEAR_HIGH_SCALE', 'start_seconds': 10.0, 'duration_seconds': 0.8},
+        'perceptual_hit_seconds': anchor, 'perceptual_hit_source': source,
+        'preset_entry': {'name': 'APPEAR_HIGH_SCALE', 'start_seconds': 10.1, 'duration_seconds': 0.8},
         'preset_exit': None, 'preset_actions': [],
     }
     card = {'card_id': 'CARD_A', 'start_seconds': 9.5, 'end_seconds': 12.0}
-    plan = {'events': [outgoing, incoming], 'visual_cards': {'cards': [card]}, 'fps': FPS}
-    return plan, card, outgoing, incoming
+    return {'events': [outgoing, incoming], 'visual_cards': {'cards': [card]}, 'fps': FPS}
 
 
-def _fake_recompile(event):
-    start = float((event.get('preset_entry') or {}).get('start_seconds', event.get('start_seconds', 0.0)))
-    event['motion_intervals'] = []
-    event['motion_start_seconds'] = start
-    event['motion_end_seconds'] = float(event.get('physical_end_seconds', event.get('end_seconds', start)))
+def _entry_advance_is_bounded_and_truthful():
+    plan = _plan()
+    incoming = plan['events'][1]
+    assert density._advance_incoming_entry(plan, 'IN', 6, FPS)
+    assert incoming['preset_entry']['start_seconds'] == 10.0
+    assert incoming['start_seconds'] == 10.0
+    assert incoming['settle_seconds'] == 10.8
+    assert incoming['final_density_overlap_advance_requested_frames'] == 6
+    assert incoming['final_density_overlap_advance_frames'] == 3.0
+    assert incoming['final_density_overlap_advance_seconds'] == 0.1
+    assert incoming['final_density_recovery'] == 'BOUNDED_ENTRY_ADVANCE'
 
 
-def _report_for_threshold(plan):
-    incoming = next(row for row in plan['events'] if row['event_id'] == 'IN')
-    hard = float(incoming['preset_entry']['start_seconds']) > 9.9 + 1e-6
-    return {
-        'cards': [{'card_id': 'CARD_A', 'hard_under_density': hard, 'near_blank_duration_seconds': 0.0}],
-        'hard_under_density_cards': ['CARD_A'] if hard else [],
-        'near_blank_duration_seconds': 0.0,
-    }
+def _voice_anchor_budget_is_fail_closed():
+    plan = _plan(source='VOICE_TRIGGER', anchor=11.0)
+    original = copy.deepcopy(plan)
+    assert not density._advance_incoming_entry(plan, 'IN', 6, FPS)
+    assert plan == original
 
 
-def _success_is_bounded_and_qa_gated():
-    plan, card, outgoing, incoming = _plan()
-    original = copy.deepcopy(incoming)
+def _final_state_gate_is_mandatory():
+    plan = _plan()
+    metric_calls = {'count': 0}
+    def metric(candidate, card_id):
+        metric_calls['count'] += 1
+        if metric_calls['count'] > 1:
+            assert candidate.get('finalized') is True
+        return {'hard_under_density': False}
+    def finalize(candidate, fps=30.0):
+        candidate['finalized'] = True
+        return candidate
     with (
-        patch.object(density, '_recompile_event_motion', side_effect=_fake_recompile),
-        patch.object(density, 'build_visual_density_report', side_effect=_report_for_threshold),
-        patch('hexa_v31.composition_qa.composition_plan_qa', return_value={'pass': True, 'failures': []}),
+        patch.object(density, '_metric', side_effect=metric),
+        patch.object(density, 'composition_plan_qa', return_value={'pass': True, 'failures': []}),
+        patch('hexa_v31.interaction.director.finalize_interaction_motion_plan', side_effect=finalize),
     ):
-        repair = density._try_bounded_source_overlap(plan, card, outgoing, incoming, FPS)
-    assert repair is not None
-    assert 1 <= repair['advance_frames'] <= 6
-    assert repair['advance_frames'] == 3
-    assert repair['authority'] == 'FINAL_DENSITY_BOUNDED_SOURCE_OVERLAP'
-    assert incoming['preset_entry']['start_seconds'] < original['preset_entry']['start_seconds']
-    assert incoming['final_density_overlap_advance_frames'] == 3
-    assert incoming['final_density_recovery'] == 'BOUNDED_SOURCE_OVERLAP'
+        assert density._candidate_passes_final_state(plan, 'CARD_A', FPS)
+    assert metric_calls['count'] == 2
 
 
-def _failed_candidate_restores_exact_event():
-    plan, card, outgoing, incoming = _plan()
-    original = copy.deepcopy(incoming)
+def _refinalized_density_regression_is_rejected():
+    plan = _plan()
+    def metric(candidate, card_id):
+        return {'hard_under_density': bool(candidate.get('finalized'))}
+    def finalize(candidate, fps=30.0):
+        candidate['finalized'] = True
+        return candidate
     with (
-        patch.object(density, '_recompile_event_motion', side_effect=_fake_recompile),
-        patch.object(density, 'build_visual_density_report', side_effect=_report_for_threshold),
-        patch('hexa_v31.composition_qa.composition_plan_qa', return_value={'pass': False, 'failures': ['TEST_REJECT']}),
+        patch.object(density, '_metric', side_effect=metric),
+        patch.object(density, 'composition_plan_qa', return_value={'pass': True, 'failures': []}),
+        patch('hexa_v31.interaction.director.finalize_interaction_motion_plan', side_effect=finalize),
     ):
-        repair = density._try_bounded_source_overlap(plan, card, outgoing, incoming, FPS)
-    assert repair is None
-    assert incoming == original
+        assert not density._candidate_passes_final_state(plan, 'CARD_A', FPS)
 
 
-def _ineligible_pair_is_immutable():
-    plan, card, outgoing, incoming = _plan()
-    incoming['scene_id'] = outgoing['scene_id']
-    original = copy.deepcopy(incoming)
-    repair = density._try_bounded_source_overlap(plan, card, outgoing, incoming, FPS)
-    assert repair is None
-    assert incoming == original
+def _hard_card_prefers_entry_advance_before_hold():
+    plan = _plan()
+    def advance(candidate, event_id, frames, fps):
+        if frames < 2:
+            return False
+        event = next(row for row in candidate['events'] if row['event_id'] == event_id)
+        event['final_density_overlap_advance_frames'] = 1.8
+        event['final_density_overlap_advance_seconds'] = 0.06
+        return True
+    with (
+        patch.object(density, '_advance_incoming_entry', side_effect=advance),
+        patch.object(density, '_candidate_passes_final_state', return_value=True),
+        patch.object(density, '_apply_hold', side_effect=AssertionError('hold must not run after entry success')),
+    ):
+        repair = density._recover_hard_card(plan, 'CARD_A', FPS)
+    assert repair['strategy'] == 'BOUNDED_ENTRY_ADVANCE'
+    assert repair['requested_frames'] == 2
+    assert repair['advance_frames'] == 1.8
+    assert repair['advance_seconds'] == 0.06
+
+
+def _hold_is_fallback_not_first_choice():
+    plan = _plan()
+    def hold(candidate, event_id, card_id, frames, fps):
+        return frames >= 2
+    with (
+        patch.object(density, '_advance_incoming_entry', return_value=False),
+        patch.object(density, '_apply_hold', side_effect=hold),
+        patch.object(density, '_candidate_passes_final_state', return_value=True),
+    ):
+        repair = density._recover_hard_card(plan, 'CARD_A', FPS)
+    assert repair['strategy'] == 'BOUNDED_OUTGOING_HOLD'
+    assert repair['hold_frames'] == 2
 
 
 def main():
-    _success_is_bounded_and_qa_gated()
-    _failed_candidate_restores_exact_event()
-    _ineligible_pair_is_immutable()
+    _entry_advance_is_bounded_and_truthful()
+    _voice_anchor_budget_is_fail_closed()
+    _final_state_gate_is_mandatory()
+    _refinalized_density_regression_is_rejected()
+    _hard_card_prefers_entry_advance_before_hold()
+    _hold_is_fallback_not_first_choice()
     print('V31_FINAL_DENSITY_RECOVERY_PASS')
 
 
