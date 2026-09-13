@@ -52,9 +52,16 @@ def _default_path() -> pathlib.Path:
     configured = _configured_runtime_path()
     if configured is not None:
         return configured
+
+    module_path = pathlib.Path(__file__).resolve()
+    # Installed/staged extension layout. The release builder materializes a read-only
+    # copy under extension/recovery_data while source authority remains repo-root.
+    installed = module_path.parents[3] / 'recovery_data' / 'proven_solutions.json'
+    if installed.is_file():
+        return installed
     # Source checkout layout:
     # repo/extension/py/hexa_v31/recovery/memory.py -> parents[4] == repo.
-    return pathlib.Path(__file__).resolve().parents[4] / 'recovery_data' / 'proven_solutions.json'
+    return module_path.parents[4] / 'recovery_data' / 'proven_solutions.json'
 
 
 def _approved(row: dict[str, Any]) -> bool:
