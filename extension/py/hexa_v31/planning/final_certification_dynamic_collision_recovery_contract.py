@@ -10,6 +10,7 @@ from hexa_v31.planning.final_cross_scene_handoff_recovery_contract import (
     _shift_incoming,
     _source_order,
 )
+from hexa_v31.recovery.memory import RecoveryMemory
 
 _AUTHORITY = 'FINAL_CERTIFICATION_DYNAMIC_CROSS_SCENE_HANDOFF_RECOVERY'
 _DYNAMIC_RE = re.compile(
@@ -34,6 +35,20 @@ def _parse_dynamic_failure(message):
         'event_a': match.group('a'),
         'event_b': match.group('b'),
     }
+
+
+def _memory_family(outgoing, incoming):
+    return '|'.join((
+        'DYNAMIC_CROSS_SCENE',
+        str(outgoing.get('attention_priority') or 'UNKNOWN').upper(),
+        str(incoming.get('attention_priority') or 'UNKNOWN').upper(),
+        'ENTRY:' + str((incoming.get('preset_entry') or {}).get('name') or 'NONE').upper(),
+        'EXIT:' + str((outgoing.get('preset_exit') or {}).get('name') or 'NONE').upper(),
+    ))
+
+
+def _strategy_key(delay_frames, lead_frames):
+    return f'DELAY_{int(delay_frames)}_LEAD_{int(lead_frames)}'
 
 
 def install(impl):
@@ -71,47 +86,75 @@ def install(impl):
         step = 1.0 / max(1.0, float(fps))
         max_sync_frames = 6
         max_lead_frames = max(6, int(round(float(fps) * 0.8)))
+        live_by_id = {str(event.get('event_id') or ''): event for event in events}
+        family = _memory_family(live_by_id[outgoing_id], live_by_id[incoming_id])
+        memory = RecoveryMemory()
+        schedules = [
+            (delay_frames, lead_frames)
+            for delay_frames in range(max_sync_frames + 1)
+            for lead_frames in range(1, max_lead_frames + 1)
+        ]
+        by_strategy = {
+            _strategy_key(delay_frames, lead_frames): (delay_frames, lead_frames)
+            for delay_frames, lead_frames in schedules
+        }
+        strategy_order = memory.rank(family, list(by_strategy))
+        attempted = []
 
-        for delay_frames in range(max_sync_frames + 1):
-            for lead_frames in range(1, max_lead_frames + 1):
-                _restore_all(events, snapshots)
-                live_by_id = {str(event.get('event_id') or ''): event for event in events}
-                outgoing = live_by_id[outgoing_id]
-                incoming = live_by_id[incoming_id]
+        for strategy in strategy_order:
+            delay_frames, lead_frames = by_strategy[strategy]
+            _restore_all(events, snapshots)
+            live_by_id = {str(event.get('event_id') or ''): event for event in events}
+            outgoing = live_by_id[outgoing_id]
+            incoming = live_by_id[incoming_id]
 
-                if not _shift_incoming(impl, incoming, delay_frames, fps, max_sync_frames):
-                    continue
+            if not _shift_incoming(impl, incoming, delay_frames, fps, max_sync_frames):
+                continue
 
-                handoff_end = (
-                    float(failure['time_seconds'])
-                    + delay_frames * step
-                    - lead_frames * step
+            handoff_end = (
+                float(failure['time_seconds'])
+                + delay_frames * step
+                - lead_frames * step
+            )
+            if not _retire_outgoing(impl, _state, outgoing, handoff_end, fps):
+                continue
+
+            attempted.append(strategy)
+            outgoing['final_certification_dynamic_recovery_authority'] = _AUTHORITY
+            incoming['final_certification_dynamic_recovery_authority'] = _AUTHORITY
+            try:
+                result = base(events, cards, fps)
+            except ValueError:
+                continue
+
+            if result and result.get('pass'):
+                for attempted_strategy in attempted[:-1]:
+                    memory.record(family, attempted_strategy, False)
+                memory.record(
+                    family,
+                    strategy,
+                    True,
+                    cost=float(delay_frames + lead_frames),
                 )
-                if not _retire_outgoing(impl, _state, outgoing, handoff_end, fps):
-                    continue
+                repairs = list(result.get('repairs') or [])
+                repairs.append({
+                    'type': 'FINAL_CERTIFICATION_DYNAMIC_CROSS_SCENE_HANDOFF',
+                    'authority': _AUTHORITY,
+                    'visual_card_id': failure['card_id'],
+                    'outgoing_event_id': outgoing_id,
+                    'incoming_event_id': incoming_id,
+                    'handoff_seconds': round(float(handoff_end), 6),
+                    'incoming_delay_frames': int(delay_frames),
+                    'lead_frames': int(lead_frames),
+                    'recovery_memory_family': family,
+                    'recovery_strategy': strategy,
+                    'attempted_strategy_count': len(attempted),
+                })
+                result['repairs'] = repairs
+                return result
 
-                outgoing['final_certification_dynamic_recovery_authority'] = _AUTHORITY
-                incoming['final_certification_dynamic_recovery_authority'] = _AUTHORITY
-                try:
-                    result = base(events, cards, fps)
-                except ValueError:
-                    continue
-
-                if result and result.get('pass'):
-                    repairs = list(result.get('repairs') or [])
-                    repairs.append({
-                        'type': 'FINAL_CERTIFICATION_DYNAMIC_CROSS_SCENE_HANDOFF',
-                        'authority': _AUTHORITY,
-                        'visual_card_id': failure['card_id'],
-                        'outgoing_event_id': outgoing_id,
-                        'incoming_event_id': incoming_id,
-                        'handoff_seconds': round(float(handoff_end), 6),
-                        'incoming_delay_frames': int(delay_frames),
-                        'lead_frames': int(lead_frames),
-                    })
-                    result['repairs'] = repairs
-                    return result
-
+        for attempted_strategy in attempted:
+            memory.record(family, attempted_strategy, False)
         _restore_all(events, snapshots)
         raise original_exc
 
