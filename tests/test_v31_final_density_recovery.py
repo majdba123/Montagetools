@@ -49,43 +49,47 @@ def _voice_anchor_budget_is_fail_closed():
     assert plan == original
 
 
-def _final_state_gate_is_mandatory():
+def _candidate_gate_is_pre_finalization_only():
     plan = _plan()
-    metric_calls = {'count': 0}
-    def metric(candidate, card_id):
-        metric_calls['count'] += 1
-        if metric_calls['count'] > 1:
-            assert candidate.get('finalized') is True
-        return {'hard_under_density': False}
-    def finalize(candidate, fps=30.0):
-        candidate['finalized'] = True
-        return candidate
     with (
-        patch.object(density, '_metric', side_effect=metric),
+        patch.object(density, '_metric', return_value={'hard_under_density': False}),
         patch.object(density, 'composition_plan_qa', return_value={'pass': True, 'failures': []}),
-        patch('hexa_v31.interaction.director.finalize_interaction_motion_plan', side_effect=finalize),
+        patch(
+            'hexa_v31.interaction.director.finalize_interaction_motion_plan',
+            side_effect=AssertionError('candidate search must not invoke full finalization'),
+        ),
     ):
-        assert density._candidate_passes_final_state(plan, 'CARD_A', FPS)
-    assert metric_calls['count'] == 2
+        assert density._candidate_passes_pre_finalization(plan, 'CARD_A')
+
+    with patch.object(density, '_metric', return_value={'hard_under_density': True}):
+        assert not density._candidate_passes_pre_finalization(plan, 'CARD_A')
+    with (
+        patch.object(density, '_metric', return_value={'hard_under_density': False}),
+        patch.object(density, 'composition_plan_qa', return_value={'pass': False, 'failures': ['TEST']}),
+    ):
+        assert not density._candidate_passes_pre_finalization(plan, 'CARD_A')
 
 
-def _refinalized_density_regression_is_rejected():
+def _focused_metric_keeps_full_event_authority():
     plan = _plan()
-    def metric(candidate, card_id):
-        return {'hard_under_density': bool(candidate.get('finalized'))}
-    def finalize(candidate, fps=30.0):
-        candidate['finalized'] = True
-        return candidate
-    with (
-        patch.object(density, '_metric', side_effect=metric),
-        patch.object(density, 'composition_plan_qa', return_value={'pass': True, 'failures': []}),
-        patch('hexa_v31.interaction.director.finalize_interaction_motion_plan', side_effect=finalize),
-    ):
-        assert not density._candidate_passes_final_state(plan, 'CARD_A', FPS)
+    plan['visual_cards']['cards'].append({'card_id': 'CARD_B', 'start_seconds': 12.0, 'end_seconds': 14.0})
+    captured = {}
+
+    def report(focused):
+        captured['card_count'] = len((focused.get('visual_cards') or {}).get('cards') or [])
+        captured['event_count'] = len(focused.get('events') or [])
+        captured['card_id'] = str(((focused.get('visual_cards') or {}).get('cards') or [{}])[0].get('card_id'))
+        return {'cards': [{'card_id': 'CARD_A', 'hard_under_density': False}]}
+
+    with patch.object(density, 'build_visual_density_report', side_effect=report):
+        row = density._metric(plan, 'CARD_A')
+    assert row['card_id'] == 'CARD_A'
+    assert captured == {'card_count': 1, 'event_count': 2, 'card_id': 'CARD_A'}
 
 
 def _hard_card_prefers_entry_advance_before_hold():
     plan = _plan()
+
     def advance(candidate, event_id, frames, fps):
         if frames < 2:
             return False
@@ -93,9 +97,10 @@ def _hard_card_prefers_entry_advance_before_hold():
         event['final_density_overlap_advance_frames'] = 1.8
         event['final_density_overlap_advance_seconds'] = 0.06
         return True
+
     with (
         patch.object(density, '_advance_incoming_entry', side_effect=advance),
-        patch.object(density, '_candidate_passes_final_state', return_value=True),
+        patch.object(density, '_candidate_passes_pre_finalization', return_value=True),
         patch.object(density, '_apply_hold', side_effect=AssertionError('hold must not run after entry success')),
     ):
         repair = density._recover_hard_card(plan, 'CARD_A', FPS)
@@ -107,12 +112,14 @@ def _hard_card_prefers_entry_advance_before_hold():
 
 def _hold_is_fallback_not_first_choice():
     plan = _plan()
+
     def hold(candidate, event_id, card_id, frames, fps):
         return frames >= 2
+
     with (
         patch.object(density, '_advance_incoming_entry', return_value=False),
         patch.object(density, '_apply_hold', side_effect=hold),
-        patch.object(density, '_candidate_passes_final_state', return_value=True),
+        patch.object(density, '_candidate_passes_pre_finalization', return_value=True),
     ):
         repair = density._recover_hard_card(plan, 'CARD_A', FPS)
     assert repair['strategy'] == 'BOUNDED_OUTGOING_HOLD'
@@ -122,8 +129,8 @@ def _hold_is_fallback_not_first_choice():
 def main():
     _entry_advance_is_bounded_and_truthful()
     _voice_anchor_budget_is_fail_closed()
-    _final_state_gate_is_mandatory()
-    _refinalized_density_regression_is_rejected()
+    _candidate_gate_is_pre_finalization_only()
+    _focused_metric_keeps_full_event_authority()
     _hard_card_prefers_entry_advance_before_hold()
     _hold_is_fallback_not_first_choice()
     print('V31_FINAL_DENSITY_RECOVERY_PASS')
