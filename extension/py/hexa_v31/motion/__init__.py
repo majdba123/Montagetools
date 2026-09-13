@@ -14,6 +14,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.planning.cross_scene_collision_recovery_contract import install as _install_cross_scene_safe_reveal_recovery
     from hexa_v31.planning.phase_optimizer_contract import install as _install_phase_optimizer_contract
     from hexa_v31.planning.final_certification_phase_contract import install as _install_final_certification_phase_contract
+    from hexa_v31.planning.final_certification_dynamic_collision_recovery_contract import install as _install_final_certification_dynamic_collision_recovery
     from hexa_v31.planning.phase_entry_contract import install as _install_phase_entry_contract
     _install_round2_editorial(_preset_story_planner)
     # Residual settled same-scene geometry is a planner responsibility, not a reason
@@ -34,6 +35,10 @@ def _build_final_motion_plan(*args, **kwargs):
     # from legacy late optimizers before the final hard certification wrapper runs.
     _install_phase_optimizer_contract(_preset_story_planner)
     _install_final_certification_phase_contract(_preset_story_planner)
+    # The hard final gate sees the exact post-finalizer transform state. If a late
+    # legal mutation recreates one cross-scene dynamic collision, run a bounded
+    # temporal handoff search and require the unchanged certification gate to pass.
+    _install_final_certification_dynamic_collision_recovery(_preset_story_planner)
     # Beat choreography is a subordinate motion layer. Install the phase-aware
     # entry contract before importing the interaction director so directional
     # entry envelopes land on the certified semantic phase destination instead
