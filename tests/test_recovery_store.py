@@ -26,6 +26,7 @@ def seed(root: pathlib.Path) -> RecoveryStore:
                 'problem_id': 'P1',
                 'canonical_name': 'problem one',
                 'allowed_sources': ['CI', 'RENDER'],
+                'reusable_fingerprint_fields': ['cross_scene', 'actor_a_role'],
             }
         ],
     })
@@ -102,7 +103,15 @@ def main():
         expect_raises(
             RecoveryPromotionRejected,
             lambda: store.promote_solution(missing_sha),
-            'PROVEN_REQUIRES_RENDER_SHA256',
+            'PROVEN_REQUIRES_VALID_RENDER_SHA256',
+        )
+
+        malformed_sha = valid_solution('SOL-BAD-RENDER-SHA')
+        malformed_sha['visual_approval']['render_sha256'] = 'not-a-sha'
+        expect_raises(
+            RecoveryPromotionRejected,
+            lambda: store.promote_solution(malformed_sha),
+            'PROVEN_REQUIRES_VALID_RENDER_SHA256',
         )
 
         missing_review = valid_solution('SOL-NO-REVIEW')
@@ -118,7 +127,22 @@ def main():
         expect_raises(
             RecoveryPromotionRejected,
             lambda: store.promote_solution(missing_commit),
-            'PROVEN_REQUIRES_SOURCE_COMMIT',
+            'PROVEN_REQUIRES_VALID_SOURCE_COMMIT',
+        )
+
+        malformed_commit = valid_solution('SOL-BAD-COMMIT')
+        malformed_commit['technical_approval']['source_commit'] = '1234'
+        expect_raises(
+            RecoveryPromotionRejected,
+            lambda: store.promote_solution(malformed_commit),
+            'PROVEN_REQUIRES_VALID_SOURCE_COMMIT',
+        )
+
+        no_visual_validation = valid_solution('SOL-NO-VISUAL-COUNT', visual_count=0)
+        expect_raises(
+            RecoveryPromotionRejected,
+            lambda: store.promote_solution(no_visual_validation),
+            'PROVEN_REQUIRES_SUCCESSFUL_VISUAL_VALIDATION',
         )
 
         unknown_problem = valid_solution('SOL-UNKNOWN')
@@ -127,6 +151,24 @@ def main():
             RecoveryPromotionRejected,
             lambda: store.promote_solution(unknown_problem),
             'PROVEN_REQUIRES_REGISTERED_PROBLEM',
+        )
+
+        instance_hardcode = valid_solution(
+            'SOL-HARDCODED', constraints={'cross_scene': True, 'card_id': 'VCARD_009'}
+        )
+        expect_raises(
+            RecoveryPromotionRejected,
+            lambda: store.promote_solution(instance_hardcode),
+            'PROVEN_FORBIDS_INSTANCE_FINGERPRINT_FIELDS',
+        )
+
+        unknown_constraint = valid_solution(
+            'SOL-UNKNOWN-CONSTRAINT', constraints={'cross_scene': True, 'magic_layout': 'LEFT'}
+        )
+        expect_raises(
+            RecoveryPromotionRejected,
+            lambda: store.promote_solution(unknown_constraint),
+            'PROVEN_UNKNOWN_FINGERPRINT_FIELDS',
         )
 
         # A valid promotion is persisted and can be matched by generic fingerprint.
@@ -153,8 +195,31 @@ def main():
         assert store.load_history()['records'][0]['history_id'] == 'H1'
         expect_raises(
             RecoveryDataError,
-            lambda: store.append_history({'history_id': 'H1'}),
+            lambda: store.append_history({'history_id': 'H1', 'problem_id': 'P1', 'status': 'DETECTED'}),
             'duplicate history_id',
+        )
+        expect_raises(
+            RecoveryDataError,
+            lambda: store.append_history({'history_id': 'H2', 'problem_id': 'P404', 'status': 'DETECTED'}),
+            'HISTORY_UNKNOWN_PROBLEM_ID',
+        )
+        expect_raises(
+            RecoveryDataError,
+            lambda: store.append_history({'history_id': 'H3', 'problem_id': 'P1', 'status': 'MAGIC'}),
+            'HISTORY_INVALID_STATUS',
+        )
+
+        # Persisted bad PROVEN data must fail loudly rather than poisoning matching.
+        bad_persisted = valid_solution('SOL-PERSISTED-HARDCODE')
+        bad_persisted['fingerprint_constraints'] = {'card_id': 'VCARD_009'}
+        write(root / 'proven_solutions.json', {
+            'schema': 'HEXA_RECOVERY_PROVEN_SOLUTIONS_V1',
+            'solutions': [bad_persisted],
+        })
+        expect_raises(
+            RecoveryDataError,
+            store.load_proven,
+            'PROVEN_FORBIDS_INSTANCE_FINGERPRINT_FIELDS',
         )
 
         # Corruption must be surfaced rather than silently treated as no knowledge.
@@ -176,11 +241,26 @@ def main():
         write(root / 'problem_registry.json', {
             'schema': 'HEXA_RECOVERY_PROBLEM_REGISTRY_V1',
             'problems': [
-                {'problem_id': 'DUP', 'allowed_sources': ['CI']},
-                {'problem_id': 'DUP', 'allowed_sources': ['CI']},
+                {'problem_id': 'DUP', 'allowed_sources': ['CI'], 'reusable_fingerprint_fields': []},
+                {'problem_id': 'DUP', 'allowed_sources': ['CI'], 'reusable_fingerprint_fields': []},
             ],
         })
         expect_raises(RecoveryDataError, store.load_registry, 'duplicate problem_id')
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = pathlib.Path(temp_dir) / 'recovery_data'
+        store = seed(root)
+        write(root / 'problem_registry.json', {
+            'schema': 'HEXA_RECOVERY_PROBLEM_REGISTRY_V1',
+            'problems': [
+                {
+                    'problem_id': 'BAD-FIELDS',
+                    'allowed_sources': ['CI'],
+                    'reusable_fingerprint_fields': ['cross_scene', 'card_id'],
+                }
+            ],
+        })
+        expect_raises(RecoveryDataError, store.load_registry, 'forbidden reusable_fingerprint_fields')
 
     print('RECOVERY_STORE_PASS')
 
