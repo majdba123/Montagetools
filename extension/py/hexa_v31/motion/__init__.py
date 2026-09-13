@@ -125,13 +125,21 @@ def _build_final_motion_plan(*args, **kwargs):
     cross_card_editorial_stats = finalize_cross_card_editorial(plan, fps=fps)
     plan['cross_card_editorial_finalizer'] = cross_card_editorial_stats
     from hexa_v31.planning.final_density_recovery import recover_final_density
-    final_density_recovery = recover_final_density(plan, fps=fps)
-    plan['final_density_recovery'] = final_density_recovery
+    from hexa_v31.visual_density import build_visual_density_report
 
-    pacing_stats = build_final_card_pacing_report(plan)
-    plan['final_card_pacing_qa'] = pacing_stats
+    def _restore_finalizer_metadata(current_plan):
+        current_plan['source_integrity_finalizer'] = source_integrity_stats
+        current_plan['reference_density_topology_finalizer'] = topology_stats
+        current_plan['reference_geometry_finalizer'] = geometry_stats
+        current_plan['reference_joint_geometry_finalizer'] = joint_stats
+        current_plan['perceptual_composition_finalizer'] = perceptual_stats
+        current_plan['reference_residual_closure_finalizer'] = residual_stats
+        current_plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
+        current_plan['reference_joint_interval_framing_finalizer'] = joint_interval_stats
+        current_plan['reference_staggered_sequence_finalizer'] = stagger_stats
+        current_plan['cross_card_editorial_finalizer'] = cross_card_editorial_stats
 
-    if (
+    reference_changed = (
         source_integrity_stats.get('changed')
         or topology_stats.get('changed')
         or geometry_stats.get('changed')
@@ -142,24 +150,65 @@ def _build_final_motion_plan(*args, **kwargs):
         or joint_interval_stats.get('changed')
         or stagger_stats.get('changed')
         or cross_card_editorial_stats.get('changed')
-        or final_density_recovery.get('repaired_event_ids')
-    ):
-        # Final reference passes mutate only already-certified source-backed
-        # state. Re-run the same lifetime/physical authority once so the final
-        # immutable barrier describes the exact pixels consumed by the renderer.
+    )
+
+    # Density recovery must operate on the exact state that the renderer will
+    # consume. Reference/perceptual finalizers can legitimately rewrite lifetime
+    # envelopes, so certify those mutations first instead of searching density
+    # repairs against an unstable pre-finalization state.
+    if reference_changed:
         plan = finalize_interaction_motion_plan(plan, fps=fps)
-        plan['source_integrity_finalizer'] = source_integrity_stats
-        plan['reference_density_topology_finalizer'] = topology_stats
-        plan['reference_geometry_finalizer'] = geometry_stats
-        plan['reference_joint_geometry_finalizer'] = joint_stats
-        plan['perceptual_composition_finalizer'] = perceptual_stats
-        plan['reference_residual_closure_finalizer'] = residual_stats
-        plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
-        plan['reference_joint_interval_framing_finalizer'] = joint_interval_stats
-        plan['reference_staggered_sequence_finalizer'] = stagger_stats
-        plan['cross_card_editorial_finalizer'] = cross_card_editorial_stats
-        plan['final_density_recovery'] = final_density_recovery
-        plan['final_card_pacing_qa'] = pacing_stats
+        _restore_finalizer_metadata(plan)
+
+    density_rounds = []
+    for _ in range(3):
+        round_stats = recover_final_density(plan, fps=fps)
+        density_rounds.append(round_stats)
+        if not round_stats.get('repaired_event_ids'):
+            break
+        # Every accepted density batch is re-certified by the unchanged hard
+        # lifetime/physical barrier before another measurement is allowed.
+        plan = finalize_interaction_motion_plan(plan, fps=fps)
+        _restore_finalizer_metadata(plan)
+        if not (build_visual_density_report(plan).get('hard_under_density_cards') or []):
+            # A further round is unnecessary unless near-blank recovery still has
+            # work; let the cheap report in recover_final_density decide once more.
+            final_probe = recover_final_density(plan, fps=fps)
+            density_rounds.append(final_probe)
+            if final_probe.get('repaired_event_ids'):
+                plan = finalize_interaction_motion_plan(plan, fps=fps)
+                _restore_finalizer_metadata(plan)
+            break
+
+    final_density_report = build_visual_density_report(plan)
+    all_repaired = sorted({
+        str(event_id)
+        for round_stats in density_rounds
+        for event_id in round_stats.get('repaired_event_ids') or []
+    })
+    all_hard_repairs = [
+        repair
+        for round_stats in density_rounds
+        for repair in round_stats.get('hard_density_repairs') or []
+    ]
+    unresolved = list(final_density_report.get('hard_under_density_cards') or [])
+    final_density_recovery = dict(density_rounds[-1] if density_rounds else {})
+    final_density_recovery.update({
+        'authority': 'FINAL_MEASURED_SOURCE_DENSITY_RECOVERY',
+        'repaired_event_ids': all_repaired,
+        'hard_density_repairs': all_hard_repairs,
+        'recertification_round_count': len(density_rounds),
+        'rounds': density_rounds,
+        'before_hard_under_density_cards': (density_rounds[0].get('before_hard_under_density_cards') or []) if density_rounds else [],
+        'after_hard_under_density_cards': unresolved,
+        'unresolved_hard_under_density_cards': unresolved,
+        'pass': not unresolved,
+    })
+    plan['final_density_recovery'] = final_density_recovery
+
+    # Pacing must describe the final certified state, not an intermediate geometry.
+    pacing_stats = build_final_card_pacing_report(plan)
+    plan['final_card_pacing_qa'] = pacing_stats
     return plan
 
 
