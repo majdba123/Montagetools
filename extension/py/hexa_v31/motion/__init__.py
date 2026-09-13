@@ -16,6 +16,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.planning.final_certification_phase_contract import install as _install_final_certification_phase_contract
     from hexa_v31.planning.final_certification_dynamic_collision_recovery_contract import install as _install_final_certification_dynamic_collision_recovery
     from hexa_v31.planning.phase_entry_contract import install as _install_phase_entry_contract
+    from hexa_v31.planning.recovery_integrity_contract import install as _install_recovery_integrity_contract
     _install_round2_editorial(_preset_story_planner)
     # Residual settled same-scene geometry is a planner responsibility, not a reason
     # to relax the hard collision gate. Install its bounded recovery immediately after
@@ -35,10 +36,19 @@ def _build_final_motion_plan(*args, **kwargs):
     # from legacy late optimizers before the final hard certification wrapper runs.
     _install_phase_optimizer_contract(_preset_story_planner)
     _install_final_certification_phase_contract(_preset_story_planner)
+    # Preserve the unchanged canonical gate before the legacy single-collision
+    # wrapper is installed. The integrity contract uses this exact base to judge
+    # every intermediate candidate without recursive recovery.
+    _preset_story_planner._final_certification_dynamic_collision_recovery_base = _preset_story_planner._final_physical_certification
     # The hard final gate sees the exact post-finalizer transform state. If a late
     # legal mutation recreates one cross-scene dynamic collision, run a bounded
     # temporal handoff search and require the unchanged certification gate to pass.
     _install_final_certification_dynamic_collision_recovery(_preset_story_planner)
+    # Final recovery integrity closes multi-collision residuals without relaxing
+    # canonical QA and patches truthfulness guards before the interaction director
+    # imports choreography. Every retained candidate must strictly reduce the
+    # canonical conflict set; technical success remains render/visual pending.
+    _install_recovery_integrity_contract(_preset_story_planner)
     # Beat choreography is a subordinate motion layer. Install the phase-aware
     # entry contract before importing the interaction director so directional
     # entry envelopes land on the certified semantic phase destination instead
