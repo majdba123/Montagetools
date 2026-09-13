@@ -19,6 +19,7 @@ def write(path: pathlib.Path, payload) -> None:
 
 
 def solution(solution_id: str, strategy: str, count: int, cost: float, constraints: dict):
+    commit = 'a' * 40
     return {
         'solution_id': solution_id,
         'problem_id': 'HEXA_MOTION_PATH_OVERLAP',
@@ -27,9 +28,14 @@ def solution(solution_id: str, strategy: str, count: int, cost: float, constrain
         'fingerprint_constraints': constraints,
         'successful_visual_validations': count,
         'average_cost': cost,
-        'technical_approval': {'status': 'PASS', 'source_commit': 'a' * 40},
+        'technical_approval': {
+            'status': 'PASS',
+            'source_commit': commit,
+            'ci_run_id': 123456,
+        },
         'visual_approval': {
             'status': 'PASS',
+            'source_commit': commit,
             'render_sha256': 'b' * 64,
             'reviewed_against': 'encoded MP4 visual review',
         },
@@ -113,8 +119,6 @@ def main():
         assert ci_decision.strategy == 'STRATEGY_C'
         assert ci_decision.status == 'PROVEN'
 
-        # The same underlying problem discovered from encoded render must produce
-        # the same canonical identity AND reusable fingerprint.
         render_incident = engine.detect(
             'encoded trajectory visibly intersects the outgoing primary',
             'RENDER',
@@ -126,7 +130,6 @@ def main():
         render_decision = engine.resolve(render_incident)
         assert render_decision.solution_id == ci_decision.solution_id
 
-        # A materially different fingerprint must not inherit this solution.
         mismatch = engine.detect(
             ci_message,
             'CI',
@@ -139,7 +142,6 @@ def main():
         else:
             raise AssertionError('fingerprint mismatch reused an unsafe solution')
 
-        # Render-only problem must not be accepted from CI source.
         try:
             engine.detect('visual review issue', 'CI', render_code='BAD_HANDOFF')
         except RecoveryProblemUnknown as exc:
