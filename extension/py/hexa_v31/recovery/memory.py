@@ -24,10 +24,34 @@ def _enabled() -> bool:
     return override.strip().lower() not in _FALSE_VALUES
 
 
+def _configured_runtime_path() -> pathlib.Path | None:
+    candidates = []
+    explicit = os.environ.get('HEXA_V31_RUNTIME_CONFIG')
+    if explicit:
+        candidates.append(pathlib.Path(explicit))
+    local = os.environ.get('LOCALAPPDATA')
+    if local:
+        candidates.append(pathlib.Path(local) / 'HEXA' / 'VideoBuilderV31' / 'runtime_config.json')
+    for cfg_path in candidates:
+        if not cfg_path.is_file():
+            continue
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding='utf-8-sig'))
+            configured = str(cfg.get('recovery_proven_solutions_path') or '')
+            if configured:
+                return pathlib.Path(configured)
+        except (OSError, ValueError, TypeError):
+            continue
+    return None
+
+
 def _default_path() -> pathlib.Path:
     override = os.environ.get('HEXA_RECOVERY_PROVEN_SOLUTIONS_PATH')
     if override:
         return pathlib.Path(override)
+    configured = _configured_runtime_path()
+    if configured is not None:
+        return configured
     # Source checkout layout:
     # repo/extension/py/hexa_v31/recovery/memory.py -> parents[4] == repo.
     return pathlib.Path(__file__).resolve().parents[4] / 'recovery_data' / 'proven_solutions.json'
