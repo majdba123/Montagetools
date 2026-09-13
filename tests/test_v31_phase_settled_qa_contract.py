@@ -198,4 +198,78 @@ incoming_with_overlap['preset_entry'] = dict(incoming['preset_entry'], duration_
 common = _phase_common_settled_rects([event_with_states(0.60), incoming_with_overlap], handoff_phase)
 assert len(common) == 2, common
 
+
+# Final-certification rollback must preserve phase-state geometry itself, not only
+# card-wide base geometry. A late legacy repair can rebuild a stale handoff state
+# after the safe-frame recenter has already corrected it. Restoring the snapshot
+# must recover that corrected state byte-for-byte so canonical QA sees the same
+# phase destination that was certified before the legacy attempt.
+import copy
+from hexa_v31.composition_qa import _state
+from hexa_v31.planning.final_certification_phase_contract import (
+    _clamp_movable_phase_states_to_safe_frame,
+    _restore,
+    _snapshot,
+)
+
+rollback_actor = {
+    'event_id': 'ROLLBACK_PHASE_ACTOR',
+    'attention_priority': 'PRIMARY',
+    'render_mode': 'ROOT_ATOMIC',
+    'source_bbox_norm': [0.0, 0.0, 0.6826, 0.6888],
+    'card_rest_position_norm': [0.34, 0.52],
+    'layout_scale_multiplier': 0.68,
+    'planned_rect_norm': [0.080058, 0.257698, 0.519883, 0.524604],
+    'start_seconds': 72.646667,
+    'end_seconds': 75.7,
+    'physical_start_seconds': 70.941108,
+    'physical_end_seconds': 75.7,
+    'motion_start_seconds': 70.941108,
+    'motion_end_seconds': 75.7,
+    'preset_entry': {
+        'name': 'APPEAR_HIGH_SCALE',
+        'start_seconds': 72.646667,
+        'duration_seconds': 0.8,
+    },
+    'composition_states': [
+        {
+            'state_id': 'ROLLBACK_ESTABLISH',
+            'start_seconds': 70.941108,
+            'transition_duration_seconds': 0.0,
+            'center_norm': [0.49, 0.52],
+            'scale_multiplier': 1.352941,
+            'visibility': 1.0,
+            'state_reason': 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY',
+        },
+        {
+            'state_id': 'ROLLBACK_HANDOFF',
+            'start_seconds': 73.02,
+            'transition_duration_seconds': 0.46,
+            'center_norm': [0.33, 0.52],
+            'scale_multiplier': 1.0,
+            'visibility': 1.0,
+            'state_reason': 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY',
+        },
+        {
+            'state_id': 'ROLLBACK_REBUILD',
+            'start_seconds': 73.48,
+            'transition_duration_seconds': 0.481913,
+            'center_norm': [0.49, 0.52],
+            'scale_multiplier': 0.705882,
+            'visibility': 1.0,
+            'state_reason': 'SEMANTIC_ARCHETYPE_PHASE_GEOMETRY',
+        },
+    ],
+}
+assert _clamp_movable_phase_states_to_safe_frame([rollback_actor]) == ['ROLLBACK_PHASE_ACTOR']
+certified_states = copy.deepcopy(rollback_actor['composition_states'])
+assert certified_states[1]['center_norm'][0] > 0.33, certified_states[1]
+assert _in_safe(_state(rollback_actor, 73.466667)[3]), _state(rollback_actor, 73.466667)
+phase_snapshot = _snapshot(rollback_actor)
+rollback_actor['composition_states'][1]['center_norm'] = [0.33, 0.52]
+assert not _in_safe(_state(rollback_actor, 73.466667)[3]), _state(rollback_actor, 73.466667)
+assert _restore(rollback_actor, phase_snapshot)
+assert rollback_actor['composition_states'] == certified_states
+assert _in_safe(_state(rollback_actor, 73.466667)[3]), _state(rollback_actor, 73.466667)
+
 print('V31_PHASE_SETTLED_QA_CONTRACT_PASS')
