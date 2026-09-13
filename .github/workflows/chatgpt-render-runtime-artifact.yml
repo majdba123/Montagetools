@@ -45,8 +45,10 @@ jobs:
           cp -a "$UV_ROOT" runtime/python
           RUNTIME_PY="$GITHUB_WORKSPACE/runtime/python/bin/python3.12"
           "$RUNTIME_PY" -V
-          "$RUNTIME_PY" -m ensurepip --upgrade
-          "$RUNTIME_PY" -m pip install --disable-pip-version-check --upgrade pip==24.3.1
+          # uv-managed standalone Python is intentionally PEP-668 externally managed.
+          # Never mutate the base interpreter; all packages are built in isolated venvs
+          # then copied into relocatable site roots below.
+          "$RUNTIME_PY" -c 'import sys,venv;print(sys.executable);print("HEXA_BASE_RUNTIME_PASS")'
 
       - name: Build main offline site-packages
         shell: bash
@@ -120,6 +122,35 @@ jobs:
           print('HEXA_FOUNDATION_RUNTIME_IMPORT_PASS')
           PY
 
+      - name: Create relocatable runtime launchers
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime/bin
+          cat > runtime/bin/hexa-python <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+          if [[ -n "${PYTHONPATH:-}" ]]; then
+            export PYTHONPATH="$ROOT/main-site:$PYTHONPATH"
+          else
+            export PYTHONPATH="$ROOT/main-site"
+          fi
+          exec "$ROOT/python/bin/python3.12" "$@"
+          EOF
+          cat > runtime/bin/foundation-python <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+          if [[ -n "${PYTHONPATH:-}" ]]; then
+            export PYTHONPATH="$ROOT/foundation-site:$PYTHONPATH"
+          else
+            export PYTHONPATH="$ROOT/foundation-site"
+          fi
+          exec "$ROOT/python/bin/python3.12" "$@"
+          EOF
+          chmod +x runtime/bin/hexa-python runtime/bin/foundation-python
+
       - name: Write immutable runtime manifest
         shell: bash
         run: |
@@ -145,6 +176,8 @@ jobs:
               'target':'linux-x86_64',
               'python_version':platform.python_version(),
               'python_distribution':'uv-managed-python-build-standalone',
+              'main_launcher':'bin/hexa-python',
+              'foundation_launcher':'bin/foundation-python',
               'main_dependency_manifest_sha256':sha(dependency_manifest),
               'foundation_model_registry_sha256':sha(model_registry),
               'foundation_provision_contract':provision_contract(),
@@ -159,23 +192,29 @@ jobs:
           print(json.dumps(payload,indent=2,sort_keys=True))
           PY
 
-      - name: Relocation and offline import certification
+      - name: Relocation and offline launch certification
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p .runtime-relocation-check
           cp -a runtime .runtime-relocation-check/runtime
           VERIFY_ROOT="$GITHUB_WORKSPACE/.runtime-relocation-check/runtime"
-          VERIFY_PY="$VERIFY_ROOT/python/bin/python3.12"
-          env -u PYTHONPATH PYTHONPATH="$VERIFY_ROOT/main-site" "$VERIFY_PY" - <<'PY'
+          env -u PYTHONPATH "$VERIFY_ROOT/bin/hexa-python" - <<'PY'
           import cv2, numpy, shapely, uharfbuzz, faster_whisper, arabic_reshaper
           from ortools.sat.python import cp_model
           from bidi.algorithm import get_display
           assert callable(get_display)
+          m=cp_model.CpModel(); x=m.NewIntVar(0,1,'x'); m.Add(x==1)
+          s=cp_model.CpSolver(); s.parameters.num_search_workers=1; s.parameters.random_seed=0
+          assert s.Solve(m) in (cp_model.OPTIMAL,cp_model.FEASIBLE) and s.Value(x)==1
           print('HEXA_RELOCATED_MAIN_RUNTIME_PASS')
           PY
-          env -u PYTHONPATH PYTHONPATH="$VERIFY_ROOT/foundation-site" "$VERIFY_PY" - <<'PY'
+          # Match FoundationVisionClient behavior: caller owns extension/py in PYTHONPATH,
+          # while the launcher must inject its own isolated Foundation dependencies.
+          PYTHONPATH="$GITHUB_WORKSPACE/extension/py" "$VERIFY_ROOT/bin/foundation-python" - <<'PY'
           import cv2, numpy, torch, torchvision, transformers, sam2
+          from hexa_v31.vision.foundation.backend import FoundationVisionClient
+          assert FoundationVisionClient is not None
           assert numpy.__version__=='1.26.4'
           assert torch.__version__.split('+')[0]=='2.5.1'
           assert torchvision.__version__.split('+')[0]=='0.20.1'
