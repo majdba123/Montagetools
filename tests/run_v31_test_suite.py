@@ -20,7 +20,7 @@ run(['node','--check',ROOT/'extension/js/main.js'])
 cp=subprocess.run(['node','--check'],input=(ROOT/'extension/jsx/host.jsx').read_bytes(),stdout=subprocess.PIPE,stderr=subprocess.STDOUT);print(cp.stdout.decode('utf-8',errors='replace'));assert cp.returncode==0;print('HOST_JSX_SYNTAX_PASS')
 # Recovery knowledge and promotion gates run early so data corruption or unsafe
 # CI-only learning fails before the expensive planner regressions.
-for f in ['test_recovery_detector.py','test_recovery_store.py','test_recovery_engine.py','test_recovery_repository_contract.py','test_v31_recovery_validation_gate.py','test_v31_recovery_memory.py']:
+for f in ['test_recovery_detector.py','test_recovery_store.py','test_recovery_engine.py','test_recovery_repository_contract.py','test_v31_recovery_validation_gate.py','test_v31_recovery_memory.py','test_v31_recovery_release_contract.py']:
     run([sys.executable,ROOT/'tests'/f],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_editorial_topology.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_phase_settled_qa_contract.py'],timeout=480)
