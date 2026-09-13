@@ -13,6 +13,8 @@ from hexa_v31.planning.final_cross_scene_handoff_recovery_contract import (
 from hexa_v31.recovery.memory import RecoveryMemory
 
 _AUTHORITY = 'FINAL_CERTIFICATION_DYNAMIC_CROSS_SCENE_HANDOFF_RECOVERY'
+_PROBLEM_ID = 'HEXA_MOTION_PATH_OVERLAP'
+_PROBLEM_NAME = 'motion-path overlap'
 _DYNAMIC_RE = re.compile(
     r'(?P<card>VCARD_[^@:\s]+)@(?P<time>[0-9]+(?:\.[0-9]+)?)s:\s*'
     r'motion-path overlap\s+(?P<a>\S+)\s+x\s+(?P<b>\S+)='
@@ -98,6 +100,7 @@ def install(impl):
             _strategy_key(delay_frames, lead_frames): (delay_frames, lead_frames)
             for delay_frames, lead_frames in schedules
         }
+        # Only visually PROVEN repository data may reorder this deterministic list.
         strategy_order = memory.rank(family, list(by_strategy))
         attempted = []
 
@@ -128,18 +131,16 @@ def install(impl):
                 continue
 
             if result and result.get('pass'):
-                for attempted_strategy in attempted[:-1]:
-                    memory.record(family, attempted_strategy, False)
-                memory.record(
-                    family,
-                    strategy,
-                    True,
-                    cost=float(delay_frames + lead_frames),
-                )
+                # A technically valid candidate is NOT learned here. It remains
+                # render-pending until the exact encoded MP4 passes visual review.
                 repairs = list(result.get('repairs') or [])
                 repairs.append({
                     'type': 'FINAL_CERTIFICATION_DYNAMIC_CROSS_SCENE_HANDOFF',
                     'authority': _AUTHORITY,
+                    'problem_id': _PROBLEM_ID,
+                    'problem_name': _PROBLEM_NAME,
+                    'problem_source': 'CI',
+                    'recovery_validation_state': 'CI_VERIFIED_RENDER_PENDING',
                     'visual_card_id': failure['card_id'],
                     'outgoing_event_id': outgoing_id,
                     'incoming_event_id': incoming_id,
@@ -151,10 +152,10 @@ def install(impl):
                     'attempted_strategy_count': len(attempted),
                 })
                 result['repairs'] = repairs
+                result['recovery_validation_state'] = 'CI_VERIFIED_RENDER_PENDING'
+                result['recovery_problem_id'] = _PROBLEM_ID
                 return result
 
-        for attempted_strategy in attempted:
-            memory.record(family, attempted_strategy, False)
         _restore_all(events, snapshots)
         raise original_exc
 
