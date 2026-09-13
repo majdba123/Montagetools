@@ -10,6 +10,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.motion import beat_choreography as _beat_choreography
     from hexa_v31.planning.round2_editorial import install as _install_round2_editorial
     from hexa_v31.planning.same_scene_collision_recovery_contract import install as _install_same_scene_collision_recovery
+    from hexa_v31.planning.final_cross_scene_handoff_recovery_contract import install as _install_final_cross_scene_handoff_recovery
     from hexa_v31.planning.phase_optimizer_contract import install as _install_phase_optimizer_contract
     from hexa_v31.planning.final_certification_phase_contract import install as _install_final_certification_phase_contract
     from hexa_v31.planning.phase_entry_contract import install as _install_phase_entry_contract
@@ -18,6 +19,11 @@ def _build_final_motion_plan(*args, **kwargs):
     # to relax the hard collision gate. Install its bounded recovery immediately after
     # Round 2 so the shipping direct-import path matches the compatibility facade.
     _install_same_scene_collision_recovery(_preset_story_planner)
+    # The primary cross-scene reconciler waits for a readable successor. A legal
+    # fade/scale reveal may become materially visible earlier and still collide with
+    # the outgoing root. Close only that residual interval with a bounded, fail-closed
+    # visible-onset handoff search before final certification executes.
+    _install_final_cross_scene_handoff_recovery(_preset_story_planner)
     # Round 2 owns the phase-authoring implementation. Install the compatibility
     # guard after it so every shipping caller protects that final phase authority
     # from legacy late optimizers before the final hard certification wrapper runs.
