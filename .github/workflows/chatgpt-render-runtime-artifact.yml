@@ -1,0 +1,204 @@
+name: HEXA Engineering Render Runtime Artifact
+
+on:
+  push:
+    branches:
+      - chatgpt/p0-visual-lifetime-partition-fix
+    paths:
+      - .github/workflows/chatgpt-render-runtime-artifact.yml
+      - extension/resources/DEPENDENCY_MANIFEST_V20.json
+      - extension/resources/HEXA_FOUNDATION_VISION_MODELS_V31.json
+      - tools/provision_foundation_vision.py
+  workflow_dispatch:
+
+concurrency:
+  group: hexa-engineering-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x64-py312:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Verify source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "RUNTIME_SOURCE_COMMIT=$(git rev-parse HEAD)"
+          git diff --check
+
+      - name: Bootstrap relocatable Python 3.12
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --upgrade 'uv>=0.8,<1'
+          uv python install 3.12.13
+          UV_PY="$(uv python find 3.12.13)"
+          UV_ROOT="$($UV_PY -c 'import pathlib,sys;print(pathlib.Path(sys.executable).resolve().parent.parent)')"
+          mkdir -p runtime
+          cp -a "$UV_ROOT" runtime/python
+          RUNTIME_PY="$GITHUB_WORKSPACE/runtime/python/bin/python3.12"
+          "$RUNTIME_PY" -V
+          "$RUNTIME_PY" -m ensurepip --upgrade
+          "$RUNTIME_PY" -m pip install --disable-pip-version-check --upgrade pip==24.3.1
+
+      - name: Build main offline site-packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUNTIME_PY="$GITHUB_WORKSPACE/runtime/python/bin/python3.12"
+          "$RUNTIME_PY" -m venv .runtime-build/main
+          MAIN_PY="$GITHUB_WORKSPACE/.runtime-build/main/bin/python"
+          "$MAIN_PY" -m pip install --disable-pip-version-check --upgrade pip==24.3.1
+          mapfile -t MAIN_SPECS < <("$RUNTIME_PY" - <<'PY'
+          import json
+          with open('extension/resources/DEPENDENCY_MANIFEST_V20.json','r',encoding='utf-8') as f:
+              manifest=json.load(f)
+          for item in manifest['python_packages']:
+              if item.get('required') or item.get('strongly_recommended'):
+                  print(item['pip'])
+          PY
+          )
+          "$MAIN_PY" -m pip install --disable-pip-version-check --no-input "${MAIN_SPECS[@]}"
+          MAIN_SITE="$($MAIN_PY -c 'import site;print(site.getsitepackages()[0])')"
+          cp -a "$MAIN_SITE" runtime/main-site
+          PYTHONPATH="$GITHUB_WORKSPACE/runtime/main-site" "$RUNTIME_PY" - <<'PY'
+          import numpy, PIL, cv2, shapely, uharfbuzz, faster_whisper, arabic_reshaper
+          from ortools.sat.python import cp_model
+          from bidi.algorithm import get_display
+          from faster_whisper import WhisperModel
+          m=cp_model.CpModel(); x=m.NewIntVar(0,2,'x'); m.Add(x==2)
+          s=cp_model.CpSolver(); s.parameters.num_search_workers=1; s.parameters.random_seed=0
+          assert s.Solve(m) in (cp_model.OPTIMAL,cp_model.FEASIBLE) and s.Value(x)==2
+          assert callable(get_display) and WhisperModel is not None
+          print('HEXA_MAIN_RUNTIME_IMPORT_PASS')
+          PY
+
+      - name: Build Foundation offline site-packages from canonical pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUNTIME_PY="$GITHUB_WORKSPACE/runtime/python/bin/python3.12"
+          "$RUNTIME_PY" -m venv .runtime-build/foundation
+          FOUNDATION_PY="$GITHUB_WORKSPACE/.runtime-build/foundation/bin/python"
+          "$FOUNDATION_PY" -m pip install --disable-pip-version-check --no-input --upgrade pip==24.3.1
+          "$FOUNDATION_PY" -m pip install --disable-pip-version-check --no-input numpy==1.26.4 Pillow==11.1.0
+          "$FOUNDATION_PY" -m pip install --disable-pip-version-check --no-input --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchvision==0.20.1
+          mapfile -t FOUNDATION_PINS < <("$RUNTIME_PY" - <<'PY'
+          from tools.provision_foundation_vision import PACKAGES
+          for spec in PACKAGES:
+              print(spec)
+          PY
+          )
+          "$FOUNDATION_PY" -m pip install --disable-pip-version-check --no-input "${FOUNDATION_PINS[@]}"
+          "$FOUNDATION_PY" - <<'PY'
+          import json, os, pathlib, sys
+          from tools.provision_foundation_vision import _install_official_sam2
+          with open('extension/resources/HEXA_FOUNDATION_VISION_MODELS_V31.json','r',encoding='utf-8') as f:
+              registry=json.load(f)
+          env=os.environ.copy(); env['SAM2_BUILD_CUDA']='0'
+          result=_install_official_sam2(
+              pathlib.Path(sys.executable), env, registry['sam2_source'],
+              pathlib.Path('.runtime-build/sam2-install'),
+              pathlib.Path('runtime/source-cache'))
+          print(json.dumps(result,sort_keys=True))
+          PY
+          FOUNDATION_SITE="$($FOUNDATION_PY -c 'import site;print(site.getsitepackages()[0])')"
+          cp -a "$FOUNDATION_SITE" runtime/foundation-site
+          PYTHONPATH="$GITHUB_WORKSPACE/runtime/foundation-site" "$RUNTIME_PY" - <<'PY'
+          import cv2, numpy, PIL, safetensors, torch, torchvision, transformers, sam2
+          assert numpy.__version__=='1.26.4'
+          assert torch.__version__.split('+')[0]=='2.5.1'
+          assert torchvision.__version__.split('+')[0]=='0.20.1'
+          x=torch.tensor([2.0]); assert (x*x+1).item()==5.0
+          print('HEXA_FOUNDATION_RUNTIME_IMPORT_PASS')
+          PY
+
+      - name: Write immutable runtime manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUNTIME_PY="$GITHUB_WORKSPACE/runtime/python/bin/python3.12"
+          "$RUNTIME_PY" - <<'PY'
+          import hashlib, json, pathlib, platform, subprocess
+          from tools.provision_foundation_vision import provision_contract
+          root=pathlib.Path('runtime')
+          def sha(path):
+              h=hashlib.sha256()
+              with open(path,'rb') as f:
+                  for chunk in iter(lambda:f.read(1024*1024),b''): h.update(chunk)
+              return h.hexdigest()
+          def freeze(py):
+              return subprocess.check_output([py,'-m','pip','freeze','--all'],text=True).splitlines()
+          source_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          model_registry=pathlib.Path('extension/resources/HEXA_FOUNDATION_VISION_MODELS_V31.json')
+          dependency_manifest=pathlib.Path('extension/resources/DEPENDENCY_MANIFEST_V20.json')
+          payload={
+              'schema':'HEXA_ENGINEERING_RENDER_RUNTIME_BUNDLE_V1',
+              'source_commit':source_commit,
+              'target':'linux-x86_64',
+              'python_version':platform.python_version(),
+              'python_distribution':'uv-managed-python-build-standalone',
+              'main_dependency_manifest_sha256':sha(dependency_manifest),
+              'foundation_model_registry_sha256':sha(model_registry),
+              'foundation_provision_contract':provision_contract(),
+              'main_freeze':freeze('.runtime-build/main/bin/python'),
+              'foundation_freeze':freeze('.runtime-build/foundation/bin/python'),
+              'model_weights_included':False,
+              'model_weights_policy':'EXTERNAL_HASH_VERIFIED_BUNDLES',
+              'font_bytes_included':False,
+              'font_policy':'PLATFORM_CERTIFIED_FONT_REQUIRED_SEPARATELY',
+          }
+          (root/'runtime_manifest.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
+
+      - name: Relocation and offline import certification
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .runtime-relocation-check
+          cp -a runtime .runtime-relocation-check/runtime
+          VERIFY_ROOT="$GITHUB_WORKSPACE/.runtime-relocation-check/runtime"
+          VERIFY_PY="$VERIFY_ROOT/python/bin/python3.12"
+          env -u PYTHONPATH PYTHONPATH="$VERIFY_ROOT/main-site" "$VERIFY_PY" - <<'PY'
+          import cv2, numpy, shapely, uharfbuzz, faster_whisper, arabic_reshaper
+          from ortools.sat.python import cp_model
+          from bidi.algorithm import get_display
+          assert callable(get_display)
+          print('HEXA_RELOCATED_MAIN_RUNTIME_PASS')
+          PY
+          env -u PYTHONPATH PYTHONPATH="$VERIFY_ROOT/foundation-site" "$VERIFY_PY" - <<'PY'
+          import cv2, numpy, torch, torchvision, transformers, sam2
+          assert numpy.__version__=='1.26.4'
+          assert torch.__version__.split('+')[0]=='2.5.1'
+          assert torchvision.__version__.split('+')[0]=='0.20.1'
+          assert (torch.tensor([2.0])**2+1).item()==5.0
+          print('HEXA_RELOCATED_FOUNDATION_RUNTIME_PASS')
+          PY
+
+      - name: Pack verified runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="hexa-engineering-runtime-linux-x64-py312-${GITHUB_SHA}.tar.gz"
+          tar -C "$GITHUB_WORKSPACE" -czf "$ARCHIVE" runtime
+          sha256sum "$ARCHIVE" | tee "$ARCHIVE.sha256"
+          echo "HEXA_RUNTIME_ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Upload verified runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hexa-engineering-runtime-linux-x64-py312-${{ github.sha }}
+          path: |
+            ${{ env.HEXA_RUNTIME_ARCHIVE }}
+            ${{ env.HEXA_RUNTIME_ARCHIVE }}.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
