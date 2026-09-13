@@ -11,10 +11,13 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 from typing import Any
 
 _SCHEMA = 'HEXA_RECOVERY_PROVEN_SOLUTIONS_V1'
 _FALSE_VALUES = {'0', 'false', 'no', 'off'}
+_HEX40 = re.compile(r'^[0-9a-fA-F]{40}$')
+_HEX64 = re.compile(r'^[0-9a-fA-F]{64}$')
 
 
 def _enabled() -> bool:
@@ -67,13 +70,25 @@ def _default_path() -> pathlib.Path:
 def _approved(row: dict[str, Any]) -> bool:
     technical = row.get('technical_approval') or {}
     visual = row.get('visual_approval') or {}
+    technical_commit = str(technical.get('source_commit') or '')
+    visual_commit = str(visual.get('source_commit') or '')
+    render_sha = str(visual.get('render_sha256') or '')
+    try:
+        ci_run_id = int(technical.get('ci_run_id') or 0)
+        validations = int(row.get('successful_visual_validations') or 0)
+    except (TypeError, ValueError):
+        return False
     return (
         row.get('status') == 'PROVEN'
         and technical.get('status') == 'PASS'
-        and bool(str(technical.get('source_commit') or ''))
+        and bool(_HEX40.fullmatch(technical_commit))
+        and ci_run_id > 0
         and visual.get('status') == 'PASS'
-        and bool(str(visual.get('render_sha256') or ''))
-        and bool(str(visual.get('reviewed_against') or ''))
+        and bool(_HEX40.fullmatch(visual_commit))
+        and visual_commit.lower() == technical_commit.lower()
+        and bool(_HEX64.fullmatch(render_sha))
+        and bool(str(visual.get('reviewed_against') or '').strip())
+        and validations > 0
     )
 
 
