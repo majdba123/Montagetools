@@ -4,6 +4,7 @@ import copy
 import json
 import os
 import pathlib
+import re
 import tempfile
 import threading
 from typing import Any
@@ -14,6 +15,16 @@ _LOCK = threading.RLock()
 _REGISTRY_SCHEMA = 'HEXA_RECOVERY_PROBLEM_REGISTRY_V1'
 _PROVEN_SCHEMA = 'HEXA_RECOVERY_PROVEN_SOLUTIONS_V1'
 _HISTORY_SCHEMA = 'HEXA_RECOVERY_HISTORY_V1'
+_HEX40 = re.compile(r'^[0-9a-fA-F]{40}$')
+_HEX64 = re.compile(r'^[0-9a-fA-F]{64}$')
+_HISTORY_STATUSES = {
+    'DETECTED', 'CANDIDATE_IMPLEMENTED', 'CI_VERIFIED_RENDER_PENDING',
+    'RENDER_REJECTED', 'PROVEN', 'DEPRECATED',
+}
+_FORBIDDEN_FINGERPRINT_FIELDS = {
+    'event_id', 'event_a', 'event_b', 'scene_id', 'card_id', 'project_name',
+    'project_id', 'package_name', 'package_id', 'timestamp', 'time_seconds',
+}
 
 
 class RecoveryStore:
@@ -69,7 +80,69 @@ class RecoveryStore:
             sources = row.get('allowed_sources')
             if not isinstance(sources, list) or not sources or any(source not in {'CI', 'RENDER'} for source in sources):
                 raise RecoveryDataError(f"invalid allowed_sources for {row.get('problem_id')}")
+            fields = row.get('reusable_fingerprint_fields')
+            if not isinstance(fields, list):
+                raise RecoveryDataError(f"reusable_fingerprint_fields missing for {row.get('problem_id')}")
+            if len(fields) != len(set(map(str, fields))):
+                raise RecoveryDataError(f"duplicate reusable_fingerprint_fields for {row.get('problem_id')}")
+            forbidden = _FORBIDDEN_FINGERPRINT_FIELDS.intersection(map(str, fields))
+            if forbidden:
+                raise RecoveryDataError(
+                    f"forbidden reusable_fingerprint_fields for {row.get('problem_id')}: {sorted(forbidden)}"
+                )
         return data
+
+    def _problem_map(self) -> dict[str, dict[str, Any]]:
+        return {
+            str(row['problem_id']): row
+            for row in self.load_registry()['problems']
+        }
+
+    @staticmethod
+    def _raise(error_cls, message: str):
+        raise error_cls(message)
+
+    @classmethod
+    def _validate_approval(cls, solution: dict[str, Any], error_cls=RecoveryPromotionRejected) -> None:
+        technical = solution.get('technical_approval') or {}
+        visual = solution.get('visual_approval') or {}
+        if technical.get('status') != 'PASS':
+            cls._raise(error_cls, 'PROVEN_REQUIRES_TECHNICAL_PASS')
+        if visual.get('status') != 'PASS':
+            cls._raise(error_cls, 'PROVEN_REQUIRES_VISUAL_PASS')
+        source_commit = str(technical.get('source_commit') or '')
+        if not _HEX40.fullmatch(source_commit):
+            cls._raise(error_cls, 'PROVEN_REQUIRES_VALID_SOURCE_COMMIT')
+        render_sha = str(visual.get('render_sha256') or '')
+        if not _HEX64.fullmatch(render_sha):
+            cls._raise(error_cls, 'PROVEN_REQUIRES_VALID_RENDER_SHA256')
+        if not str(visual.get('reviewed_against') or '').strip():
+            cls._raise(error_cls, 'PROVEN_REQUIRES_VISUAL_REVIEW_TARGET')
+        try:
+            validations = int(solution.get('successful_visual_validations') or 0)
+        except (TypeError, ValueError):
+            validations = 0
+        if validations < 1:
+            cls._raise(error_cls, 'PROVEN_REQUIRES_SUCCESSFUL_VISUAL_VALIDATION')
+
+    @classmethod
+    def _validate_fingerprint_constraints(
+        cls,
+        solution: dict[str, Any],
+        problem: dict[str, Any],
+        error_cls=RecoveryPromotionRejected,
+    ) -> None:
+        constraints = solution.get('fingerprint_constraints')
+        if not isinstance(constraints, dict):
+            cls._raise(error_cls, 'PROVEN_REQUIRES_FINGERPRINT_CONSTRAINTS_OBJECT')
+        keys = set(map(str, constraints.keys()))
+        forbidden = keys.intersection(_FORBIDDEN_FINGERPRINT_FIELDS)
+        if forbidden:
+            cls._raise(error_cls, f'PROVEN_FORBIDS_INSTANCE_FINGERPRINT_FIELDS: {sorted(forbidden)}')
+        allowed = set(map(str, problem.get('reusable_fingerprint_fields') or []))
+        unknown = keys - allowed
+        if unknown:
+            cls._raise(error_cls, f'PROVEN_UNKNOWN_FINGERPRINT_FIELDS: {sorted(unknown)}')
 
     def load_proven(self) -> dict[str, Any]:
         data = self._read_json(self.proven_path)
@@ -79,10 +152,16 @@ class RecoveryStore:
         if not isinstance(rows, list):
             raise RecoveryDataError('RECOVERY_PROVEN_SOLUTIONS_NOT_LIST')
         self._validate_unique(rows, 'solution_id', 'solutions')
+        problems = self._problem_map()
         for row in rows:
             if row.get('status') != 'PROVEN':
                 raise RecoveryDataError(f"non-PROVEN row in proven_solutions: {row.get('solution_id')}")
-            self._validate_approval(row)
+            problem_id = str(row.get('problem_id') or '')
+            problem = problems.get(problem_id)
+            if problem is None:
+                raise RecoveryDataError(f'PROVEN_UNKNOWN_PROBLEM_ID: {problem_id}')
+            self._validate_approval(row, RecoveryDataError)
+            self._validate_fingerprint_constraints(row, problem, RecoveryDataError)
         return data
 
     def load_history(self) -> dict[str, Any]:
@@ -93,6 +172,14 @@ class RecoveryStore:
         if not isinstance(rows, list):
             raise RecoveryDataError('RECOVERY_HISTORY_RECORDS_NOT_LIST')
         self._validate_unique(rows, 'history_id', 'records')
+        problems = self._problem_map()
+        for row in rows:
+            problem_id = str(row.get('problem_id') or '')
+            if problem_id not in problems:
+                raise RecoveryDataError(f'HISTORY_UNKNOWN_PROBLEM_ID: {problem_id}')
+            status = str(row.get('status') or '')
+            if status not in _HISTORY_STATUSES:
+                raise RecoveryDataError(f'HISTORY_INVALID_STATUS: {status}')
         return data
 
     def problem(self, problem_id: str) -> dict[str, Any] | None:
@@ -131,21 +218,6 @@ class RecoveryStore:
         return rows
 
     @staticmethod
-    def _validate_approval(solution: dict[str, Any]) -> None:
-        technical = solution.get('technical_approval') or {}
-        visual = solution.get('visual_approval') or {}
-        if technical.get('status') != 'PASS':
-            raise RecoveryPromotionRejected('PROVEN_REQUIRES_TECHNICAL_PASS')
-        if visual.get('status') != 'PASS':
-            raise RecoveryPromotionRejected('PROVEN_REQUIRES_VISUAL_PASS')
-        if not str(technical.get('source_commit') or ''):
-            raise RecoveryPromotionRejected('PROVEN_REQUIRES_SOURCE_COMMIT')
-        if not str(visual.get('render_sha256') or ''):
-            raise RecoveryPromotionRejected('PROVEN_REQUIRES_RENDER_SHA256')
-        if not str(visual.get('reviewed_against') or ''):
-            raise RecoveryPromotionRejected('PROVEN_REQUIRES_VISUAL_REVIEW_TARGET')
-
-    @staticmethod
     def _atomic_write(path: pathlib.Path, payload: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         text = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
@@ -165,6 +237,12 @@ class RecoveryStore:
         history_id = str(record.get('history_id') or '')
         if not history_id:
             raise RecoveryDataError('history record missing history_id')
+        problem_id = str(record.get('problem_id') or '')
+        if self.problem(problem_id) is None:
+            raise RecoveryDataError(f'HISTORY_UNKNOWN_PROBLEM_ID: {problem_id}')
+        status = str(record.get('status') or '')
+        if status not in _HISTORY_STATUSES:
+            raise RecoveryDataError(f'HISTORY_INVALID_STATUS: {status}')
         with _LOCK:
             data = self.load_history()
             if any(str(row.get('history_id')) == history_id for row in data['records']):
@@ -175,9 +253,11 @@ class RecoveryStore:
     def promote_solution(self, solution: dict[str, Any]) -> None:
         solution = copy.deepcopy(solution)
         solution['status'] = 'PROVEN'
-        self._validate_approval(solution)
-        if not self.problem(str(solution.get('problem_id') or '')):
+        self._validate_approval(solution, RecoveryPromotionRejected)
+        problem = self.problem(str(solution.get('problem_id') or ''))
+        if problem is None:
             raise RecoveryPromotionRejected('PROVEN_REQUIRES_REGISTERED_PROBLEM')
+        self._validate_fingerprint_constraints(solution, problem, RecoveryPromotionRejected)
         solution_id = str(solution.get('solution_id') or '')
         strategy = str(solution.get('strategy') or '')
         if not solution_id or not strategy:
