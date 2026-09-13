@@ -7,6 +7,7 @@ cv2.setNumThreads(1)
 try: cv2.ocl.setUseOpenCL(False)
 except Exception: pass
 import numpy as np
+from hexa_v31.image_cache import save_cached_image
 from PIL import Image
 from hexa_v31.util import ensure_dir, sha256_file, write_json, read_json
 from hexa_v31.hierarchy import decompose_semantic_group
@@ -608,7 +609,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
         else:
             cx0,cy0,cx1,cy1=x,y,x+bw,y+bh
         layer_rgba=np.dstack([clean_rgb,layer_alpha])
-        lp=out/f'{pid}.png'; final_lp=final_out/f'{pid}.png'; Image.fromarray(layer_rgba,'RGBA').save(lp)
+        lp=out/f'{pid}.png'; final_lp=final_out/f'{pid}.png'; save_cached_image(Image.fromarray(layer_rgba,'RGBA'),lp)
         layer_paths.append({'path':str(final_lp),'origin_px':[0,0],'size_px':[W,H],'content_origin_px':[cx0,cy0],'content_size_px':[cx1-cx0,cy1-cy0],'canvas_mode':'FULL_SCENE_ALPHA_CANVAS'})
         # The semantic object's physical center still drives travel direction/delta, but never static layout.
         # Static layout is now encoded directly in the full-canvas alpha pixels.
@@ -679,7 +680,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     # as the permanent stage; generator tint/noise in otherwise empty background is not
     # semantic scene content and must not inflate density or drift between scenes.
     stage_bg=np.zeros_like(rgb); stage_bg[:]=np.array((255,255,255),dtype=np.uint8)
-    Image.fromarray(stage_bg).save(out/'background.png')
+    save_cached_image(Image.fromarray(stage_bg),out/'background.png')
     mae=float(np.mean(np.abs(recon.astype(np.int16)-rgb.astype(np.int16))))
     mse=float(np.mean((recon.astype(np.float32)-rgb.astype(np.float32))**2))
     psnr=99.0 if mse<1e-9 else 20*math.log10(255.0/math.sqrt(mse))
@@ -695,8 +696,8 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     elif reconstruction_pass and slot_count<=5: mode='HYBRID'
     else: mode='FLAT_SCENE'
     # Store diagnostic mask/reconstruction, not user-facing generated art.
-    Image.fromarray(mask).save(out/'foreground_mask.png')
-    Image.fromarray(recon).save(out/'reconstruction.png')
+    save_cached_image(Image.fromarray(mask),out/'foreground_mask.png')
+    save_cached_image(Image.fromarray(recon),out/'reconstruction.png')
     matte_summary={
         'layer_count':len(matting_rows),
         'mean_soft_edge_pixel_fraction':round(float(np.mean([m.get('soft_edge_pixel_fraction',0.0) for m in matting_rows]) if matting_rows else 0.0),6),

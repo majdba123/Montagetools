@@ -1,8 +1,8 @@
 from __future__ import annotations
-import copy,hashlib,pathlib,os,tempfile
+import copy,hashlib,pathlib
 import numpy as np
 from PIL import Image
-from hexa_v31.image_cache import cached_image_complete
+from hexa_v31.image_cache import cached_image_complete, save_cached_image
 
 VERSION='HEXA_VISIBLE_INK_SOURCE_FRAMING_V1_2_ATOMIC_ONLY'
 
@@ -57,16 +57,7 @@ def normalize_render_sources(render_edit_map:dict,cache_dir,logger=None)->tuple[
         key=hashlib.sha256((str(p.resolve())+'|'+str(p.stat().st_size)+'|'+str(p.stat().st_mtime_ns)+'|'+str(safe)).encode('utf-8')).hexdigest()[:20]
         dst=root/(key+'.png')
         if not cached_image_complete(dst, (x1-x0,y1-y0)):
-            fd,name=tempfile.mkstemp(prefix=key+'.',suffix='.png',dir=root)
-            os.close(fd)
-            staged=pathlib.Path(name)
-            try:
-                Image.fromarray(arr[y0:y1,x0:x1]).save(staged)
-                if not cached_image_complete(staged, (x1-x0,y1-y0)):
-                    raise OSError('Incomplete staged source framing image: '+str(staged))
-                os.replace(staged,dst)
-            finally:
-                staged.unlink(missing_ok=True)
+            save_cached_image(Image.fromarray(arr[y0:y1,x0:x1]),dst)
         old_scale=float(event.get('base_fit_scale_percent') or 100.0)
         event['source_path']=str(dst)
         if event.get('source_layer_path'):event['source_layer_path']=str(dst)

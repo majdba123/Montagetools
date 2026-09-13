@@ -4,6 +4,7 @@ import importlib
 import json
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
@@ -58,6 +59,28 @@ with tempfile.TemporaryDirectory(prefix='hexa_vision_cache_') as raw:
     reframed,_=normalize_render_sources(render_map,root/'framing')
     assert reframed['events'][0]['source_path']==str(crop)
     assert cached_image_complete(crop) and crop.read_bytes()==original
+    assert list(crop.parent.glob('*.png'))==[crop]
+
+    from hexa_v31.image_cache import save_cached_image
+    real_save=Image.Image.save
+    attempts=[]
+    def short_first_write(image, stream, **kwargs):
+        attempts.append(1)
+        if len(attempts)==1:
+            stream.write(b'broken PNG')
+        else:
+            real_save(image,stream,**kwargs)
+    with patch.object(Image.Image,'save',short_first_write):
+        save_cached_image(padded,crop)
+    assert len(attempts)==2 and cached_image_complete(crop,padded.size)
+    preserved=crop.read_bytes()
+    with patch.object(Image.Image,'save',side_effect=OSError('write failed')):
+        try:
+            save_cached_image(padded,crop)
+            raise AssertionError('persistent write failure accepted')
+        except OSError:
+            pass
+    assert crop.read_bytes()==preserved
     assert list(crop.parent.glob('*.png'))==[crop]
 
     for dependency in ('vision', 'extraction_matting', 'hierarchy_decomposition', 'occlusion', 'foundation_reconstruction', 'actor_qa'):
