@@ -8,6 +8,7 @@ CUDA_INDEX = 'https://download.pytorch.org/whl/cu118'
 CPU_INDEX = 'https://download.pytorch.org/whl/cpu'
 MIN_FOUNDATION_CUDA_VRAM_BYTES = 4 * 1024 ** 3
 PACKAGES = (
+    'setuptools==75.8.0', 'wheel==0.45.1',
     'transformers==4.49.0', 'huggingface-hub==0.28.1', 'safetensors==0.5.2',
     'numpy==1.26.4', 'Pillow==11.1.0', 'hydra-core==1.3.2',
     'iopath==0.1.10', 'tqdm==4.67.1', 'opencv-python-headless==4.11.0.86',
@@ -17,7 +18,7 @@ PACKAGES = (
 def provision_contract():
     payload={'torch':TORCH_VERSION,'torchvision':TORCHVISION_VERSION,'cuda_index':CUDA_INDEX,
              'cpu_index':CPU_INDEX,'minimum_foundation_cuda_vram_bytes':MIN_FOUNDATION_CUDA_VRAM_BYTES,
-             'packages':PACKAGES}
+             'packages':PACKAGES, 'sam2_install_policy':'PINNED_STACK_NO_DEPENDENCY_RESOLUTION_V1'}
     return hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
 
@@ -78,6 +79,10 @@ def _install_stack(env_root, use_cuda):
     python = _python(env_root)
     env = os.environ.copy(); env['SAM2_BUILD_CUDA'] = '0'
     run([python, '-m', 'pip', 'install', '--disable-pip-version-check', '--no-input', '--upgrade', 'pip==24.3.1'], env=env)
+    # Seed shared dependencies before torchvision to avoid an unbounded install/downgrade.
+    shared_pins = [p for p in PACKAGES if p.startswith(('numpy==', 'Pillow=='))]
+    run([python, '-m', 'pip', 'install', '--disable-pip-version-check', '--no-input',
+         *shared_pins], env=env)
     run([python, '-m', 'pip', 'install', '--disable-pip-version-check', '--no-input',
          '--index-url', CUDA_INDEX if use_cuda else CPU_INDEX,
          f'torch=={TORCH_VERSION}', f'torchvision=={TORCHVISION_VERSION}'], env=env)
@@ -125,7 +130,9 @@ def _install_official_sam2(python, env, authority, scratch, artifact_cache=None)
         roots = [x for x in (scratch / 'sam2-source').iterdir() if x.is_dir()]
         if len(roots) != 1: raise RuntimeError('Unexpected official SAM2 archive layout')
         source_root=roots[0];install_source='OFFICIAL_PINNED_ARCHIVE'
-    run([python, 'setup.py', 'install'], env=env,cwd=source_root)
+    # The pinned stack is the dependency authority, including build dependencies.
+    run([python, '-m', 'pip', 'install', '--no-deps', '--no-build-isolation',
+         str(source_root)], env=env)
     run([python, '-c', 'import sam2;print(sam2.__file__)'], env=env)
     return {'repository': authority['repository'], 'commit': authority['commit'],
             'archive_sha256': actual, 'install_source': install_source}

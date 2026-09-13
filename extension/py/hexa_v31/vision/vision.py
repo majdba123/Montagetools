@@ -65,6 +65,7 @@ class SceneVisionResult:
 
 
 def _cache_artifacts_complete(data:dict)->bool:
+    from hexa_v31.image_cache import cached_image_complete
     art=data.get('artifacts') or {}
     required=[art.get('mask'),art.get('reconstruction'),art.get('background')]
     layers=art.get('layers') or []
@@ -74,7 +75,7 @@ def _cache_artifacts_complete(data:dict)->bool:
         and isinstance(art.get('matting_summary'),dict)
         and isinstance(art.get('hierarchy_decisions'),list)
         and isinstance(art.get('occlusion_graph'),dict)
-        and all(x and pathlib.Path(x).is_file() for x in required)
+        and all(cached_image_complete(x) for x in required)
     )
 
 
