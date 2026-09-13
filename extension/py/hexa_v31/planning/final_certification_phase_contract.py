@@ -23,6 +23,11 @@ _GEOMETRY_KEYS = (
     'collision_envelope_rect_norm',
     'composition_role',
     'composite_atomic',
+    # Phase-owned destinations are first-class geometry. The final-certification
+    # rollback must preserve them alongside card-wide base geometry; otherwise a
+    # late legacy repair can silently reinstate stale unsafe phase states.
+    'composition_states',
+    'composition_participant_states',
 )
 
 
