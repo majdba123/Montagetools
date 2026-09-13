@@ -31,8 +31,9 @@ class RecoveryStore:
     """Version-controlled recovery knowledge store.
 
     Runtime detection may read this store. Promotion is deliberately explicit and
-    requires both technical and encoded-video visual evidence. Nothing in this class
-    automatically declares a technically passing candidate as PROVEN.
+    requires both technical and encoded-video visual evidence from the same source
+    commit. Nothing in this class automatically declares a technically passing
+    candidate as PROVEN.
     """
 
     def __init__(self, data_root: str | os.PathLike[str] | None = None):
@@ -110,9 +111,23 @@ class RecoveryStore:
             cls._raise(error_cls, 'PROVEN_REQUIRES_TECHNICAL_PASS')
         if visual.get('status') != 'PASS':
             cls._raise(error_cls, 'PROVEN_REQUIRES_VISUAL_PASS')
+
         source_commit = str(technical.get('source_commit') or '')
         if not _HEX40.fullmatch(source_commit):
             cls._raise(error_cls, 'PROVEN_REQUIRES_VALID_SOURCE_COMMIT')
+        try:
+            ci_run_id = int(technical.get('ci_run_id') or 0)
+        except (TypeError, ValueError):
+            ci_run_id = 0
+        if ci_run_id <= 0:
+            cls._raise(error_cls, 'PROVEN_REQUIRES_SUCCESSFUL_CI_RUN_ID')
+
+        visual_source_commit = str(visual.get('source_commit') or '')
+        if not _HEX40.fullmatch(visual_source_commit):
+            cls._raise(error_cls, 'PROVEN_REQUIRES_VISUAL_SOURCE_COMMIT')
+        if visual_source_commit.lower() != source_commit.lower():
+            cls._raise(error_cls, 'PROVEN_RENDER_COMMIT_MISMATCH')
+
         render_sha = str(visual.get('render_sha256') or '')
         if not _HEX64.fullmatch(render_sha):
             cls._raise(error_cls, 'PROVEN_REQUIRES_VALID_RENDER_SHA256')
