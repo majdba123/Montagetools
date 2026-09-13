@@ -13,8 +13,8 @@ from hexa_v31.planning.final_cross_scene_handoff_recovery_contract import (
 
 _AUTHORITY = 'FINAL_CERTIFICATION_DYNAMIC_CROSS_SCENE_HANDOFF_RECOVERY'
 _DYNAMIC_RE = re.compile(
-    r'(?P<card>VCARD_[^@:\\s]+)@(?P<time>[0-9]+(?:\\.[0-9]+)?)s:\\s*'
-    r'motion-path overlap\\s+(?P<a>\\S+)\\s+x\\s+(?P<b>\\S+)='
+    r'(?P<card>VCARD_[^@:\s]+)@(?P<time>[0-9]+(?:\.[0-9]+)?)s:\s*'
+    r'motion-path overlap\s+(?P<a>\S+)\s+x\s+(?P<b>\S+)='
 )
 
 
