@@ -108,6 +108,18 @@ def _raw_scene_pair_conflicts(events, fps):
 
 
 def compile_scene_ownership(plan: dict, fps: float = 30.0) -> dict:
+    """Compile one source-scene pixel owner per encoded frame without retiming semantics.
+
+    Source-scene ownership is deliberately independent from physical/source survival and
+    semantic action timing.  The renderer may withhold an incoming scene's optional
+    pre-roll until the outgoing scene releases ownership, but this function never moves
+    ``start_seconds``, presets, interaction actions, or protected partition lifetimes.
+
+    When an outgoing certified Foundation partition survives beyond the next scene's
+    materially-visible pre-roll, the boundary is delayed to the partition carrier end.
+    That recovery is legal only when the prematurely-visible incoming actors are
+    independent roots; protected source pixels themselves are never shortened.
+    """
     fps = max(1.0, float(fps or plan.get('fps') or 30.0))
     events = _active(list(plan.get('events') or []))
     by_scene = defaultdict(list)
@@ -220,7 +232,13 @@ def compile_scene_ownership(plan: dict, fps: float = 30.0) -> dict:
             if boundary_frame < source_boundary_frame:
                 reason = 'INCOMING_REQUIRED_PIXEL_OR_ACTION_ONSET'
             elif boundary_frame > preferred_frame:
-                reason = 'OUTGOING_REQUIRED_PIXEL_OR_ACTION_RELEASE'
+                if (
+                    ('OUTGOING_PROTECTED_MATERIAL_RELEASE', lower_frame) in lower_reasons
+                    and not any(name == 'OUTGOING_SEMANTIC_ACTION_END' and frame == lower_frame for name, frame in lower_reasons)
+                ):
+                    reason = 'PROTECTED_PARTITION_MATERIAL_RELEASE'
+                else:
+                    reason = 'OUTGOING_REQUIRED_PIXEL_OR_ACTION_RELEASE'
             elif boundary_frame > source_boundary_frame:
                 reason = 'INCOMING_FIRST_MATERIAL_FRAME'
             else:
