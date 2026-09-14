@@ -8,7 +8,7 @@ def _norm(v):return str(v or '').strip().upper()
 
 def _lerp(a,b,q):return float(a)+(float(b)-float(a))*float(q)
 
-def _state(e:dict,t:float):
+def _state(e:dict,t:float,*,ignore_scene_ownership:bool=False):
     """Evaluate visible state inside the physical carrier lifetime.
 
     start_seconds/end_seconds bound authored motion. Physical lifetime is a
@@ -21,6 +21,10 @@ def _state(e:dict,t:float):
     physical_start=float(e.get('physical_start_seconds',st))
     physical_end=float(e.get('physical_end_seconds',en))
     if t<physical_start-eps or t>=physical_end-eps:return None
+    if not ignore_scene_ownership:
+        ownership_start=float(e.get('scene_ownership_start_seconds',physical_start))
+        ownership_end=float(e.get('scene_ownership_end_seconds',physical_end))
+        if t<ownership_start-eps or t>=ownership_end-eps:return None
     if t<st-eps:return None
 
     motion_start=float(e.get('motion_start_seconds',st))

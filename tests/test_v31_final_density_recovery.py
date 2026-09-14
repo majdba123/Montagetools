@@ -4,6 +4,7 @@ import copy
 from unittest.mock import patch
 
 import hexa_v31.planning.final_density_recovery as density
+from hexa_v31.visual_density import build_visual_density_report
 
 FPS = 30.0
 
@@ -13,19 +14,25 @@ def _plan(source='SOURCE_INTERVAL_FALLBACK', anchor=10.65):
         'event_id': 'OUT', 'scene_id': 'SCENE_A', 'visual_card_id': 'CARD_A',
         'render_mode': 'ROOT_ATOMIC', 'start_seconds': 8.0, 'end_seconds': 10.4,
         'physical_start_seconds': 8.0, 'physical_end_seconds': 10.4,
+        'source_scene_start_seconds': 8.0, 'source_scene_end_seconds': 12.0,
+        'card_rest_position_norm': [.35, .5], 'source_bbox_norm': [0, 0, .18, .2],
+        'visible_ink_fraction': .8, 'attention_priority': 'PRIMARY',
         'preset_exit': {'name': 'DISAPPEAR_DOWN_SCALE', 'start_seconds': 9.85, 'duration_seconds': 0.6},
     }
     incoming = {
-        'event_id': 'IN', 'scene_id': 'SCENE_B', 'visual_card_id': 'CARD_A',
+        'event_id': 'IN', 'scene_id': 'SCENE_A', 'visual_card_id': 'CARD_A',
         'render_mode': 'ROOT_ATOMIC', 'partition_group_id': None,
         'start_seconds': 10.1, 'settle_seconds': 10.9, 'end_seconds': 12.0,
         'physical_start_seconds': 10.0, 'physical_end_seconds': 12.0,
+        'source_scene_start_seconds': 8.0, 'source_scene_end_seconds': 12.0,
+        'card_rest_position_norm': [.65, .5], 'source_bbox_norm': [0, 0, .18, .2],
+        'visible_ink_fraction': .8, 'attention_priority': 'PRIMARY',
         'visibility_interval_seconds': [10.0, 12.0],
         'perceptual_hit_seconds': anchor, 'perceptual_hit_source': source,
         'preset_entry': {'name': 'APPEAR_HIGH_SCALE', 'start_seconds': 10.1, 'duration_seconds': 0.8},
         'preset_exit': None, 'preset_actions': [],
     }
-    card = {'card_id': 'CARD_A', 'start_seconds': 9.5, 'end_seconds': 12.0}
+    card = {'card_id': 'CARD_A', 'start_seconds': 9.5, 'end_seconds': 12.0, 'duration_seconds': 2.5}
     return {'events': [outgoing, incoming], 'visual_cards': {'cards': [card]}, 'fps': FPS}
 
 
@@ -87,6 +94,19 @@ def _focused_metric_keeps_full_event_authority():
     assert captured == {'card_count': 1, 'event_count': 2, 'card_id': 'CARD_A'}
 
 
+def _cross_scene_card_does_not_require_fake_concurrency():
+    plan = _plan()
+    plan['events'][1]['scene_id'] = 'SCENE_B'
+    plan['events'][1]['source_scene_start_seconds'] = 10.0
+    plan['events'][1]['source_scene_end_seconds'] = 12.0
+    plan['events'][0]['source_scene_end_seconds'] = 10.0
+    report = build_visual_density_report(plan)
+    row = report['cards'][0]
+    assert row['same_scene_multi_object_scene_ids'] == [], row
+    assert row['hard_under_density_scene_ids'] == [], row
+    assert not row['hard_under_density'], row
+
+
 def _hard_card_prefers_entry_advance_before_hold():
     plan = _plan()
 
@@ -98,12 +118,15 @@ def _hard_card_prefers_entry_advance_before_hold():
         event['final_density_overlap_advance_seconds'] = 0.06
         return True
 
+    hard = {'hard_under_density': True, 'hard_under_density_scene_ids': ['SCENE_A']}
     with (
+        patch.object(density, '_metric', return_value=hard),
         patch.object(density, '_advance_incoming_entry', side_effect=advance),
         patch.object(density, '_candidate_passes_pre_finalization', return_value=True),
         patch.object(density, '_apply_hold', side_effect=AssertionError('hold must not run after entry success')),
     ):
         repair = density._recover_hard_card(plan, 'CARD_A', FPS)
+    assert repair['scene_id'] == 'SCENE_A'
     assert repair['strategy'] == 'BOUNDED_ENTRY_ADVANCE'
     assert repair['requested_frames'] == 2
     assert repair['advance_frames'] == 1.8
@@ -116,14 +139,29 @@ def _hold_is_fallback_not_first_choice():
     def hold(candidate, event_id, card_id, frames, fps):
         return frames >= 2
 
+    hard = {'hard_under_density': True, 'hard_under_density_scene_ids': ['SCENE_A']}
     with (
+        patch.object(density, '_metric', return_value=hard),
         patch.object(density, '_advance_incoming_entry', return_value=False),
         patch.object(density, '_apply_hold', side_effect=hold),
         patch.object(density, '_candidate_passes_pre_finalization', return_value=True),
     ):
         repair = density._recover_hard_card(plan, 'CARD_A', FPS)
+    assert repair['scene_id'] == 'SCENE_A'
     assert repair['strategy'] == 'BOUNDED_OUTGOING_HOLD'
     assert repair['hold_frames'] == 2
+
+
+def _hard_recovery_never_pairs_different_source_scenes():
+    plan = _plan()
+    plan['events'][1]['scene_id'] = 'SCENE_B'
+    hard = {'hard_under_density': True, 'hard_under_density_scene_ids': ['SCENE_A', 'SCENE_B']}
+    with (
+        patch.object(density, '_metric', return_value=hard),
+        patch.object(density, '_advance_incoming_entry', side_effect=AssertionError('cross-scene entry advance forbidden')),
+        patch.object(density, '_apply_hold', side_effect=AssertionError('cross-scene hold forbidden')),
+    ):
+        assert density._recover_hard_card(plan, 'CARD_A', FPS) is None
 
 
 def main():
@@ -131,8 +169,10 @@ def main():
     _voice_anchor_budget_is_fail_closed()
     _candidate_gate_is_pre_finalization_only()
     _focused_metric_keeps_full_event_authority()
+    _cross_scene_card_does_not_require_fake_concurrency()
     _hard_card_prefers_entry_advance_before_hold()
     _hold_is_fallback_not_first_choice()
+    _hard_recovery_never_pairs_different_source_scenes()
     print('V31_FINAL_DENSITY_RECOVERY_PASS')
 
 

@@ -50,12 +50,27 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
     rows=[];all_cov=[];all_ink=[];all_pop=[];all_islands=[];near_blank=0.0;static=0;transitions=0
     for card in cards:
         cid=str(card.get('card_id'));cs=float(card.get('start_seconds',0));ce=float(card.get('end_seconds',cs))
-        # Physical lifetime overlap is the committed timeline authority. An
-        # instance held across a phase/card boundary must be seen by density in
-        # exactly the same interval consumed by the renderer and collision QA.
-        evs=[e for e in active if float(e.get('start_seconds',0))<ce-1e-9 and float(e.get('end_seconds',0))>cs+1e-9]
-        total_valid=sum(1 for e in events if str(e.get('visual_card_id'))==cid)
+        # Density sees the same physical + source-scene ownership interval as the
+        # renderer. Cross-scene actors may share a visual card for editorial
+        # bookkeeping, but they are never a legitimate simultaneous-density cohort.
+        def owned_window(event):
+            ps=float(event.get('physical_start_seconds',event.get('start_seconds',0)))
+            pe=float(event.get('physical_end_seconds',event.get('end_seconds',ps)))
+            os=float(event.get('scene_ownership_start_seconds',ps))
+            oe=float(event.get('scene_ownership_end_seconds',pe))
+            return max(ps,os),min(pe,oe)
+        evs=[e for e in active if owned_window(e)[0]<ce-1e-9 and owned_window(e)[1]>cs+1e-9]
+        actor_events=[e for e in events if str(e.get('visual_card_id'))==cid
+                      and not e.get('suppressed_by_card_density')
+                      and str(e.get('render_mode') or '').upper()!='RESIDUAL_SUPPORT']
+        source_counts={}
+        for event in actor_events:
+            sid=str(event.get('scene_id') or '')
+            if sid:source_counts[sid]=source_counts.get(sid,0)+1
+        multi_scene_ids=sorted(sid for sid,count in source_counts.items() if count>=2)
+        total_valid=len(actor_events)
         covs=[];inks=[];pops=[];islands=[];primary_area=[];support_area=[];prev=None;blank=0.0;t=cs
+        scene_peaks={sid:0 for sid in source_counts}
         while t<ce-1e-9:
             states=[]
             for e in evs:
@@ -72,7 +87,13 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
                 a=model.project(e,r,op,clip_rect=(SAFE_X[0],SAFE_Y[0],SAFE_X[1]-SAFE_X[0],SAFE_Y[1]-SAFE_Y[0]))/SAFE_AREA;ink+=a
                 if str(e.get('attention_priority') or '').upper()=='PRIMARY':pa+=a
                 else:sa+=a
-            pop=sum(1 for _,_,op,_ in states if op>0.22);isl=_islands(rects)
+            pop=sum(1 for e,_,op,_ in states if op>0.22 and str(e.get('render_mode') or '').upper()!='RESIDUAL_SUPPORT');isl=_islands(rects)
+            visible_scene_pop={}
+            for event,_,op,_ in states:
+                if op<=0.22 or str(event.get('render_mode') or '').upper()=='RESIDUAL_SUPPORT':continue
+                sid=str(event.get('scene_id') or '')
+                if sid:visible_scene_pop[sid]=visible_scene_pop.get(sid,0)+1
+            for sid,count in visible_scene_pop.items():scene_peaks[sid]=max(scene_peaks.get(sid,0),count)
             covs.append(cov);inks.append(ink);pops.append(pop);islands.append(isl)
             primary_area.append(pa);support_area.append(sa)
             # "Blank" means the safe frame has effectively no visible geometry.
@@ -84,8 +105,9 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
                 if sig==prev:static+=1
             prev=sig;t+=sample_step
         median_cov=statistics.median(covs) if covs else 0.0;median_ink=statistics.median(inks) if inks else 0.0;peak=max(pops or [0])
-        multi=total_valid>=2
-        rows.append({'card_id':cid,'archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'source_valid_object_count':total_valid,'active_object_count':len(evs),'peak_visible_object_count':peak,'mean_temporal_population':round(statistics.mean(pops) if pops else 0.0,4),'median_safe_frame_union_coverage':round(median_cov,6),'median_estimated_alpha_coverage':round(median_ink,6),'negative_space_ratio':round(1.0-median_cov,6),'largest_object_dominance':round(max((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs),default=0.0)/max(1e-9,sum((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs))),6),'mean_visual_island_count':round(statistics.mean(islands) if islands else 0.0,4),'max_visual_island_count':max(islands or [0]),'primary_secondary_balance':round(statistics.mean(primary_area)/max(1e-9,statistics.mean(primary_area)+statistics.mean(support_area)),6) if primary_area else 0.0,'near_blank_duration_seconds':round(min(max(0.0,ce-cs),blank),3),'hard_under_density':bool(multi and peak<2),'soft_under_density':bool(multi and median_ink<0.24)})
+        hard_scene_ids=sorted(sid for sid in multi_scene_ids if scene_peaks.get(sid,0)<2)
+        multi=bool(multi_scene_ids)
+        rows.append({'card_id':cid,'archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'source_valid_object_count':total_valid,'active_object_count':len(evs),'peak_visible_object_count':peak,'same_scene_source_valid_object_counts':dict(sorted(source_counts.items())),'same_scene_peak_visible_object_counts':dict(sorted(scene_peaks.items())),'same_scene_multi_object_scene_ids':multi_scene_ids,'hard_under_density_scene_ids':hard_scene_ids,'mean_temporal_population':round(statistics.mean(pops) if pops else 0.0,4),'median_safe_frame_union_coverage':round(median_cov,6),'median_estimated_alpha_coverage':round(median_ink,6),'negative_space_ratio':round(1.0-median_cov,6),'largest_object_dominance':round(max((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs),default=0.0)/max(1e-9,sum((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs))),6),'mean_visual_island_count':round(statistics.mean(islands) if islands else 0.0,4),'max_visual_island_count':max(islands or [0]),'primary_secondary_balance':round(statistics.mean(primary_area)/max(1e-9,statistics.mean(primary_area)+statistics.mean(support_area)),6) if primary_area else 0.0,'near_blank_duration_seconds':round(min(max(0.0,ce-cs),blank),3),'hard_under_density':bool(hard_scene_ids),'soft_under_density':bool(multi and median_ink<0.24)})
         all_cov.extend(covs);all_ink.extend(inks);all_pop.extend(pops);all_islands.extend(islands);near_blank+=blank
     severe=[r['card_id'] for r in rows if r['hard_under_density']]
     soft=[r['card_id'] for r in rows if r['soft_under_density']]

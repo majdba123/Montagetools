@@ -6,7 +6,7 @@ from hexa_v31.composition_qa import _state
 from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa
 
 
-def _peak(events:list[dict],primary:bool)->int:
+def _peak(events:list[dict],primary:bool,fps:float)->int:
     selected=[e for e in events if not e.get('suppressed_by_card_density')
               and (str(e.get('attention_priority') or '').upper()=='PRIMARY')==bool(primary)]
     if not selected:return 0
@@ -15,7 +15,7 @@ def _peak(events:list[dict],primary:bool)->int:
     peak=0;t=start
     while t<=end+1e-6:
         peak=max(peak,sum(1 for e in selected if (lambda s: bool(s and float(s[2])>.22))(_state(e,t))))
-        t+=1.0/30.0
+        t+=1.0/max(1.0,float(fps))
     return peak
 
 
@@ -63,7 +63,7 @@ def preset_motion_qa(motion_plan:dict,fps:float=30.0)->dict:
         cid=str(c.get('card_id'));dur=float(c.get('duration_seconds') or 0.0)
         if dur<3.0-1e-5 or dur>5.0+1e-5:failures.append(f'{cid}: visual card duration {dur:.3f}s outside 3-5s')
         evs=[e for e in all_events if e.get('visual_card_id')==cid]
-        rp=_peak(evs,True)
+        rp=_peak(evs,True,fps)
         rs=int(c.get('rendered_secondary_count',c.get('secondary_count_estimate',0)) or 0)
         if not 1<=rp<=2:failures.append(f'{cid}: peak concurrent primary count {rp} outside 1-2')
         if not 3<=rs<=8:

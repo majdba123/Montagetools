@@ -8,9 +8,16 @@ import numpy as np
 from PIL import Image
 
 
-def _window(event: dict) -> tuple[float, float]:
+def _physical_window(event: dict) -> tuple[float, float]:
     return (float(event.get('physical_start_seconds', event.get('start_seconds', 0.0))),
             float(event.get('physical_end_seconds', event.get('end_seconds', 0.0))))
+
+
+def _window(event: dict) -> tuple[float, float]:
+    physical_start,physical_end=_physical_window(event)
+    ownership_start=float(event.get('scene_ownership_start_seconds',physical_start))
+    ownership_end=float(event.get('scene_ownership_end_seconds',physical_end))
+    return max(physical_start,ownership_start),min(physical_end,ownership_end)
 
 
 def _active(events: list[dict], t: float) -> list[dict]:
@@ -55,7 +62,7 @@ def visual_timeline_coverage_qa(motion_plan: dict, fps: float | None = None,
     for event in events:
         if event.get('suppressed_by_card_density'):
             continue
-        ps, pe = _window(event)
+        ps, pe = _physical_window(event)
         ms = float(event.get('motion_start_seconds', event.get('start_seconds', ps)))
         me = float(event.get('motion_end_seconds', event.get('end_seconds', pe)))
         if ps > ms + 1e-6 or pe < me - 1e-6:
@@ -86,10 +93,10 @@ def visual_timeline_coverage_qa(motion_plan: dict, fps: float | None = None,
     for key, all_members in groups.items():
         members = [e for e in all_members if not e.get('suppressed_by_card_density')]
         suppressed = [e for e in all_members if e.get('suppressed_by_card_density')]
-        starts = {_window(e)[0] for e in members}; ends = {_window(e)[1] for e in members}
+        starts = {_physical_window(e)[0] for e in members}; ends = {_physical_window(e)[1] for e in members}
         residuals = [e for e in members if e.get('render_mode') == 'RESIDUAL_SUPPORT']
-        carrier_starts = {float(e.get('partition_carrier_start_seconds', _window(e)[0])) for e in members}
-        carrier_ends = {float(e.get('partition_carrier_end_seconds', _window(e)[1])) for e in members}
+        carrier_starts = {float(e.get('partition_carrier_start_seconds', _physical_window(e)[0])) for e in members}
+        carrier_ends = {float(e.get('partition_carrier_end_seconds', _physical_window(e)[1])) for e in members}
         valid = bool(members) and len(starts) == 1 and len(ends) == 1 and len(carrier_starts) == 1 and len(carrier_ends) == 1
         if residuals:
             valid = valid and all(not e.get('independent_motion_allowed') and not e.get('translation_safe_after_occlusion') and not e.get('position_animated') for e in residuals)

@@ -141,29 +141,38 @@ def _fit_authored_pair_states(plan:dict, outgoing_id:str, incoming_id:str)->bool
 
 
 def _recover_hard_card(plan:dict, card_id:str, fps:float)->dict|None:
-    events=[event for event in plan.get('events') or [] if not event.get('suppressed_by_card_density') and str(event.get('visual_card_id') or '')==str(card_id)]
-    events.sort(key=lambda event:(float(event.get('start_seconds',0.0)),str(event.get('event_id') or '')))
-    for outgoing,incoming in zip(events,events[1:]):
-        if str(outgoing.get('scene_id') or '')==str(incoming.get('scene_id') or ''):continue
-        outgoing_id=str(outgoing.get('event_id') or '');incoming_id=str(incoming.get('event_id') or '')
-        for frames in range(1,_MAX_ENTRY_ADVANCE_FRAMES+1):
-            candidate=copy.deepcopy(plan)
-            if not _advance_incoming_entry(candidate,incoming_id,frames,fps):continue
-            if _candidate_passes_pre_finalization(candidate,card_id):
-                _replace_plan(plan,candidate)
-                accepted=next(event for event in plan.get('events') or [] if str(event.get('event_id') or '')==incoming_id)
-                return {'card_id':str(card_id),'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_ENTRY_ADVANCE','advance_frames':accepted.get('final_density_overlap_advance_frames'),'advance_seconds':accepted.get('final_density_overlap_advance_seconds'),'requested_frames':int(frames),'hold_frames':0,'pair_fit':False}
-        for frames in range(1,_MAX_HOLD_FRAMES+1):
-            raw_candidate=copy.deepcopy(plan)
-            if not _apply_hold(raw_candidate,outgoing_id,card_id,frames,fps):continue
-            candidate=copy.deepcopy(raw_candidate)
-            if _candidate_passes_pre_finalization(candidate,card_id):
-                _replace_plan(plan,candidate)
-                return {'card_id':str(card_id),'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_OUTGOING_HOLD','advance_frames':0,'hold_frames':int(frames),'pair_fit':False}
-            fitted=copy.deepcopy(raw_candidate)
-            if _fit_authored_pair_states(fitted,outgoing_id,incoming_id) and _candidate_passes_pre_finalization(fitted,card_id):
-                _replace_plan(plan,fitted)
-                return {'card_id':str(card_id),'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_OUTGOING_HOLD_WITH_PAIR_FIT','advance_frames':0,'hold_frames':int(frames),'pair_fit':True}
+    metric=_metric(plan,card_id)
+    hard_scenes={str(scene_id) for scene_id in metric.get('hard_under_density_scene_ids') or []}
+    if not hard_scenes:return None
+    events=[event for event in plan.get('events') or []
+            if not event.get('suppressed_by_card_density')
+            and str(event.get('visual_card_id') or '')==str(card_id)
+            and str(event.get('scene_id') or '') in hard_scenes
+            and str(event.get('render_mode') or '').upper()!='RESIDUAL_SUPPORT']
+    by_scene={}
+    for event in events:by_scene.setdefault(str(event.get('scene_id') or ''),[]).append(event)
+    for scene_id in sorted(hard_scenes):
+        local=sorted(by_scene.get(scene_id) or [],key=lambda event:(float(event.get('start_seconds',0.0)),str(event.get('event_id') or '')))
+        for outgoing,incoming in zip(local,local[1:]):
+            outgoing_id=str(outgoing.get('event_id') or '');incoming_id=str(incoming.get('event_id') or '')
+            for frames in range(1,_MAX_ENTRY_ADVANCE_FRAMES+1):
+                candidate=copy.deepcopy(plan)
+                if not _advance_incoming_entry(candidate,incoming_id,frames,fps):continue
+                if _candidate_passes_pre_finalization(candidate,card_id):
+                    _replace_plan(plan,candidate)
+                    accepted=next(event for event in plan.get('events') or [] if str(event.get('event_id') or '')==incoming_id)
+                    return {'card_id':str(card_id),'scene_id':scene_id,'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_ENTRY_ADVANCE','advance_frames':accepted.get('final_density_overlap_advance_frames'),'advance_seconds':accepted.get('final_density_overlap_advance_seconds'),'requested_frames':int(frames),'hold_frames':0,'pair_fit':False}
+            for frames in range(1,_MAX_HOLD_FRAMES+1):
+                raw_candidate=copy.deepcopy(plan)
+                if not _apply_hold(raw_candidate,outgoing_id,card_id,frames,fps):continue
+                candidate=copy.deepcopy(raw_candidate)
+                if _candidate_passes_pre_finalization(candidate,card_id):
+                    _replace_plan(plan,candidate)
+                    return {'card_id':str(card_id),'scene_id':scene_id,'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_OUTGOING_HOLD','advance_frames':0,'hold_frames':int(frames),'pair_fit':False}
+                fitted=copy.deepcopy(raw_candidate)
+                if _fit_authored_pair_states(fitted,outgoing_id,incoming_id) and _candidate_passes_pre_finalization(fitted,card_id):
+                    _replace_plan(plan,fitted)
+                    return {'card_id':str(card_id),'scene_id':scene_id,'outgoing_event_id':outgoing_id,'incoming_event_id':incoming_id,'strategy':'BOUNDED_OUTGOING_HOLD_WITH_PAIR_FIT','advance_frames':0,'hold_frames':int(frames),'pair_fit':True}
     return None
 
 
