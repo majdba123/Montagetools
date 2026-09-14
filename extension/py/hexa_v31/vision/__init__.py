@@ -17,6 +17,7 @@ def _source_dependency_sha256() -> str:
         importlib.import_module('hexa_v31.qa.actor_qa'),
         importlib.import_module('hexa_v31.layout.hierarchy'),
         importlib.import_module('hexa_v31.extraction.occlusion'),
+        importlib.import_module('hexa_v31.extraction.asset_fidelity'),
     ]
     paths={pathlib.Path(module.__file__).resolve() for module in modules}
     digest=hashlib.sha256()

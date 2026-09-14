@@ -9,8 +9,12 @@ from PIL import Image
 
 
 def _physical_window(event: dict) -> tuple[float, float]:
-    return (float(event.get('physical_start_seconds', event.get('start_seconds', 0.0))),
-            float(event.get('physical_end_seconds', event.get('end_seconds', 0.0))))
+    # Render-residency maps may extend physical_* solely so a certified pixel-only
+    # boundary hold stays loaded in memory.  Physical lifetime QA must continue to
+    # evaluate the immutable planner-certified interval, not that renderer residency.
+    start = event.get('certified_physical_start_seconds', event.get('physical_start_seconds', event.get('start_seconds', 0.0)))
+    end = event.get('certified_physical_end_seconds', event.get('physical_end_seconds', event.get('end_seconds', 0.0)))
+    return float(start), float(end)
 
 
 def _window(event: dict) -> tuple[float, float]:
@@ -20,9 +24,66 @@ def _window(event: dict) -> tuple[float, float]:
     return max(physical_start,ownership_start),min(physical_end,ownership_end)
 
 
-def _active(events: list[dict], t: float) -> list[dict]:
-    return [e for e in events if not e.get('suppressed_by_card_density')
-            and _window(e)[0] <= t < _window(e)[1]]
+_BOUNDARY_CARRIER_AUTHORITY = 'OUTGOING_LAST_MATERIAL_PIXEL_HOLD'
+
+
+def _boundary_carrier_window(event: dict) -> tuple[float, float] | None:
+    if event.get('scene_boundary_carrier_authority') != _BOUNDARY_CARRIER_AUTHORITY:
+        return None
+    start = event.get('scene_boundary_carrier_start_seconds')
+    end = event.get('scene_boundary_carrier_end_seconds')
+    sample = event.get('scene_boundary_carrier_sample_seconds')
+    if start is None or end is None or sample is None:
+        return None
+    start = float(start); end = float(end); sample = float(sample)
+    if not (sample < start - 1e-9 and end > start + 1e-9):
+        return None
+    return start, end
+
+
+def _boundary_carrier_covers(event: dict, t: float) -> bool:
+    window = _boundary_carrier_window(event)
+    return bool(window and window[0] - 1e-9 <= float(t) < window[1] - 1e-9)
+
+
+def _active(events: list[dict], t: float, *, include_boundary_carriers: bool = False) -> list[dict]:
+    active = []
+    for event in events:
+        if event.get('suppressed_by_card_density'):
+            continue
+        if _window(event)[0] - 1e-9 <= t < _window(event)[1] - 1e-9:
+            active.append(event)
+        elif include_boundary_carriers and _boundary_carrier_covers(event, t):
+            active.append(event)
+    return active
+
+
+def _material_foreground_bbox(mask: np.ndarray) -> list[int] | None:
+    """Return a geometry bbox that ignores non-material isolated pixel specks.
+
+    Cubic resampling can create a handful of >10-ink pixels far away from the
+    actual actor.  H.264 is allowed to quantize those specks away; letting one
+    isolated pixel define the global bbox makes source-survival QA reject a
+    visually identical encode.  Keep components that are material relative to
+    the frame foreground while retaining a small absolute floor for sparse art.
+    Member-level ROI survival remains the authority for small real objects.
+    """
+    binary=np.asarray(mask,dtype=np.uint8)
+    foreground=int(np.count_nonzero(binary))
+    if foreground<=0:
+        return None
+    count,labels,stats,_=cv2.connectedComponentsWithStats(binary,8)
+    if count<=1:
+        return None
+    minimum=max(4,int(math.ceil(foreground*0.0001)))
+    keep=[idx for idx in range(1,count) if int(stats[idx,cv2.CC_STAT_AREA])>=minimum]
+    if not keep:
+        keep=[1+int(np.argmax(stats[1:,cv2.CC_STAT_AREA]))]
+    x0=min(int(stats[idx,cv2.CC_STAT_LEFT]) for idx in keep)
+    y0=min(int(stats[idx,cv2.CC_STAT_TOP]) for idx in keep)
+    x1=max(int(stats[idx,cv2.CC_STAT_LEFT]+stats[idx,cv2.CC_STAT_WIDTH]) for idx in keep)
+    y1=max(int(stats[idx,cv2.CC_STAT_TOP]+stats[idx,cv2.CC_STAT_HEIGHT]) for idx in keep)
+    return [x0,y0,x1,y1]
 
 
 def frame_survival_signature(image: np.ndarray, frame: int, time_seconds: float,
@@ -47,6 +108,7 @@ def frame_survival_signature(image: np.ndarray, frame: int, time_seconds: float,
     return {'frame':int(frame),'time_seconds':round(float(time_seconds),6),'width':w,'height':h,
             'foreground_pixels':int(np.count_nonzero(mask)),'total_ink':round(float(ink.sum()),2),
             'foreground_bbox_px':[int(xx.min()),int(yy.min()),int(xx.max()+1),int(yy.max()+1)] if len(xx) else None,
+            'material_foreground_bbox_px':_material_foreground_bbox(mask),
             'grid':[gw,gh],'grid_ink':cells,'members':rows,
             'expected_active_actor_ids':[x['event_id'] for x in rows],
             'expected_foundation_partition_member_ids':[x['event_id'] for x in rows if x.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}]}
@@ -54,8 +116,14 @@ def frame_survival_signature(image: np.ndarray, frame: int, time_seconds: float,
 
 def visual_timeline_coverage_qa(motion_plan: dict, fps: float | None = None,
                                 duration_seconds: float | None = None) -> dict:
-    """Certify the committed physical layer timeline, independently of motion timing."""
-    fps = float(fps or motion_plan.get('fps') or 30.0)
+    """Certify committed pixel coverage on the global encoded-frame grid.
+
+    Physical/ownership windows remain the normal visual authority. Certified scene-boundary
+    carriers are pixel-only holds and may close otherwise blank handoff frames, but they do not
+    become actors or alter semantic/physical lifetimes. Sampling uses frame/fps globally so a
+    card-local floating clock cannot manufacture gaps that no encoded frame can contain.
+    """
+    fps = max(1.0, float(fps or motion_plan.get('fps') or 30.0))
     events = list(motion_plan.get('events') or [])
     cards = list((motion_plan.get('visual_cards') or {}).get('cards') or [])
     failures, gaps, card_rows, truncated = [], [], [], []
@@ -69,21 +137,49 @@ def visual_timeline_coverage_qa(motion_plan: dict, fps: float | None = None,
             failures.append(f"{event.get('event_id')}: motion lifetime escapes physical lifetime")
         if event.get('topology_recovery') == 'TEMPORAL_SPATIAL_REUSE__SUPPORT_EXIT' or event.get('collision_truncated'):
             truncated.append(str(event.get('event_id')))
-    step = 1.0 / max(1.0, fps)
+
+    eps = 1e-9
     for card in cards:
-        cid = str(card.get('card_id')); start = float(card.get('start_seconds', 0)); end = float(card.get('end_seconds', 0))
-        samples = max(1, int(math.ceil((end-start)*fps))); uncovered = 0; run_start = None
-        for frame in range(samples):
-            t = start + frame*step
-            if not _active(events, t):
+        cid = str(card.get('card_id'))
+        start = float(card.get('start_seconds', 0.0))
+        end = float(card.get('end_seconds', start))
+        first_frame = max(0, int(math.ceil(start * fps - eps)))
+        end_frame = max(first_frame, int(math.ceil(end * fps - eps)))
+        sample_count = max(1, end_frame - first_frame)
+        uncovered = 0
+        run_start_frame = None
+        for frame in range(first_frame, end_frame):
+            t = frame / fps
+            if not _active(events, t, include_boundary_carriers=True):
                 uncovered += 1
-                if run_start is None: run_start = t
-            elif run_start is not None:
-                gaps.append({'visual_card_id': cid, 'start_seconds': round(run_start, 6), 'end_seconds': round(t, 6), 'duration_seconds': round(t-run_start, 6)})
-                run_start = None
-        if run_start is not None:
-            gaps.append({'visual_card_id': cid, 'start_seconds': round(run_start, 6), 'end_seconds': round(end, 6), 'duration_seconds': round(end-run_start, 6)})
-        card_rows.append({'visual_card_id': cid, 'sample_count': samples, 'active_visual_carrier_count_min': 0 if uncovered else 1, 'coverage_ratio': round((samples-uncovered)/samples, 6)})
+                if run_start_frame is None:
+                    run_start_frame = frame
+            elif run_start_frame is not None:
+                gaps.append({
+                    'visual_card_id': cid,
+                    'start_seconds': round(run_start_frame / fps, 6),
+                    'end_seconds': round(frame / fps, 6),
+                    'duration_seconds': round((frame - run_start_frame) / fps, 6),
+                    'start_frame': run_start_frame, 'end_frame': frame,
+                    'sampling_authority': 'GLOBAL_ENCODED_FRAME_GRID',
+                })
+                run_start_frame = None
+        if run_start_frame is not None:
+            gaps.append({
+                'visual_card_id': cid,
+                'start_seconds': round(run_start_frame / fps, 6),
+                'end_seconds': round(end_frame / fps, 6),
+                'duration_seconds': round((end_frame - run_start_frame) / fps, 6),
+                'start_frame': run_start_frame, 'end_frame': end_frame,
+                'sampling_authority': 'GLOBAL_ENCODED_FRAME_GRID',
+            })
+        card_rows.append({
+            'visual_card_id': cid, 'sample_count': sample_count,
+            'active_visual_carrier_count_min': 0 if uncovered else 1,
+            'coverage_ratio': round((sample_count - uncovered) / sample_count, 6),
+            'sampling_authority': 'GLOBAL_ENCODED_FRAME_GRID',
+        })
+
     groups: dict[tuple[str, str, str], list[dict]] = {}
     for event in events:
         if event.get('render_mode') in {'CHILD_PARTITION', 'RESIDUAL_SUPPORT'}:
@@ -113,17 +209,26 @@ def visual_timeline_coverage_qa(motion_plan: dict, fps: float | None = None,
             'partition_carrier_start_seconds': next(iter(carrier_starts)) if len(carrier_starts)==1 else None,
             'partition_carrier_end_seconds': next(iter(carrier_ends)) if len(carrier_ends)==1 else None,
         })
-    if gaps: failures.append('VISUAL_TIMELINE_COVERAGE_GAP')
-    if truncated: failures.append('collision recovery prematurely truncated visual carriers')
+
+    if gaps:
+        failures.append('VISUAL_TIMELINE_COVERAGE_GAP')
+    if truncated:
+        failures.append('collision recovery prematurely truncated visual carriers')
     planned_end = max((float(c.get('end_seconds', 0)) for c in cards), default=0.0)
     required_end = float(duration_seconds if duration_seconds is not None else planned_end)
     trailing_gap = max(0.0, required_end-planned_end)
-    if trailing_gap > step*.5: failures.append(f'visual timeline ends {trailing_gap:.3f}s before required audio duration')
-    return {'schema': 'HEXA_V31_VISUAL_TIMELINE_COVERAGE_QA', 'pass': not failures, 'failures': failures,
-            'visual_gaps': gaps, 'longest_uncovered_narration_seconds': max((g['duration_seconds'] for g in gaps), default=0.0),
-            'card_coverage': card_rows, 'foundation_partition_groups': group_rows,
-            'prematurely_truncated_event_ids': truncated, 'planned_visual_end_seconds': planned_end,
-            'required_duration_seconds': required_end, 'trailing_uncovered_seconds': round(trailing_gap, 6)}
+    if trailing_gap > (1.0 / fps) * .5:
+        failures.append(f'visual timeline ends {trailing_gap:.3f}s before required audio duration')
+    return {
+        'schema': 'HEXA_V31_VISUAL_TIMELINE_COVERAGE_QA', 'pass': not failures, 'failures': failures,
+        'visual_gaps': gaps,
+        'longest_uncovered_narration_seconds': max((g['duration_seconds'] for g in gaps), default=0.0),
+        'card_coverage': card_rows, 'foundation_partition_groups': group_rows,
+        'prematurely_truncated_event_ids': truncated, 'planned_visual_end_seconds': planned_end,
+        'required_duration_seconds': required_end, 'trailing_uncovered_seconds': round(trailing_gap, 6),
+        'coverage_sampling_authority': 'GLOBAL_ENCODED_FRAME_GRID',
+        'boundary_carrier_count': sum(1 for e in events if _boundary_carrier_window(e) is not None),
+    }
 
 
 def encoded_visual_gap_qa(path: str | pathlib.Path, motion_plan: dict, *, max_blank_seconds: float = 0.50,
@@ -156,13 +261,6 @@ def encoded_visual_gap_qa(path: str | pathlib.Path, motion_plan: dict, *, max_bl
             if (frame-run_start)/fps >= max_blank_seconds: runs.append({'start_frame': run_start, 'end_frame': frame, 'duration_seconds': round((frame-run_start)/fps, 6)})
             run_start = None
         reference=evidence.get(frame)
-        # Source-survival evidence is meaningful only when the unencoded reference
-        # contains a materially visible source actor. Entry/exit tails can contain
-        # sub-threshold anti-aliased ink while having zero foreground pixels, no
-        # foreground bbox and no actor above the renderer's meaningful-opacity gate.
-        # Treating those transition-tail frames as structural evidence creates a
-        # false H.264 survival failure even though there is nothing visually
-        # meaningful to preserve. Blank-gap detection above remains unchanged.
         reference_has_material_source = bool(
             reference
             and int(reference.get('foreground_pixels') or 0) > 0
@@ -176,7 +274,8 @@ def encoded_visual_gap_qa(path: str | pathlib.Path, motion_plan: dict, *, max_bl
             expected_grid=np.asarray(reference.get('grid_ink') or [],dtype=np.float64)
             actual_grid=np.asarray(actual.get('grid_ink') or [],dtype=np.float64)
             grid_recall=float(np.minimum(expected_grid,actual_grid).sum()/max(1.0,expected_grid.sum())) if len(expected_grid)==len(actual_grid) else 0.0
-            rb=reference.get('foreground_bbox_px');ab=actual.get('foreground_bbox_px')
+            rb=reference.get('material_foreground_bbox_px') or reference.get('foreground_bbox_px')
+            ab=actual.get('material_foreground_bbox_px') or actual.get('foreground_bbox_px')
             bbox_width_ratio=(float(ab[2]-ab[0])/max(1,float(rb[2]-rb[0]))) if rb and ab else 0.0
             bbox_height_ratio=(float(ab[3]-ab[1])/max(1,float(rb[3]-rb[1]))) if rb and ab else 0.0
             member_losses=[]
