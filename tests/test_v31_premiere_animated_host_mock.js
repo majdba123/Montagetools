@@ -23,7 +23,13 @@ if(rr.status!=='PASS'||rr.stage!=='COMPLETE'||rr.motion_engine!=='PRE_RENDERED_A
 if(rr.engine_final_mp4_verified!==true||rr.engine_final_mp4_bytes!==before)throw new Error('engine MP4 verification failed');
 if(rr.still_image_keyframe_dependency!==false||rr.transform_effect_required!==false||Number(rr.premiere_keyframes_written)!==0)throw new Error('no-keyframe contract failed');
 if(rr.animated_scene_media_verified!==2||rr.video_items_placed!==2||rr.pre_rendered_motion_events_certified!==7||rr.selective_text_events_certified!==2)throw new Error('physical parity contract failed');
+if(rr.timeline_readback_pass!==true||rr.video_timeline_readback_verified!==2||rr.audio_timeline_readback_verified!==1||Math.abs(Number(rr.timeline_duration_seconds)-2)>1e-6)throw new Error('timeline readback contract failed');
+if(!Array.isArray(rr.video_timeline_readback)||rr.video_timeline_readback.length!==2||!Array.isArray(rr.audio_timeline_readback)||rr.audio_timeline_readback.length!==1)throw new Error('timeline readback evidence missing');
 if(!fs.existsSync(map.assembly.project_save_path)||fs.statSync(map.assembly.project_save_path).size<4096)throw new Error('project physical readback missing');
 if(fs.statSync(engineMp4).size!==before)throw new Error('Premiere modified engine final MP4');
 if(project.activeSequence.playhead!=='0'||rr.playhead_reset_to_start!==true)throw new Error('playhead reset failed');
+const badMap=JSON.parse(JSON.stringify(map));badMap.assembly.video_items[1].start_seconds=1.25;badMap.assembly.video_items[1].start_frame=38;badMap.assembly.runtime_report_path=path.join(tmp,'runtime-bad-gap.json');badMap.assembly.project_save_path=path.join(tmp,'bad-gap.prproj');
+const badMapPath=path.join(tmp,'map-bad-gap.json');fs.writeFileSync(badMapPath,JSON.stringify(badMap));
+const badResult=$._hexaV31.assembleAndApply(badMapPath);if(!String(badResult).startsWith('FAIL: stage=PHYSICAL_TIMELINE_QA'))throw new Error('host accepted animated-media timeline gap: '+badResult);
+const badReport=JSON.parse(fs.readFileSync(badMap.assembly.runtime_report_path,'utf8'));if(badReport.status!=='FAIL'||badReport.stage!=='PHYSICAL_TIMELINE_QA'||String(badReport.error).indexOf('continuity mismatch')<0)throw new Error('timeline-gap failure evidence missing');
 console.log('V31_0_1_PREMIERE_PROJECT_ONLY_HOST_MOCK_PASS');

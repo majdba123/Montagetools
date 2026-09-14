@@ -104,4 +104,20 @@ with tempfile.TemporaryDirectory(prefix='hexa_visual_lifetime_') as raw:
     assert not cases['tiny_only']['pass'],cases['tiny_only']
     assert not cases['residual_missing']['pass'] and any(any(m['event_id']=='RESIDUAL_SUPPORT' for m in x['missing_or_collapsed_members']) for x in cases['residual_missing']['source_survival_failures']),cases['residual_missing']
 
+    # A faint entry/exit tail can contain non-zero antialiased ink while carrying
+    # no material foreground, bbox, or visible source actor. That state must not
+    # become structural source-survival evidence. The blank-gap and material-loss
+    # cases above remain unchanged and fail closed.
+    faint_path=root/'faint_tail.mp4'
+    faint_frames=[np.full((90,160,3),255,np.uint8) for _ in range(30)]
+    encode_h264(faint_frames,faint_path)
+    faint_evidence=[{
+        'frame':0,'time_seconds':0.0,'width':160,'height':90,
+        'foreground_pixels':0,'total_ink':1250.0,'foreground_bbox_px':None,
+        'grid':[16,9],'grid_ink':[0.0]*(16*9),'members':[],
+        'expected_active_actor_ids':[],'expected_foundation_partition_member_ids':[],
+    }]
+    faint=encoded_visual_gap_qa(faint_path,{'fps':30,'events':[]},expected_evidence=faint_evidence)
+    assert faint['pass'] and not faint['source_survival_failures'],faint
+
 print('V31_VISUAL_TIMELINE_COVERAGE_PASS')

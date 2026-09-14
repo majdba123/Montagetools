@@ -92,121 +92,189 @@ def _assign_track_lanes(items:list[dict[str,Any]])->tuple[list[dict[str,Any]],in
     return out,max(1,offset),lane_counts
 
 
+def _planner_event_window(event:dict)->tuple[float,float]:
+    return (
+        float(event.get('physical_start_seconds',event.get('start_seconds',0.0))),
+        float(event.get('physical_end_seconds',event.get('end_seconds',0.0))),
+    )
+
+
+def planner_render_map_completeness_qa(motion_plan:dict, mapped_events:list[dict], fps:float=30.0)->dict:
+    """Prove the final planner representation survived integration unchanged."""
+    from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa
+    expected=[
+        e for e in (motion_plan.get('events') or [])
+        if not e.get('suppressed_by_card_density')
+        and _planner_event_window(e)[1]>_planner_event_window(e)[0]+1e-6
+    ]
+    expected_ids=[str(e.get('event_id')) for e in expected]
+    mapped_ids=[str(e.get('event_id')) for e in mapped_events]
+    expected_set=set(expected_ids);mapped_set=set(mapped_ids)
+    duplicate_expected=sorted({eid for eid in expected_ids if expected_ids.count(eid)>1})
+    duplicate_mapped=sorted({eid for eid in mapped_ids if mapped_ids.count(eid)>1})
+    missing=sorted(expected_set-mapped_set);unexpected=sorted(mapped_set-expected_set)
+    expected_by={str(e.get('event_id')):e for e in expected}
+    mapped_by={str(e.get('event_id')):e for e in mapped_events}
+    lifetime_mismatches=[];missing_sources=[]
+    for eid in sorted(expected_set & mapped_set):
+        source=expected_by[eid];mapped=mapped_by[eid]
+        source_window=_planner_event_window(source);mapped_window=_planner_event_window(mapped)
+        if any(abs(a-b)>1e-6 for a,b in zip(source_window,mapped_window)):
+            lifetime_mismatches.append({
+                'event_id':eid,
+                'planner_physical_window_seconds':[round(source_window[0],6),round(source_window[1],6)],
+                'render_map_physical_window_seconds':[round(mapped_window[0],6),round(mapped_window[1],6)],
+            })
+        path=mapped.get('source_path')
+        if not path or not pathlib.Path(path).is_file():
+            missing_sources.append({'event_id':eid,'source_path':path})
+    coverage_plan=dict(motion_plan);coverage_plan['events']=mapped_events
+    coverage=visual_timeline_coverage_qa(coverage_plan,fps=fps)
+    passed=not (duplicate_expected or duplicate_mapped or missing or unexpected or lifetime_mismatches or missing_sources) and bool(coverage.get('pass'))
+    return {
+        'schema':'HEXA_PLANNER_RENDER_MAP_COMPLETENESS_QA_V1','pass':passed,
+        'expected_renderable_event_count':len(expected),'mapped_event_count':len(mapped_events),
+        'expected_renderable_event_ids':expected_ids,'mapped_event_ids':mapped_ids,
+        'missing_event_ids':missing,'unexpected_event_ids':unexpected,
+        'duplicate_planner_event_ids':duplicate_expected,'duplicate_mapped_event_ids':duplicate_mapped,
+        'physical_lifetime_mismatches':lifetime_mismatches,'missing_source_events':missing_sources,
+        'visual_timeline_coverage_pass':bool(coverage.get('pass')),
+        'visual_timeline_coverage_qa':coverage,
+        'authority':'FINAL_PLANNER_SELECTED_SOURCE_BACKED_REPRESENTATION',
+    }
+
+
+def _planner_render_source(package, scenes:dict, vision_row:dict, event:dict)->tuple[str,dict|None,str]:
+    """Resolve one final planner event to physical source media without re-planning it."""
+    eid=str(event.get('event_id'));sid=str(event.get('scene_id'));pid=str(event.get('physical_id'))
+    render_mode=str(event.get('render_mode') or 'UNSPECIFIED')
+    if pid=='FULL_SCENE':
+        scene=scenes.get(sid)
+        if not scene or not scene.get('image'):
+            raise PremiereError(f'PLANNER_RENDER_MAP_EVENT_UNRESOLVED event_id={eid} scene_id={sid} physical_id={pid} render_mode={render_mode} reason=FULL_SCENE_SOURCE_MISSING')
+        path=(package.extract_root/scene['image']).resolve()
+        if not path.is_file():
+            raise PremiereError(f'PLANNER_RENDER_MAP_EVENT_UNRESOLVED event_id={eid} scene_id={sid} physical_id={pid} render_mode={render_mode} reason=FULL_SCENE_FILE_MISSING source_path={path}')
+        return str(path),None,'PLANNER_FULL_SCENE_FALLBACK'
+    units={str(u.get('physical_id')):u for u in (vision_row.get('units') or []) if u.get('physical_id') is not None}
+    unit=units.get(pid)
+    if unit is None:
+        raise PremiereError(f'PLANNER_RENDER_MAP_EVENT_UNRESOLVED event_id={eid} scene_id={sid} physical_id={pid} render_mode={render_mode} reason=VISION_PHYSICAL_UNIT_MISSING')
+    source=event.get('source_layer_path') or unit.get('layer_path') or unit.get('mask_path')
+    if not source:
+        raise PremiereError(f'PLANNER_RENDER_MAP_EVENT_UNRESOLVED event_id={eid} scene_id={sid} physical_id={pid} render_mode={render_mode} reason=SOURCE_PATH_MISSING')
+    path=pathlib.Path(source).resolve()
+    if not path.is_file():
+        raise PremiereError(f'PLANNER_RENDER_MAP_EVENT_UNRESOLVED event_id={eid} scene_id={sid} physical_id={pid} render_mode={render_mode} reason=SOURCE_FILE_MISSING source_path={path}')
+    return str(path),unit,'PLANNER_PHYSICAL_UNIT'
+
+
 def build_layer_render_map(package, audio_path:str|os.PathLike, alignment:dict, vision_results:list[dict], motion_plan:dict, out_dir:str|os.PathLike, width:int=1920,height:int=1080,fps:float=30.0,logger=None,project_save_path:str|os.PathLike|None=None,production_mp4_path:str|os.PathLike|None=None,export_preset_path:str|os.PathLike|None=None):
-    out=pathlib.Path(out_dir); out.mkdir(parents=True,exist_ok=True)
-    vis={v['scene_id']:v for v in vision_results}; scenes={s['scene_id']:s for s in package.scenes}
-    events=motion_plan['events']; ev_by_scene={}
-    for e in events: ev_by_scene.setdefault(e['scene_id'],[]).append(e)
+    """Translate the final planner state into source-backed renderer inputs.
 
-    # Keep the old XML as a read-only diagnostic artifact.  Real Premiere execution
-    # in V31.0.1 is native DOM assembly and never imports this XML.
+    Vision mode is analysis evidence, never final render representation authority.
+    """
+    out=pathlib.Path(out_dir);out.mkdir(parents=True,exist_ok=True)
+    vis={str(v['scene_id']):v for v in vision_results};scenes={str(s['scene_id']):s for s in package.scenes}
+    planner_events=[
+        e for e in (motion_plan.get('events') or [])
+        if not e.get('suppressed_by_card_density')
+        and _planner_event_window(e)[1]>_planner_event_window(e)[0]+1e-6
+    ]
     track_clips=[[] for _ in range(5)]
-    edit_events=[]; markers=[];timeline_items=[]
-    max_end=0
-    event_item_by_id={}
-    for srow in motion_plan['scenes']:
-        sid=srow['scene_id']; v=vis[sid]
-        startf=int(round(srow['start_seconds']*fps)); endf=max(startf+1,int(round(srow['end_seconds']*fps))); max_end=max(max_end,endf)
+    edit_events=[];markers=[];timeline_items=[];max_end=0
+    for srow in (motion_plan.get('scenes') or []):
+        sid=str(srow['scene_id'])
+        if sid not in vis:raise PremiereError(f'PLANNER_RENDER_MAP_SCENE_UNRESOLVED scene_id={sid} reason=VISION_RESULT_MISSING')
+        startf=int(round(float(srow['start_seconds'])*fps));endf=max(startf+1,int(round(float(srow['end_seconds'])*fps)));max_end=max(max_end,endf)
         markers.append({'name':sid,'frame':startf,'seconds':startf/float(fps)})
-        if v['mode']=='FLAT_SCENE':
-            src=str((package.extract_root/scenes[sid]['image']).resolve()); name=f'{sid}__FULL_SCENE'
-            track_clips[2].append(_clipitem(name,name,src,startf,endf,v['width'],v['height'],fps))
-            fit=min(width/float(v['width']),height/float(v['height']))
-            timeline_items.append({'clip_display_name':name,'source_path':src,'start_frame':startf,'end_frame':endf,'start_seconds':startf/fps,'end_seconds':endf/fps,'base_track_tier':2,'scene_id':sid,'item_role':'FLAT_SCENE','base_position_norm':[0.5,0.5],'base_fit_scale_percent':fit*100.0*float((srow.get('reference_camera_fit') or {}).get('camera_scale',1.0)),'source_width':v['width'],'source_height':v['height']})
-            flat_ev=next((e for e in ev_by_scene.get(sid,[]) if e.get('physical_id')=='FULL_SCENE'),None)
-            if flat_ev:
-                ee=dict(flat_ev); ee.update({'clip_display_name':name,'track_index':2,'source_path':src,'base_fit_scale_percent':fit*100.0*float(flat_ev.get('reference_camera_scale',1.0)),'rest_position_px':[width/2,height/2],'start_position_px':[width/2,height/2],'end_position_px':[width/2,height/2],'exit_position_px':[width/2,height/2],'micro_position_px':[width/2,height/2],'rest_position_norm':[0.5,0.5],'start_position_norm':[0.5,0.5],'end_position_norm':[0.5,0.5],'exit_position_norm':[0.5,0.5],'micro_position_norm':[0.5,0.5],'sequence_width':width,'sequence_height':height,'premiere_motion_coordinate_contract':'FULL_CANVAS_INTRINSIC_NORMALIZED_POSITION'})
-                edit_events.append(ee);event_item_by_id[ee['event_id']]=name
+    for e in planner_events:
+        sid=str(e.get('scene_id'));v=vis.get(sid)
+        if v is None:
+            raise PremiereError(f"PLANNER_RENDER_MAP_EVENT_UNRESOLVED event_id={e.get('event_id')} scene_id={sid} physical_id={e.get('physical_id')} render_mode={e.get('render_mode')} reason=VISION_RESULT_MISSING")
+        source_path,unit,source_authority=_planner_render_source(package,scenes,v,e)
+        src_w=float(v.get('width') or width);src_h=float(v.get('height') or height)
+        if src_w<=0 or src_h<=0:
+            raise PremiereError(f"PLANNER_RENDER_MAP_EVENT_UNRESOLVED event_id={e.get('event_id')} scene_id={sid} physical_id={e.get('physical_id')} render_mode={e.get('render_mode')} reason=INVALID_SOURCE_DIMENSIONS")
+        fit=min(width/src_w,height/src_h);kind=str(e.get('kind') or '');role=str(e.get('attention_priority') or e.get('semantic_role') or '').upper()
+        if kind in ('MAIN_NARRATOR','SECONDARY_CHARACTER'):tr=3
+        elif role=='PRIMARY' or str(e.get('physical_id'))=='FULL_SCENE':tr=2
+        else:tr=1
+        ps,pe=_planner_event_window(e);cf=max(0,int(round(ps*fps)));ce=max(cf+1,int(round(pe*fps)))
+        clipname=f"{e.get('event_id')}__{e.get('physical_id')}"
+        track_clips[tr].append(_clipitem(clipname,clipname,source_path,cf,ce,int(src_w),int(src_h),fps))
+        camera_scale=float(e.get('reference_camera_scale',1.0));base_scale=fit*100.0*camera_scale
+        timeline_items.append({
+            'clip_display_name':clipname,'source_path':source_path,'start_frame':cf,'end_frame':ce,
+            'start_seconds':ps,'end_seconds':pe,'physical_start_seconds':ps,'physical_end_seconds':pe,
+            'base_track_tier':tr,'scene_id':sid,'item_role':'PLANNER_RENDER_EVENT',
+            'event_id':e.get('event_id'),'physical_id':e.get('physical_id'),'render_mode':e.get('render_mode'),
+            'source_authority':source_authority,'base_position_norm':[0.5,0.5],
+            'base_fit_scale_percent':base_scale,'source_width':int(src_w),'source_height':int(src_h),
+        })
+        ee=dict(e);neutral=[width/2.0,height/2.0]
+        if str(e.get('physical_id'))=='FULL_SCENE':
+            ee.update({
+                'clip_display_name':clipname,'track_index':tr,'source_path':source_path,'render_source_authority':source_authority,
+                'base_fit_scale_percent':base_scale,'rest_position_px':neutral,'start_position_px':neutral,'end_position_px':neutral,
+                'exit_position_px':neutral,'micro_position_px':neutral,'rest_position_norm':[0.5,0.5],
+                'start_position_norm':[0.5,0.5],'end_position_norm':[0.5,0.5],'exit_position_norm':[0.5,0.5],
+                'micro_position_norm':[0.5,0.5],'sequence_width':width,'sequence_height':height,
+                'layer_canvas_mode':'FULL_SCENE_OPAQUE_CANVAS','premiere_motion_coordinate_contract':'FULL_CANVAS_INTRINSIC_NORMALIZED_POSITION',
+            })
         else:
-            bg=v['artifacts']['background']; name=f'{sid}__BACKGROUND'
-            track_clips[0].append(_clipitem(name,name,bg,startf,endf,v['width'],v['height'],fps))
-            fit=min(width/float(v['width']),height/float(v['height']))
-            timeline_items.append({'clip_display_name':name,'source_path':str(pathlib.Path(bg).resolve()),'start_frame':startf,'end_frame':endf,'start_seconds':startf/fps,'end_seconds':endf/fps,'base_track_tier':0,'scene_id':sid,'item_role':'BACKGROUND','base_position_norm':[0.5,0.5],'base_fit_scale_percent':fit*100.0,'source_width':v['width'],'source_height':v['height']})
-            units={u['physical_id']:u for u in v['units']}
-            for e in ev_by_scene.get(sid,[]):
-                if e['physical_id']=='FULL_SCENE': continue
-                u=units[e['physical_id']]; path=str(pathlib.Path(u['layer_path']).resolve()); kind=e.get('kind')
-                if kind in ('MAIN_NARRATOR','SECONDARY_CHARACTER'): tr=3
-                elif u.get('semantic_role')=='PRIMARY': tr=2
-                else: tr=1
-                cf=max(0,int(round(e['start_seconds']*fps))); ce=max(cf+1,int(round(float(e.get('end_seconds',srow['end_seconds']))*fps)))
-                clipname=f"{e['event_id']}__{u['physical_id']}"
-                track_clips[tr].append(_clipitem(clipname,clipname,path,cf,ce,v['width'],v['height'],fps))
-                src_w=float(v['width']); src_h=float(v['height']); fit=min(width/src_w,height/src_h)
-                timeline_items.append({'clip_display_name':clipname,'source_path':path,'start_frame':cf,'end_frame':ce,'start_seconds':cf/fps,'end_seconds':ce/fps,'base_track_tier':tr,'scene_id':sid,'item_role':'MOTION_EVENT','event_id':e['event_id'],'base_position_norm':[0.5,0.5],'base_fit_scale_percent':fit*100.0*float(e.get('reference_camera_scale',1.0)),'source_width':v['width'],'source_height':v['height']})
-                camera_scale=float(e.get('reference_camera_scale',1.0))
-                motion_gain=camera_motion_gain(camera_scale)
-                canvas_w=src_w*fit; canvas_h=src_h*fit; offx=(width-canvas_w)/2; offy=(height-canvas_h)/2
-                def pos(normx,normy): return [offx+normx*canvas_w,offy+normy*canvas_h]
-                start_pos=pos(e['start_x_norm'],e['start_y_norm']); end_pos=pos(e['end_x_norm'],e['end_y_norm'])
-                base_scale=fit*100.0*camera_scale
-                exit_pos=pos(e.get('exit_x_norm',e['end_x_norm']),e.get('exit_y_norm',e['end_y_norm']))
-                micro_pos=pos(e.get('micro_x_norm',e['end_x_norm']),e.get('micro_y_norm',e['end_y_norm']))
-                ee=dict(e)
-                neutral=[width/2.0,height/2.0]
-                relative_motion_scale=camera_scale*motion_gain
-                def rel(abspos): return [neutral[0]+(abspos[0]-end_pos[0])*relative_motion_scale, neutral[1]+(abspos[1]-end_pos[1])*relative_motion_scale]
-                # Physical unit PNGs are full-scene transparent canvases. Their static/rest composition
-                # is therefore always centered and fitted exactly once. the engine render stage carries ONLY relative travel around the neutral
-                # sequence center; no cropped-media Position math and no Transform effect dependency exists.
-                
-                start_rel=rel(start_pos); exit_rel=rel(exit_pos); micro_rel=rel(micro_pos)
-                def normp(pp): return [pp[0]/float(width),pp[1]/float(height)]
-                ee.update({'clip_display_name':clipname,'track_index':tr,'source_path':path,'base_fit_scale_percent':base_scale,'rest_position_px':neutral,'start_position_px':start_rel,'end_position_px':neutral,'exit_position_px':exit_rel,'micro_position_px':micro_rel,'rest_position_norm':[0.5,0.5],'start_position_norm':normp(start_rel),'end_position_norm':[0.5,0.5],'exit_position_norm':normp(exit_rel),'micro_position_norm':normp(micro_rel),'sequence_width':width,'sequence_height':height,'layer_canvas_mode':u.get('layer_canvas_mode','FULL_SCENE_ALPHA_CANVAS'),'premiere_motion_coordinate_contract':'FULL_CANVAS_INTRINSIC_NORMALIZED_POSITION'})
-                ee['motion_amplitude_gain']=motion_gain; ee['relative_motion_scale']=relative_motion_scale; ee['drift_dx_px']=float(e.get('drift_dx_norm',0.0))*float(width)*relative_motion_scale; ee['drift_dy_px']=float(e.get('drift_dy_norm',0.0))*float(height)*relative_motion_scale
-                ee['focus_beats']=[dict(fb,dx_px=float(fb.get('dx_norm',0.0))*float(width)*relative_motion_scale,dy_px=float(fb.get('dy_norm',0.0))*float(height)*relative_motion_scale) for fb in (e.get('focus_beats') or [])]
-                ee['story_beats']=[dict(sb,dx_px=float(sb.get('dx_norm',0.0))*float(width)*relative_motion_scale,dy_px=float(sb.get('dy_norm',0.0))*float(height)*relative_motion_scale) for sb in (e.get('story_beats') or [])]
-                ee['story_actions']=[dict(sa,dx_px=float(sa.get('dx_norm',0.0))*float(width)*relative_motion_scale,dy_px=float(sa.get('dy_norm',0.0))*float(height)*relative_motion_scale,arc_px=float(sa.get('arc_norm',0.0))*float(height)*relative_motion_scale) for sa in (e.get('story_actions') or [])]
-                edit_events.append(ee);event_item_by_id[ee['event_id']]=clipname
-
-    # Allocate non-overlapping physical tracks. This remains mandatory because V31's
-    # legal pre-roll deliberately overlaps neighboring scene clips by a few frames.
+            center=(unit or {}).get('center_norm') or e.get('card_rest_position_norm') or [0.5,0.5]
+            sx=float(e.get('start_x_norm',center[0]));sy=float(e.get('start_y_norm',center[1]))
+            ex=float(e.get('end_x_norm',center[0]));ey=float(e.get('end_y_norm',center[1]))
+            xx=float(e.get('exit_x_norm',ex));xy=float(e.get('exit_y_norm',ey));mx=float(e.get('micro_x_norm',ex));my=float(e.get('micro_y_norm',ey))
+            motion_gain=camera_motion_gain(camera_scale);canvas_w=src_w*fit;canvas_h=src_h*fit;offx=(width-canvas_w)/2;offy=(height-canvas_h)/2
+            def pos(nx,ny):return [offx+nx*canvas_w,offy+ny*canvas_h]
+            start_pos=pos(sx,sy);end_pos=pos(ex,ey);exit_pos=pos(xx,xy);micro_pos=pos(mx,my);relative_motion_scale=camera_scale*motion_gain
+            def rel(abspos):return [neutral[0]+(abspos[0]-end_pos[0])*relative_motion_scale,neutral[1]+(abspos[1]-end_pos[1])*relative_motion_scale]
+            start_rel=rel(start_pos);exit_rel=rel(exit_pos);micro_rel=rel(micro_pos)
+            def normp(pp):return [pp[0]/float(width),pp[1]/float(height)]
+            ee.update({
+                'clip_display_name':clipname,'track_index':tr,'source_path':source_path,'render_source_authority':source_authority,
+                'base_fit_scale_percent':base_scale,'rest_position_px':neutral,'start_position_px':start_rel,'end_position_px':neutral,
+                'exit_position_px':exit_rel,'micro_position_px':micro_rel,'rest_position_norm':[0.5,0.5],
+                'start_position_norm':normp(start_rel),'end_position_norm':[0.5,0.5],
+                'exit_position_norm':normp(exit_rel),'micro_position_norm':normp(micro_rel),
+                'sequence_width':width,'sequence_height':height,
+                'layer_canvas_mode':(unit or {}).get('layer_canvas_mode',e.get('layer_canvas_mode','FULL_SCENE_ALPHA_CANVAS')),
+                'premiere_motion_coordinate_contract':'FULL_CANVAS_INTRINSIC_NORMALIZED_POSITION',
+            })
+            ee['motion_amplitude_gain']=motion_gain;ee['relative_motion_scale']=relative_motion_scale
+            ee['drift_dx_px']=float(e.get('drift_dx_norm',0.0))*float(width)*relative_motion_scale;ee['drift_dy_px']=float(e.get('drift_dy_norm',0.0))*float(height)*relative_motion_scale
+            ee['focus_beats']=[dict(fb,dx_px=float(fb.get('dx_norm',0.0))*float(width)*relative_motion_scale,dy_px=float(fb.get('dy_norm',0.0))*float(height)*relative_motion_scale) for fb in (e.get('focus_beats') or [])]
+            ee['story_beats']=[dict(sb,dx_px=float(sb.get('dx_norm',0.0))*float(width)*relative_motion_scale,dy_px=float(sb.get('dy_norm',0.0))*float(height)*relative_motion_scale) for sb in (e.get('story_beats') or [])]
+            ee['story_actions']=[dict(sa,dx_px=float(sa.get('dx_norm',0.0))*float(width)*relative_motion_scale,dy_px=float(sa.get('dy_norm',0.0))*float(height)*relative_motion_scale,arc_px=float(sa.get('arc_norm',0.0))*float(height)*relative_motion_scale) for sa in (e.get('story_actions') or [])]
+        edit_events.append(ee)
     timeline_items,required_video_tracks,lane_counts=_assign_track_lanes(timeline_items)
     clip_track={r['clip_display_name']:r['premiere_track_index'] for r in timeline_items}
-    for e in edit_events:
-        e['track_index']=clip_track.get(e['clip_display_name'],e.get('track_index',0))
-
-    # audio full timeline
-    audio_path=str(pathlib.Path(audio_path).resolve())
-    audio_clip=_clipitem('VOICE_OVER','FINAL_VOICE_OVER',audio_path,0,max_end,0,0,fps,track_kind='audio')
-    tracks=''.join('<track>'+''.join(c)+'</track>' for c in track_clips)
-    marker_xml=''.join(f'<marker><name>{_xml(m["name"])}</name><in>{m["frame"]}</in><out>-1</out></marker>' for m in markers)
-    rate=_rate_xml(fps)
+    for e in edit_events:e['track_index']=clip_track.get(e['clip_display_name'],e.get('track_index',0))
+    completeness=planner_render_map_completeness_qa(motion_plan,edit_events,fps=fps)
+    if not completeness.get('pass'):
+        if logger:logger.log('ERROR','PLANNER_RENDER_MAP_COMPLETENESS_QA_FAILED',expected=completeness.get('expected_renderable_event_count'),mapped=completeness.get('mapped_event_count'),missing_event_ids=completeness.get('missing_event_ids'),unexpected_event_ids=completeness.get('unexpected_event_ids'),lifetime_mismatches=completeness.get('physical_lifetime_mismatches'),coverage_pass=completeness.get('visual_timeline_coverage_pass'))
+        raise PremiereError('PLANNER_RENDER_MAP_COMPLETENESS_QA_FAILED '+f"expected={completeness.get('expected_renderable_event_count')} mapped={completeness.get('mapped_event_count')} missing_event_ids={completeness.get('missing_event_ids')} unexpected_event_ids={completeness.get('unexpected_event_ids')} coverage_pass={completeness.get('visual_timeline_coverage_pass')}")
+    if logger:logger.log('PASS','PLANNER_RENDER_MAP_COMPLETENESS_QA',expected=completeness.get('expected_renderable_event_count'),mapped=completeness.get('mapped_event_count'),missing_event_ids=[],unexpected_event_ids=[],coverage_pass=True)
+    audio_path=str(pathlib.Path(audio_path).resolve());audio_clip=_clipitem('VOICE_OVER','FINAL_VOICE_OVER',audio_path,0,max_end,0,0,fps,track_kind='audio')
+    tracks=''.join('<track>'+''.join(c)+'</track>' for c in track_clips);marker_xml=''.join(f'<marker><name>{_xml(m["name"])}</name><in>{m["frame"]}</in><out>-1</out></marker>' for m in markers);rate=_rate_xml(fps)
     xmeml=f'''<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE xmeml>\n<xmeml version="5"><sequence id="HEXA_V31_MASTER"><name>HEXA_V31_MASTER</name><duration>{max_end}</duration>{rate}<timecode>{rate}<string>00:00:00:00</string><frame>0</frame><displayformat>NDF</displayformat></timecode><media><video><format><samplecharacteristics>{rate}<width>{width}</width><height>{height}</height><anamorphic>FALSE</anamorphic><pixelaspectratio>square</pixelaspectratio><fielddominance>none</fielddominance></samplecharacteristics></format>{tracks}</video><audio><format><samplecharacteristics><depth>16</depth><samplerate>48000</samplerate></samplecharacteristics></format><track>{audio_clip}</track></audio></media>{marker_xml}</sequence></xmeml>'''
-    xml_path=out/'HEXA_V31_PREMIERE_TIMELINE_DIAGNOSTIC_ONLY.xml'; write_text(xml_path,xmeml)
-
-    bootstrap=_ensure_sequence_bootstrap(out,width,height,fps,logger=logger)
-    runtime_report=out/'HEXA_V31_PREMIERE_RUNTIME_REPORT.json'
+    xml_path=out/'HEXA_V31_PREMIERE_TIMELINE_DIAGNOSTIC_ONLY.xml';write_text(xml_path,xmeml)
+    bootstrap=_ensure_sequence_bootstrap(out,width,height,fps,logger=logger);runtime_report=out/'HEXA_V31_PREMIERE_RUNTIME_REPORT.json'
     edit_map={
-        'schema':'HEXA_PREMIERE_EDIT_MAP_V31','version':'2.0',
+        'schema':'HEXA_PREMIERE_EDIT_MAP_V31','version':'2.2',
         'project':{'width':width,'height':height,'fps':fps,'master_sequence':'HEXA_V31_MASTER','source_scene_width':vision_results[0]['width'] if vision_results else None,'source_scene_height':vision_results[0]['height'] if vision_results else None},
-        'rules':motion_plan['hard_invariants'],'events':edit_events,'fifth_element_overlays':[],
-        'assembly':{
-            'execution_mode':'ENGINE_LAYER_RENDER_MAP',
-            'xml_import_forbidden':True,
-            'sequence_bootstrap_media':str(bootstrap.resolve()),
-            'sequence_name':'HEXA_V31_MASTER',
-            'video_items':timeline_items,
+        'rules':motion_plan.get('hard_invariants') or {},'events':edit_events,'planner_render_map_completeness_qa':completeness,'fifth_element_overlays':[],
+        'assembly':{'execution_mode':'ENGINE_LAYER_RENDER_MAP','xml_import_forbidden':True,'sequence_bootstrap_media':str(bootstrap.resolve()),'sequence_name':'HEXA_V31_MASTER','video_items':timeline_items,
             'audio_items':[{'clip_display_name':'FINAL_VOICE_OVER','source_path':audio_path,'start_frame':0,'end_frame':max_end,'start_seconds':0.0,'end_seconds':max_end/fps,'premiere_track_index':0,'item_role':'FINAL_VOICE_OVER'}],
-            'markers':markers,
-            'required_video_tracks':required_video_tracks,
-            'required_audio_tracks':1,
-            'lane_counts_by_semantic_tier':{str(k):v for k,v in lane_counts.items()},
-            'ticks_per_second':254016000000,
-            'runtime_report_path':str(runtime_report.resolve()),
-            'project_save_path':str(pathlib.Path(project_save_path).resolve()) if project_save_path else None,
-            'production_mp4_path':str(pathlib.Path(production_mp4_path).resolve()) if production_mp4_path else None,
-            'export_preset_path':str(pathlib.Path(export_preset_path).resolve()) if export_preset_path else None,
-            'export_preset_materialize_path':str((out/'HEXA_V31_RUNTIME_EXPORT_PRESET.epr').resolve()),
-            'export_required':False,
-            'export_policy':'ENGINE_FINAL_MP4_ALREADY_CERTIFIED__PREMIERE_PROJECT_ONLY',
-            'sequence_settings_authority':'PHYSICAL_BOOTSTRAP_MEDIA_1920x1080_30P_STEREO_48K'
-        },
-        'note':'V31.0.25 engine render map. Full-scene semantic layers + motion DNA are rendered into animated scene media before Premiere; this map is never executed by Premiere.'
+            'markers':markers,'required_video_tracks':required_video_tracks,'required_audio_tracks':1,'lane_counts_by_semantic_tier':{str(k):v for k,v in lane_counts.items()},'ticks_per_second':254016000000,
+            'runtime_report_path':str(runtime_report.resolve()),'project_save_path':str(pathlib.Path(project_save_path).resolve()) if project_save_path else None,'production_mp4_path':str(pathlib.Path(production_mp4_path).resolve()) if production_mp4_path else None,'export_preset_path':str(pathlib.Path(export_preset_path).resolve()) if export_preset_path else None,'export_preset_materialize_path':str((out/'HEXA_V31_RUNTIME_EXPORT_PRESET.epr').resolve()),'export_required':False,'export_policy':'ENGINE_FINAL_MP4_ALREADY_CERTIFIED__PREMIERE_PROJECT_ONLY','sequence_settings_authority':'PHYSICAL_BOOTSTRAP_MEDIA_1920x1080_30P_STEREO_48K','render_representation_authority':'FINAL_PLANNER_SELECTED_SOURCE_BACKED_EVENTS'},
+        'note':'V31 integration map. Vision mode never suppresses planner-selected physical events; exact source-backed event completeness is certified before rendering.'
     }
-    map_path=out/'HEXA_V31_LAYER_RENDER_MAP.json'; write_json(map_path,edit_map)
-    if logger: logger.log('PASS','LAYER_RENDER_MAP_BUILT',execution_mode='ENGINE_LAYER_RENDER_MAP',diagnostic_xml=str(xml_path),edit_map=str(map_path),events=len(edit_events),duration_frames=max_end,required_video_tracks=required_video_tracks,lane_counts=lane_counts)
-    return {'timeline_xml':str(xml_path),'edit_map':str(map_path),'duration_frames':max_end,'event_count':len(edit_events),'execution_mode':'ENGINE_LAYER_RENDER_MAP','required_video_tracks':required_video_tracks,'bootstrap_media':str(bootstrap),'runtime_report':str(runtime_report)}
+    map_path=out/'HEXA_V31_LAYER_RENDER_MAP.json';write_json(map_path,edit_map)
+    if logger:logger.log('PASS','LAYER_RENDER_MAP_BUILT',execution_mode='ENGINE_LAYER_RENDER_MAP',diagnostic_xml=str(xml_path),edit_map=str(map_path),events=len(edit_events),expected_planner_events=len(planner_events),duration_frames=max_end,required_video_tracks=required_video_tracks,lane_counts=lane_counts)
+    return {'timeline_xml':str(xml_path),'edit_map':str(map_path),'duration_frames':max_end,'event_count':len(edit_events),'execution_mode':'ENGINE_LAYER_RENDER_MAP','required_video_tracks':required_video_tracks,'bootstrap_media':str(bootstrap),'runtime_report':str(runtime_report),'planner_render_map_completeness_qa':completeness}
 
 
 def build_premiere_handoff_from_scene_media(package, audio_path:str|os.PathLike, alignment:dict, scene_media:dict, motion_plan:dict, out_dir:str|os.PathLike, width:int=1920,height:int=1080,fps:float=30.0,logger=None,project_save_path:str|os.PathLike|None=None,production_mp4_path:str|os.PathLike|None=None,export_preset_path:str|os.PathLike|None=None):

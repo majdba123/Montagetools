@@ -100,11 +100,19 @@ def classify_card(card:dict, events:list[dict], source_scenes:list[dict])->dict:
     chain=_chain_length(edges)
     blockers=[sid for sid,r in roles.items() if r=='BLOCKER']
     characters=[_semantic_id(e) for e in active if _norm(e.get('semantic_type')) in {'MAIN_CHARACTER','SECONDARY_CHARACTER'}]
+    intents={_norm(e.get('semantic_intent') or e.get('narrative_function')) for e in active}
+    results=[sid for sid,r in roles.items() if r in {'RESULT','TARGET'}]
 
     if blockers and edges:
         archetype='SOURCE_BLOCKER_RESULT'
     elif chain>=3:
         archetype='FLOW_PIPELINE'
+    elif {'BEFORE','AFTER'}.issubset(intents):
+        archetype='BEFORE_AFTER'
+    elif ({'QUESTION','ANSWER'}.issubset(intents) or {'ASK','ANSWER'}.issubset(intents)):
+        archetype='QUESTION_ANSWER'
+    elif results and len(active)>=2 and not edges:
+        archetype='RESULT_PAYOFF'
     elif _has_character(active) and len(active)>=2:
         archetype='CHARACTER_EXPLAINS_OBJECT'
     elif len(prim)>=2 and not edges:
@@ -119,7 +127,7 @@ def classify_card(card:dict, events:list[dict], source_scenes:list[dict])->dict:
     return {
         'schema':'HEXA_UNIVERSAL_SCENE_GRAMMAR_V31','version':'31.0.9',
         'card_id':card.get('card_id'),'archetype':archetype,'roles':roles,'explicit_edges':edges,
-        'primary_ids':prim,'character_ids':characters,'blocker_ids':blockers,'chain_length':chain,
+        'primary_ids':prim,'character_ids':characters,'blocker_ids':blockers,'result_ids':results,'chain_length':chain,
         'topic_specific_rules':False,
         'authority':'SEMANTIC_STRUCTURE_ONLY__NO_SCRIPT_SPECIFIC_LAYOUT_RULES',
     }

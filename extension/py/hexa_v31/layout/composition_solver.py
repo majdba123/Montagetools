@@ -1,6 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
 import itertools, math
+import pathlib
+import copy
+from PIL import Image
 from hexa_v31.preset_authority import duration as preset_duration, preset as preset_def
 from hexa_v31.projected_visible_ink import ProjectedVisibleInkModel
 
@@ -20,6 +23,33 @@ MIN_SUPPORT_LAYOUT_SCALE=0.32
 MIN_ATOMIC_LAYOUT_SCALE=0.30
 MAX_PHASE_OBJECTS=5
 _VISIBLE_INK_MODEL=ProjectedVisibleInkModel()
+_OBJECT_INK_FRACTIONS={}
+
+
+def source_object_visible_fraction(event:dict):
+    """Alpha coverage in the same object bbox used by placement geometry.
+
+    Planner layers are full-source canvases. Their whole-canvas matte fraction
+    must not be multiplied by an already-tight object rectangle a second time.
+    This reads source evidence only; it does not crop or alter render assets.
+    """
+    source=event.get('source_layer_path');bbox=event.get('source_bbox_norm')
+    if not source or not bbox or len(bbox)!=4:return None
+    path=pathlib.Path(source)
+    try:
+        stat=path.stat();key=(str(path.resolve()),stat.st_size,stat.st_mtime_ns,tuple(bbox))
+        if key in _OBJECT_INK_FRACTIONS:return _OBJECT_INK_FRACTIONS[key]
+        with Image.open(path) as image:
+            w,h=image.size;x,y,bw,bh=map(float,bbox)
+            bounds=(max(0,int(math.floor(x*w))),max(0,int(math.floor(y*h))),min(w,int(math.ceil((x+bw)*w))),min(h,int(math.ceil((y+bh)*h))))
+            if bounds[2]<=bounds[0] or bounds[3]<=bounds[1]:return None
+            crop=image.crop(bounds)
+            crop.thumbnail((512,512))
+            value=float(sum(crop.getchannel('A').histogram()[4:]))/(crop.width*crop.height) if 'A' in crop.getbands() else 1.0
+        _OBJECT_INK_FRACTIONS[key]=value
+        return value
+    except (OSError,ValueError,TypeError):
+        return None
 
 @dataclass(frozen=True)
 class Footprint:
@@ -57,6 +87,54 @@ def _fp(e:dict)->Footprint:
 def _rect(center,fp:Footprint,scale:float):
     cx,cy=center;w=fp.w*scale;h=fp.h*scale
     return (cx-w/2,cy-h/2,w,h)
+
+def composition_state_at(event:dict,t:float,base_center=None)->tuple[list[float],float,float]:
+    """Evaluate the planner-authored composition destination at ``t``.
+
+    States are absolute layout destinations; presets remain responsible only
+    for the path/easing used to arrive there.  The function is shared by QA
+    and rendering so metadata cannot describe a state the pixels ignore.
+    """
+    center=list(base_center or event.get('card_rest_position_norm') or [0.5,0.5])
+    states=(event.get('composition_states') or [])+(event.get('composition_participant_states') or [])
+    ordinary=[s for s in states if not s.get('sequence_envelope')]
+    sequence=[s for s in states if s.get('sequence_envelope')]
+    center,scale,visibility=_composition_destinations_at(ordinary,t,center)
+    if sequence:
+        # Independent late planner authorities multiply as separate tracks.
+        # A density frame can therefore coexist with semantic sequencing
+        # without either track overwriting the other's return/handoff state.
+        tracks={}
+        for state in sequence:
+            tracks.setdefault(str(state.get('envelope_track') or 'SEMANTIC_SEQUENCE'),[]).append(state)
+        for track in sorted(tracks):
+            sequence_center,sequence_scale,sequence_visibility=_composition_destinations_at(tracks[track],t,center)
+            # Position is composed only for an explicitly positional envelope.
+            # Scale-only semantic tracks must not reset a temporary density
+            # composition chosen for a mutually exclusive visual beat.
+            if any(state.get('position_envelope') for state in tracks[track]):
+                center=sequence_center
+            scale*=sequence_scale;visibility*=sequence_visibility
+    return center,scale,visibility
+
+
+def _composition_destinations_at(states,t,center):
+    scale=1.0;visibility=1.0
+    states=sorted(states,key=lambda x:(float(x.get('start_seconds',0)),str(x.get('state_id') or '')))
+    previous={'center_norm':center,'scale_multiplier':scale,'visibility':visibility}
+    for state in states:
+        start=float(state.get('start_seconds',0));transition=max(0.0,float(state.get('transition_duration_seconds') or 0.0))
+        if t<start:break
+        target_center=list(state.get('center_norm') or previous['center_norm']);target_scale=float(state.get('scale_multiplier',previous['scale_multiplier']));target_visibility=float(state.get('visibility',previous['visibility']))
+        if transition>1e-9 and t<start+transition:
+            q=max(0.0,min(1.0,(t-start)/transition));q=q*q*(3.0-2.0*q)
+            center=[float(previous['center_norm'][0])+(float(target_center[0])-float(previous['center_norm'][0]))*q,float(previous['center_norm'][1])+(float(target_center[1])-float(previous['center_norm'][1]))*q]
+            scale=float(previous['scale_multiplier'])+(target_scale-float(previous['scale_multiplier']))*q
+            visibility=float(previous['visibility'])+(target_visibility-float(previous['visibility']))*q
+            return center,scale,visibility
+        center=[float(target_center[0]),float(target_center[1])];scale=target_scale;visibility=target_visibility
+        previous={'center_norm':center,'scale_multiplier':scale,'visibility':visibility}
+    return center,scale,visibility
 
 def candidate_middle_envelope_geometry(event:dict, center=(0.5,0.5))->dict:
     """Return authoritative geometry for snapping a solved object to middle."""
@@ -357,6 +435,180 @@ def within_preset_safe(e:dict,name:str,scale:float)->bool:
     """Only authorize fixed-position within-frame presets when the actual object fits."""
     r=_preset_end_rect(e,name,scale)
     return _in_safe(r)
+
+
+def certify_cross_card_placements(events,cards,fps,_allow_companion_repair=True):
+    """Repair static placement against every final overlapping card.
+
+    Never changes physical/motion lifetimes, presets, actor membership, or
+    partition geometry. Candidate centers are existing semantic solver slots;
+    scale can only stay unchanged or decrease along the existing scale set.
+    """
+    from hexa_v31.composition_qa import card_motion_conflicts,viewport_clipping_qa
+    active=[e for e in events if not e.get('suppressed_by_card_density')]
+    byid={str(e.get('event_id')):e for e in active}
+    grammar={str(c.get('card_id')):c.get('universal_scene_grammar') or {} for c in cards.get('cards') or []}
+    end=max((float(e.get('physical_end_seconds',e.get('end_seconds',0))) for e in active),default=0)
+    def conflicts():
+        return [c for c in card_motion_conflicts(active,0,end,fps)
+                if byid[c['event_a']].get('visual_card_id')!=byid[c['event_b']].get('visual_card_id')]
+    repairs=[];initial=conflicts()
+    for _ in range(len(initial)):
+        remaining=conflicts()
+        if not remaining:break
+        repaired=False
+        for conflict in remaining:
+            pair=[byid[conflict[k]] for k in ('event_a','event_b')]
+            pair.sort(key=lambda e:(-float(e.get('physical_start_seconds',e.get('start_seconds',0))),_fp(e).visible_area))
+            # Explore unchanged-scale placements for both endpoints before
+            # sacrificing either actor's projected visible content.
+            for event,allow_shrink in [(e,False) for e in pair]+[(e,True) for e in pair]:
+                if str(event.get('render_mode')) in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}:continue
+                if event.get('partition_group_id'):continue
+                fp=_fp(event);old_center=list(event.get('card_rest_position_norm') or [.5,.5])
+                old_scale=float(event.get('layout_scale_multiplier') or 1)
+                arch=str(grammar.get(str(event.get('visual_card_id')),{}).get('archetype') or 'SINGLE_FOCUS')
+                micro_offsets=[
+                    (float(old_center[0])+dx,float(old_center[1])+dy)
+                    for radius in (.01,.02,.035)
+                    for dx,dy in ((-radius,0),(radius,0),(0,-radius),(0,radius))
+                ]
+                centers=[tuple(old_center),*_adaptive_slots(arch,str(event.get('composition_role') or 'LEAD'),fp),*micro_offsets]
+                centers=sorted(set(centers),key=lambda c:(math.dist(c,old_center),c))
+                scales=[s for s in _scale_candidates(fp,fp.primary) if s<old_scale-1e-6] if allow_shrink else [old_scale]
+                st=float(event.get('physical_start_seconds',event.get('start_seconds',0)))
+                en=float(event.get('physical_end_seconds',event.get('end_seconds',0)))
+                neighbors=[e for e in active if e is not event and float(e.get('physical_start_seconds',e.get('start_seconds',0)))<en and float(e.get('physical_end_seconds',e.get('end_seconds',0)))>st]
+                candidates=[]
+                for scale in scales:
+                    half_w=fp.w*scale*MOTION_ENVELOPE_SCALE/2
+                    half_h=fp.h*scale*MOTION_ENVELOPE_SCALE/2
+                    if half_w*2>SAFE_X[1]-SAFE_X[0] or half_h*2>SAFE_Y[1]-SAFE_Y[0]:continue
+                    # Project semantic anchors into the geometry's legal center
+                    # interval; a discrete slot just outside the safe frame must
+                    # not hide its adjacent, collision-free legal placement.
+                    legal_centers={
+                        (min(SAFE_X[1]-half_w,max(SAFE_X[0]+half_w,c[0])),
+                         min(SAFE_Y[1]-half_h,max(SAFE_Y[0]+half_h,c[1]))) for c in centers}
+                    candidates.extend((scale,c) for c in sorted(legal_centers,key=lambda c:(math.dist(c,old_center),c)))
+                for scale,center in candidates:
+                    rect=_rect(center,fp,scale*MOTION_ENVELOPE_SCALE)
+                    if not _in_safe(rect):continue
+                    trial=copy.deepcopy(event);trial['layout_scale_multiplier']=scale
+                    trial['card_rest_position_norm']=list(center)
+                    trial['planned_rect_norm']=list(rect);trial['collision_envelope_rect_norm']=list(rect)
+                    for key in ('composition_states','composition_participant_states'):
+                        for state in trial.get(key) or []:
+                            prior=state.get('center_norm') or old_center
+                            state['center_norm']=[prior[i]+center[i]-old_center[i] for i in (0,1)]
+                    if not viewport_clipping_qa([trial],fps)['pass']:continue
+                    if any(str(event['event_id']) in (c['event_a'],c['event_b']) for c in card_motion_conflicts([trial,*neighbors],st,en,fps)):continue
+                    event.clear();event.update(trial)
+                    repairs.append({'event_id':event['event_id'],'old_center':old_center,'new_center':list(center),'old_scale':old_scale,'new_scale':scale,'authority':'FINAL_OVERLAPPING_CARD_STATIC_PLACEMENT'})
+                    repaired=True;break
+                if repaired:break
+            if repaired:break
+        if not repaired:break
+    remaining=conflicts()
+    if remaining:
+        # A late phase-state transition can create a marginal cross-card overlap
+        # even when both base placements are certified. Search a bounded local
+        # delta on only the active movable state before sacrificing actor scale.
+        for conflict in list(remaining):
+            t=float(conflict.get('time_seconds',0.0))
+            for event_id in (conflict.get('event_b'),conflict.get('event_a')):
+                event=byid.get(str(event_id))
+                if not event or str(event.get('render_mode') or 'ROOT_ATOMIC')!='ROOT_ATOMIC' or event.get('partition_group_id'):continue
+                st=float(event.get('physical_start_seconds',event.get('start_seconds',0)));en=float(event.get('physical_end_seconds',event.get('end_seconds',0)))
+                neighbors=[e for e in active if e is not event and float(e.get('physical_start_seconds',e.get('start_seconds',0)))<en and float(e.get('physical_end_seconds',e.get('end_seconds',0)))>st]
+                for container in ('composition_states','composition_participant_states'):
+                    ordered=sorted(event.get(container) or [],key=lambda state:float(state.get('start_seconds',0.0)))
+                    index=next((i for i in range(len(ordered)-1,-1,-1) if float(ordered[i].get('start_seconds',0.0))<=t+1e-6),None)
+                    if index is None:continue
+                    deltas=[(dx,dy) for radius in (.005,.01,.02,.035,.05) for dx,dy in ((-radius,0),(radius,0),(0,-radius),(0,radius))]
+                    origin=ordered[index].get('center_norm') or event.get('card_rest_position_norm') or [.5,.5]
+                    deltas.extend((x-float(origin[0]),y-float(origin[1])) for y in (.20,.52,.80) for x in (.18,.38,.62,.82))
+                    for dx,dy in deltas:
+                        for factor in (1.0,.9,.8,.7,.6):
+                            trial=copy.deepcopy(event);trial_states=trial.get(container) or []
+                            target=next((state for state in trial_states if str(state.get('state_id'))==str(ordered[index].get('state_id'))),None)
+                            if target is None:continue
+                            center=target.get('center_norm') or trial.get('card_rest_position_norm') or [.5,.5]
+                            target['center_norm']=[float(center[0])+dx,float(center[1])+dy]
+                            target['scale_multiplier']=round(float(target.get('scale_multiplier') or 1.0)*factor,6)
+                            target['final_cross_card_phase_delta']=[dx,dy]
+                            target['final_cross_card_phase_scale_factor']=factor
+                            if not viewport_clipping_qa([trial],fps)['pass']:continue
+                            rows=card_motion_conflicts([trial,*neighbors],st,en,fps)
+                            if any(str(event_id) in (row.get('event_a'),row.get('event_b')) for row in rows):continue
+                            event.clear();event.update(trial)
+                            repairs.append({'event_id':str(event_id),'state_id':target.get('state_id'),'delta':[dx,dy],'authority':'FINAL_OVERLAPPING_CARD_PHASE_STATE_PLACEMENT'})
+                            break
+                        else:continue
+                        break
+                    else:continue
+                    break
+                remaining=conflicts()
+                if not remaining:break
+            if not remaining:break
+    if remaining:
+        # Static placement can be geometrically exhausted for two large roots.
+        # The stronger final authority may retire only the ordered outgoing root,
+        # and only one frame before the incoming root is actually readable.
+        from hexa_v31.composition_qa import _state
+        step=1.0/max(1.0,float(fps))
+        for conflict in list(remaining):
+            pair=[byid.get(str(conflict.get('event_a'))),byid.get(str(conflict.get('event_b')))]
+            if any(e is None or str(e.get('render_mode') or 'ROOT_ATOMIC')!='ROOT_ATOMIC' or e.get('partition_group_id') for e in pair):continue
+            pair.sort(key=lambda e:float(e.get('source_scene_start_seconds',e.get('physical_start_seconds',0))))
+            outgoing,incoming=pair
+            readable=None;first=int(float(incoming.get('physical_start_seconds',incoming.get('start_seconds',0)))*fps);last=int(float(incoming.get('physical_end_seconds',incoming.get('end_seconds',0)))*fps)+1
+            for frame in range(first,last+1):
+                state=_state(incoming,frame/fps)
+                if state and float(state[2])>.22:readable=frame/fps;break
+            if readable is None:continue
+            new_end=readable-step;start=float(outgoing.get('physical_start_seconds',outgoing.get('start_seconds',0)));anchor=float(outgoing.get('perceptual_hit_seconds',start))
+            if new_end<=max(start,anchor)+step:continue
+            trial=copy.deepcopy(outgoing);trial['end_seconds']=round(new_end,6);trial['physical_end_seconds']=round(new_end,6);trial['visibility_interval_seconds']=[start,round(new_end,6)]
+            exit_row=trial.get('preset_exit')
+            if exit_row:
+                dd=float(exit_row.get('duration_seconds') or .6);exit_row['start_seconds']=round(max(start,new_end-dd*.6),6);exit_row['authority']='FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+            trial['preset_actions']=[];trial['motion_end_seconds']=round(min(float(trial.get('motion_end_seconds',new_end)),new_end),6);trial['final_cross_source_handoff_authority']='FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'
+            rows=card_motion_conflicts([trial,*[e for e in active if e is not outgoing]],0,end,fps)
+            if any(str(outgoing.get('event_id')) in (row.get('event_a'),row.get('event_b')) for row in rows):continue
+            outgoing.clear();outgoing.update(trial);repairs.append({'event_id':outgoing.get('event_id'),'new_physical_end_seconds':round(new_end,6),'incoming_event_id':incoming.get('event_id'),'authority':'FINAL_CROSS_SCENE_BOUNDED_HANDOFF_SEARCH'});remaining=conflicts()
+            if not remaining:break
+    if remaining and _allow_companion_repair:
+        # A newly enlarged focal can pin its companion between itself and the
+        # preceding card. Repair that coupled placement, not the lifetimes: try
+        # the next existing focal scale, then solve the blocked neighbor again.
+        pair_ids={remaining[0]['event_a'],remaining[0]['event_b']}
+        affected_cards={byid[eid].get('visual_card_id') for eid in pair_ids}
+        companions=[e for e in active if e.get('visual_card_id') in affected_cards and str(e.get('event_id')) not in pair_ids
+                    and str(e.get('render_mode'))=='ROOT_ATOMIC' and not e.get('partition_group_id')]
+        companions.sort(key=lambda e:(_fp(e).visible_area,str(e.get('event_id'))))
+        for companion in companions:
+            old_scale=float(companion.get('layout_scale_multiplier') or 1)
+            fp=_fp(companion);center=companion.get('card_rest_position_norm') or [.5,.5]
+            for scale in _scale_candidates(fp,fp.primary):
+                if scale>=old_scale-1e-6:continue
+                trial=copy.deepcopy(active);changed=next(e for e in trial if e['event_id']==companion['event_id'])
+                changed['layout_scale_multiplier']=scale
+                changed['planned_rect_norm']=list(_rect(center,fp,scale*MOTION_ENVELOPE_SCALE))
+                changed['collision_envelope_rect_norm']=list(changed['planned_rect_norm'])
+                try:
+                    coupled=certify_cross_card_placements(trial,cards,fps,_allow_companion_repair=False)
+                except ValueError:
+                    continue
+                from hexa_v31.composition_qa import composition_plan_qa
+                if not composition_plan_qa({'events':trial,'visual_cards':cards,'fps':fps})['pass']:continue
+                for e in trial:
+                    live=byid[str(e['event_id'])];live.clear();live.update(e)
+                repairs.append({'event_id':companion['event_id'],'old_center':list(center),'new_center':list(center),'old_scale':old_scale,'new_scale':scale,'authority':'COUPLED_CARD_FOCAL_SUPPORT_SAFE_PLACEMENT'})
+                repairs.extend(coupled['repairs']);remaining=[];break
+            if not remaining:break
+    if remaining:raise ValueError('CROSS_CARD_COMPOSITION_PLACEMENT_FAILED: '+str(remaining[:4]))
+    return {'pass':True,'initial_conflict_count':len(initial),'repairs':repairs}
 
 def solve_card_layout(events:list[dict], grammar:dict, phase_plan:dict)->dict:
     """Deterministic phase-aware layout solver with co-occurrence decomposition.

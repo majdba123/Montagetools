@@ -32,6 +32,15 @@ with tempfile.TemporaryDirectory() as raw:
     eligible=[e for e in motion['events'] if e.get('render_mode')=='CHILD_PARTITION' and e.get('translation_safe_after_occlusion') and e.get('independent_motion_allowed')]
     independent=[e for e in eligible if e.get('position_animated')]
     contract=motion['foundation_partition_motion_contract']
+    print('FOUNDATION_PLANNER_DIAGNOSTIC',json.dumps([{
+        'event_id':e.get('event_id'),'scene_id':e.get('scene_id'),'position_animated':e.get('position_animated'),
+        'foundation_motion_decision':e.get('foundation_motion_decision'),'final_partition_motion_fallback':e.get('final_partition_motion_fallback'),
+        'start_seconds':e.get('start_seconds'),'end_seconds':e.get('end_seconds'),
+        'motion_start_seconds':e.get('motion_start_seconds'),'motion_end_seconds':e.get('motion_end_seconds'),
+        'physical_start_seconds':e.get('physical_start_seconds'),'physical_end_seconds':e.get('physical_end_seconds'),
+        'partition_carrier_start_seconds':e.get('partition_carrier_start_seconds'),'partition_carrier_end_seconds':e.get('partition_carrier_end_seconds'),
+        'preset_entry':e.get('preset_entry'),'preset_exit':e.get('preset_exit')
+    } for e in eligible],sort_keys=True))
     assert len(eligible)>=2,(eligible,motion['events']);assert len(independent)>=2,(independent,motion['visual_cards'])
     assert contract['eligible_foundation_actor_count']==len(eligible)
     assert contract['independently_animated_actor_count']==len(independent)

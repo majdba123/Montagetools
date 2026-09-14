@@ -7,6 +7,7 @@ cv2.setNumThreads(1)
 try: cv2.ocl.setUseOpenCL(False)
 except Exception: pass
 import numpy as np
+from hexa_v31.image_cache import save_cached_image
 from PIL import Image
 from hexa_v31.util import ensure_dir, sha256_file, write_json, read_json
 from hexa_v31.hierarchy import decompose_semantic_group
@@ -14,15 +15,16 @@ from hexa_v31.matting import refine_alpha
 from hexa_v31.occlusion import build_occlusion_graph
 from hexa_v31.extraction.actor_extraction import extract_foundation_actors
 from hexa_v31.extraction.reconstruction import build_lossless_foundation_partition,FOUNDATION_RECONSTRUCTION_VERSION
-from hexa_v31.qa.actor_qa import actor_qa
+from hexa_v31.qa.actor_qa import actor_qa,ACTOR_QA_VERSION
 
 VISION_CACHE_SCHEMA_VERSION='HEXA_V31_SCENE_VISION_CACHE_2.0'
 VISION_CACHE_DEPENDENCIES={
-    'vision':'VISION_10.0_SAFE_HIERARCHICAL_ASSET_DECOMPOSER',
+    'vision':'VISION_10.1_FOUNDATION_CROP_INDEPENDENCE_CERTIFIED',
     'extraction_matting':'EXTRACTION_MATTING_2.1_POST_SMOOTH_STAGE_CAP',
     'hierarchy_decomposition':'HIERARCHY_10.0_TOPOLOGICAL_DECOMPOSITION',
     'occlusion':'OCCLUSION_1.0_CONSERVATIVE_GRAPH',
     'foundation_reconstruction':FOUNDATION_RECONSTRUCTION_VERSION,
+    'actor_qa':ACTOR_QA_VERSION,
 }
 
 class VisionError(RuntimeError): pass
@@ -64,6 +66,7 @@ class SceneVisionResult:
 
 
 def _cache_artifacts_complete(data:dict)->bool:
+    from hexa_v31.image_cache import cached_image_complete
     art=data.get('artifacts') or {}
     required=[art.get('mask'),art.get('reconstruction'),art.get('background')]
     layers=art.get('layers') or []
@@ -73,7 +76,7 @@ def _cache_artifacts_complete(data:dict)->bool:
         and isinstance(art.get('matting_summary'),dict)
         and isinstance(art.get('hierarchy_decisions'),list)
         and isinstance(art.get('occlusion_graph'),dict)
-        and all(x and pathlib.Path(x).is_file() for x in required)
+        and all(cached_image_complete(x) for x in required)
     )
 
 
@@ -606,7 +609,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
         else:
             cx0,cy0,cx1,cy1=x,y,x+bw,y+bh
         layer_rgba=np.dstack([clean_rgb,layer_alpha])
-        lp=out/f'{pid}.png'; final_lp=final_out/f'{pid}.png'; Image.fromarray(layer_rgba,'RGBA').save(lp)
+        lp=out/f'{pid}.png'; final_lp=final_out/f'{pid}.png'; save_cached_image(Image.fromarray(layer_rgba,'RGBA'),lp)
         layer_paths.append({'path':str(final_lp),'origin_px':[0,0],'size_px':[W,H],'content_origin_px':[cx0,cy0],'content_size_px':[cx1-cx0,cy1-cy0],'canvas_mode':'FULL_SCENE_ALPHA_CANVAS'})
         # The semantic object's physical center still drives travel direction/delta, but never static layout.
         # Static layout is now encoded directly in the full-canvas alpha pixels.
@@ -677,7 +680,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     # as the permanent stage; generator tint/noise in otherwise empty background is not
     # semantic scene content and must not inflate density or drift between scenes.
     stage_bg=np.zeros_like(rgb); stage_bg[:]=np.array((255,255,255),dtype=np.uint8)
-    Image.fromarray(stage_bg).save(out/'background.png')
+    save_cached_image(Image.fromarray(stage_bg),out/'background.png')
     mae=float(np.mean(np.abs(recon.astype(np.int16)-rgb.astype(np.int16))))
     mse=float(np.mean((recon.astype(np.float32)-rgb.astype(np.float32))**2))
     psnr=99.0 if mse<1e-9 else 20*math.log10(255.0/math.sqrt(mse))
@@ -693,8 +696,8 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     elif reconstruction_pass and slot_count<=5: mode='HYBRID'
     else: mode='FLAT_SCENE'
     # Store diagnostic mask/reconstruction, not user-facing generated art.
-    Image.fromarray(mask).save(out/'foreground_mask.png')
-    Image.fromarray(recon).save(out/'reconstruction.png')
+    save_cached_image(Image.fromarray(mask),out/'foreground_mask.png')
+    save_cached_image(Image.fromarray(recon),out/'reconstruction.png')
     matte_summary={
         'layer_count':len(matting_rows),
         'mean_soft_edge_pixel_fraction':round(float(np.mean([m.get('soft_edge_pixel_fraction',0.0) for m in matting_rows]) if matting_rows else 0.0),6),
@@ -708,10 +711,22 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     foundation_actors=[x for x in unit_rows if x.get('candidate_source')]
     staged_foundation_actors=[dict(x,layer_path=str(out/pathlib.Path(x['layer_path']).name)) for x in foundation_actors]
     foundation_qa=actor_qa(staged_foundation_actors,foundation_rejected)
+    foundation_partition_eligible=bool(foundation_actors and foundation_reconstruction.get('partition_complete') and foundation_qa.get('pass'))
+    partition_fallback_reasons=[]
+    if foundation_result and foundation_result.get('status')=='PASS':
+        if not foundation_actors:partition_fallback_reasons.append('NO_CERTIFIED_FOUNDATION_ACTORS')
+        if not foundation_reconstruction.get('partition_complete'):partition_fallback_reasons.append('SOURCE_RECONSTRUCTION_NOT_COMPLETE')
+        if not foundation_qa.get('crop_quality_pass',foundation_qa.get('pass')):partition_fallback_reasons.append('CROP_QUALITY_QA_FAILED')
+        if not foundation_qa.get('independence_classification_pass',foundation_qa.get('pass')):partition_fallback_reasons.append('INDEPENDENCE_CLASSIFICATION_QA_FAILED')
+    for row in unit_rows:
+        if row.get('candidate_source') or row.get('foundation_residual_support'):
+            row['partition_complete']=foundation_partition_eligible
+            row['foundation_crop_qa_pass']=bool(foundation_qa.get('crop_quality_pass'))
+            row['foundation_independence_qa_pass']=bool(foundation_qa.get('independence_classification_pass'))
     foundation_diagnostics=dict((foundation_result or {}).get('diagnostics') or {})
-    foundation_diagnostics.update({'legacy_candidate_count':len(unit_rows)-len(foundation_actors),'merged_candidate_count':len(unit_rows),'accepted_actor_count':len(foundation_actors),'translation_safe_actor_count':sum(bool(x.get('translation_safe_after_occlusion')) for x in foundation_actors),'reveal_only_actor_count':sum(bool(x.get('reveal_safe')) and not bool(x.get('translation_safe_after_occlusion')) for x in foundation_actors),'atomic_actor_count':sum(x.get('safety_class')=='ATOMIC_PARENT_DEPENDENT' for x in foundation_actors),'rejected_actor_count':int(foundation_diagnostics.get('rejected_actor_count',0))+len(foundation_rejected)})
+    foundation_diagnostics.update({'legacy_candidate_count':len(unit_rows)-len(foundation_actors),'merged_candidate_count':len(unit_rows),'accepted_actor_count':len(foundation_actors),'translation_safe_actor_count':sum(bool(x.get('translation_safe_after_occlusion')) for x in foundation_actors),'reveal_only_actor_count':sum(bool(x.get('reveal_safe')) and not bool(x.get('translation_safe_after_occlusion')) for x in foundation_actors),'atomic_actor_count':sum(x.get('safety_class')=='ATOMIC_PARENT_DEPENDENT' for x in foundation_actors),'rejected_actor_count':int(foundation_diagnostics.get('rejected_actor_count',0))+len(foundation_rejected),'crop_quality_pass':bool(foundation_qa.get('crop_quality_pass')),'independence_classification_pass':bool(foundation_qa.get('independence_classification_pass')),'partition_eligibility_pass':foundation_partition_eligible})
     result=SceneVisionResult(sid,W,H,source_mode,bg,round(foreground,6),len(comps),grouped_detail_count,gc,len(semantic),round(mae,4),round(psnr,3),reconstruction_pass,round(split_conf,4),mode,any(u['edge_touch'] for u in unit_rows),unit_rows,{
-        'mask':str(final_out/'foreground_mask.png'),'reconstruction':str(final_out/'reconstruction.png'),'background':str(final_out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph,'foundation_vision':{'status':(foundation_result or {}).get('status','FALLBACK'),'backend_used':(foundation_result or {}).get('backend_used','LEGACY_CV'),'diagnostics':foundation_diagnostics,'accepted_actor_count':len(foundation_actors),'rejected_actors':foundation_rejected,'actor_qa':foundation_qa,'reconstruction_qa':foundation_reconstruction,'root_fallback_available':True,'legacy_fallback_used':not bool(foundation_reconstruction.get('partition_complete')),'error':(foundation_result or {}).get('error')}
+        'mask':str(final_out/'foreground_mask.png'),'reconstruction':str(final_out/'reconstruction.png'),'background':str(final_out/'background.png'),'grouped_detail_count':grouped_detail_count,'layers':layer_paths,'hierarchy_decisions':hierarchy_decisions,'fifth_element_overlay':fifth_overlay,'matting_summary':matte_summary,'occlusion_graph':occlusion_graph,'foundation_vision':{'status':(foundation_result or {}).get('status','FALLBACK'),'backend_used':(foundation_result or {}).get('backend_used','LEGACY_CV'),'diagnostics':foundation_diagnostics,'accepted_actor_count':len(foundation_actors),'rejected_actors':foundation_rejected,'actor_qa':foundation_qa,'reconstruction_qa':foundation_reconstruction,'partition_eligibility_pass':foundation_partition_eligible,'partition_fallback_reasons':partition_fallback_reasons,'root_fallback_available':True,'legacy_fallback_used':not foundation_partition_eligible,'error':(foundation_result or {}).get('error')}
     },{'status':cache_status,'reason':invalidation_reason,'cache_signature':cache_sig})
     write_json(out/'vision.json',asdict(result)); write_json(out/'cache_meta.json',{'schema':VISION_CACHE_SCHEMA_VERSION,'cache_signature':cache_sig,'input':sig_payload})
     staged_data=read_json(out/'vision.json')
@@ -719,5 +734,7 @@ def analyze_scene(scene:dict, image_path:str|os.PathLike, out_dir:str|os.PathLik
     for layer in staged_data['artifacts'].get('layers') or []:layer['path']=str(out/pathlib.Path(layer['path']).name)
     if not _cache_artifacts_complete(staged_data):raise VisionError('Atomic scene cache staging validation failed for '+sid)
     _replace_scene_cache_directory(out,final_out)
+    if logger and foundation_result and foundation_result.get('status')=='PASS' and not foundation_partition_eligible:
+        logger.log('WARNING','FOUNDATION_PARTITION_SAFE_FALLBACK',scene_id=sid,reasons=partition_fallback_reasons,accepted_actors=len(foundation_actors),rejected_actors=len(foundation_rejected),crop_quality_pass=foundation_qa.get('crop_quality_pass'),independence_qa_pass=foundation_qa.get('independence_classification_pass'))
     if logger: logger.log('PASS' if mode!='FLAT_SCENE' else 'WARNING','SCENE_VISION_ANALYZED',mode=mode,source_mode=source_mode,major_groups=gc,composition_slots=slot_count,expected_units=expected,reconstruction_mae=result.reconstruction_mae,reconstruction_psnr=result.reconstruction_psnr,edge_touching=result.edge_touching,hierarchical_children=sum(1 for u in unit_rows if int(u.get('hierarchy_level',0))>0),matte_halo_risk=matte_summary.get('max_edge_halo_risk'),opaque_stage_leak=matte_summary.get('max_opaque_stage_leak_fraction'),grouped_detail_count=grouped_detail_count,translation_safe_after_occlusion=len(occlusion_graph.get('translation_safe_nodes') or []))
     return result

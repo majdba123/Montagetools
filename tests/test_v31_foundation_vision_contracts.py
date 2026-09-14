@@ -1,13 +1,14 @@
 from __future__ import annotations
-import json,pathlib,tempfile
+import importlib.util,json,pathlib,tempfile
 import numpy as np
 from PIL import Image,ImageDraw
 from hexa_v31.vision.foundation.candidate_fusion import fuse_candidates
 from hexa_v31.extraction.mask_validation import validate_mask
-from hexa_v31.vision.foundation.device_policy import select_device
+from hexa_v31.vision.foundation.device_policy import select_device,MIN_FOUNDATION_CUDA_VRAM_BYTES
 from hexa_v31.vision.foundation.model_registry import resolve_models,ModelIntegrityError
 from hexa_v31.extraction.actor_validation import classify_actor
 
+ROOT=pathlib.Path(__file__).resolve().parents[1]
 rows=[
  {'label':'bank building','confidence':.9,'bbox':[10,15,70,70],'source':'OD'},
  {'label':'bank building','confidence':.8,'bbox':[11,16,69,69],'source':'DENSE'},
@@ -26,22 +27,45 @@ fragment=np.zeros_like(fg)
 for x in range(10,110,18):fragment[20:28,x:x+8]=1
 assert validate_mask(fragment,(10,20,100,8),np.ones_like(fg)*255)[1]=='MASK_FRAGMENTED'
 edge=np.zeros_like(fg);edge[0:40,20:70]=1;assert validate_mask(edge,(20,0,50,40),edge*255)[2]['edge_touch']
-# Detached objects remain independently addressable; touching/held/occluded objects are conservative.
+edge_policy=classify_actor(edge,edge*255,{'bbox':(20,0,50,40),'edge_touch':True,'mask_outside_candidate_fraction':0.0});assert not edge_policy['translation_safe'] and 'SOURCE_CANVAS_EDGE_CLIPPED' in edge_policy['independence_block_reasons']
 detached=np.zeros_like(fg,dtype=bool);detached[20:60,20:60]=True;detached_fg=detached.copy();detached_fg[80:110,130:170]=True
 assert classify_actor(detached,detached_fg,{'bbox':(20,20,40,40),'edge_touch':False})['translation_safe']
 held=np.zeros_like(fg,dtype=bool);held[35:65,70:105]=True;character=np.zeros_like(fg,dtype=bool);character[20:100,100:145]=True;held_fg=held|character
 held_policy=classify_actor(held,held_fg,{'bbox':(70,35,35,30),'edge_touch':False});assert held_policy['safety_class']=='ATOMIC_PARENT_DEPENDENT' and held_policy['reveal_safe'] and not held_policy['translation_safe']
+assert held_policy['boundary_contact_ratio']>0 and held_policy['physical_independence_confidence']<1.0
 
 class CPUCuda:
  def is_available(self):return False
 class CPUTorch:cuda=CPUCuda()
 assert select_device(CPUTorch())['device']=='cpu'
-class Props:name='GPU';total_memory=16*1024**3
+class Props:
+ name='GPU';total_memory=16*1024**3
 class GPUCuda:
  def is_available(self):return True
  def get_device_properties(self,_):return Props()
 class GPUTorch:cuda=GPUCuda()
 assert select_device(GPUTorch())['device']=='cuda' and select_device(GPUTorch())['profile']=='QUALITY'
+class LowProps:
+ name='LEGACY_LOW_VRAM_GPU';total_memory=2*1024**3
+class LowCuda:
+ def is_available(self):return True
+ def get_device_properties(self,_):return LowProps()
+class LowTorch:cuda=LowCuda()
+low=select_device(LowTorch());assert low['device']=='cpu' and low['profile']=='LOW_MEMORY' and low['reason']=='CUDA_VRAM_BELOW_MINIMUM',low
+assert low['minimum_cuda_vram_bytes']==MIN_FOUNDATION_CUDA_VRAM_BYTES
+
+# The installer and runtime must make the same VRAM decision.  A 930MX-class
+# adapter must not receive a CUDA Foundation environment that runtime immediately
+# refuses to use; higher-memory adapters remain CUDA eligible.
+spec=importlib.util.spec_from_file_location('hexa_foundation_provisioner',ROOT/'tools/provision_foundation_vision.py');provisioner=importlib.util.module_from_spec(spec);spec.loader.exec_module(provisioner)
+def fake_smi(memory_mb,capability='5.0'):
+ def run_command(cmd,timeout=30):return f'GPU, {memory_mb}, {capability}\n'
+ return run_command
+p2=provisioner.detect_hardware(fake_smi(2048));assert p2['nvidia_present'] and not p2['cuda_eligible'] and p2['profile']=='LOW_MEMORY',p2
+p8=provisioner.detect_hardware(fake_smi(8192,'8.6'));assert p8['cuda_eligible'] and p8['profile']=='LOW_MEMORY',p8
+p12=provisioner.detect_hardware(fake_smi(12288,'8.6'));assert p12['cuda_eligible'] and p12['profile']=='QUALITY',p12
+assert provisioner.MIN_FOUNDATION_CUDA_VRAM_BYTES==MIN_FOUNDATION_CUDA_VRAM_BYTES
+assert 'minimum_foundation_cuda_vram_bytes' in provisioner.provision_contract.__code__.co_consts or provisioner.MIN_FOUNDATION_CUDA_VRAM_BYTES==4*1024**3
 
 with tempfile.TemporaryDirectory() as td:
  root=pathlib.Path(td);model=root/'model';model.mkdir();checkpoint=model/'weights.bin';checkpoint.write_bytes(b'corrupt')

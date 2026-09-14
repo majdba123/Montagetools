@@ -4,6 +4,7 @@ import importlib
 import json
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 
@@ -32,7 +33,57 @@ with tempfile.TemporaryDirectory(prefix='hexa_vision_cache_') as raw:
     hit = vision_module.analyze_scene(scene, image_path, cache_root)
     assert hit.cache_state['status'] == 'HIT', hit.cache_state
 
-    for dependency in ('vision', 'extraction_matting', 'hierarchy_decomposition', 'occlusion'):
+    damaged = Path(hit.artifacts['layers'][0]['path'])
+    payload = damaged.read_bytes()
+    damaged.write_bytes(payload[:len(payload)//2])
+    assert not vision_module._cache_artifacts_complete({'artifacts': hit.artifacts})
+    repaired = vision_module.analyze_scene(scene, image_path, cache_root)
+    assert repaired.cache_state['status'] != 'HIT'
+    assert vision_module._cache_artifacts_complete({'artifacts': repaired.artifacts})
+    assert alignment_cache.read_text(encoding='utf-8') == '{"sentinel":"preserve"}\n'
+
+    from hexa_v31.interaction.source_framing import normalize_render_sources
+    from hexa_v31.image_cache import cached_image_complete
+    source = root/'padded.png'
+    padded=Image.new('RGBA',(320,180),'white')
+    ImageDraw.Draw(padded).rectangle((130,60,190,120),fill='blue')
+    padded.save(source)
+    render_map={'events':[{'event_id':'fixture','source_path':str(source),
+                          'planned_rect_norm':[.2,.2,.3,.3],'render_mode':'ROOT_ATOMIC'}]}
+    framed,_=normalize_render_sources(render_map,root/'framing')
+    crop=Path(framed['events'][0]['source_path'])
+    assert crop != source
+    original=crop.read_bytes()
+    crop.write_bytes(original[:len(original)//2])
+    assert not cached_image_complete(crop)
+    reframed,_=normalize_render_sources(render_map,root/'framing')
+    assert reframed['events'][0]['source_path']==str(crop)
+    assert cached_image_complete(crop) and crop.read_bytes()==original
+    assert list(crop.parent.glob('*.png'))==[crop]
+
+    from hexa_v31.image_cache import save_cached_image
+    real_save=Image.Image.save
+    attempts=[]
+    def short_first_write(image, stream, **kwargs):
+        attempts.append(1)
+        if len(attempts)==1:
+            stream.write(b'broken PNG')
+        else:
+            real_save(image,stream,**kwargs)
+    with patch.object(Image.Image,'save',short_first_write):
+        save_cached_image(padded,crop)
+    assert len(attempts)==2 and cached_image_complete(crop,padded.size)
+    preserved=crop.read_bytes()
+    with patch.object(Image.Image,'save',side_effect=OSError('write failed')):
+        try:
+            save_cached_image(padded,crop)
+            raise AssertionError('persistent write failure accepted')
+        except OSError:
+            pass
+    assert crop.read_bytes()==preserved
+    assert list(crop.parent.glob('*.png'))==[crop]
+
+    for dependency in ('vision', 'extraction_matting', 'hierarchy_decomposition', 'occlusion', 'foundation_reconstruction', 'actor_qa'):
         scene_dir = cache_root / scene['scene_id']
         stale_phys = scene_dir / 'PHYS_99.png'
         stale_phys.write_bytes(b'stale')

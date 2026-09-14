@@ -49,7 +49,6 @@ def build_graphics_plan(plan:dict, alignment:dict, vision_results:list[dict], lo
         if not timing or not vv: continue
         _,phys=vv; st=float(timing['start']); en=float(timing['end']); dur=max(0.05,en-st)
         directives=_explicit_directives(scene)
-        # Count generic relationships only as diagnostics; they never authorize an arrow.
         for u in scene.get('units') or []:
             if u.get('interaction_target') or u.get('relationship'): rejected_implicit+=1
         if not directives: continue
@@ -60,37 +59,23 @@ def build_graphics_plan(plan:dict, alignment:dict, vision_results:list[dict], lo
                 src=str(d.get('source_unit_id') or d.get('from_unit_id') or '')
                 tgt=str(d.get('target_unit_id') or d.get('to_unit_id') or '')
                 if src in phys and tgt in phys:
-                    ev={'kind':'ARROW','from_norm':list(phys[src]['center_norm']),'to_norm':list(phys[tgt]['center_norm']),'reason':'EXPLICIT_BUILDER_DIRECTIVE','priority':3,'budget_cost':0.26}
+                    ev={'kind':'ARROW','from_norm':list(phys[src]['center_norm']),'to_norm':list(phys[tgt]['center_norm']),'source_semantic_unit_id':src,'target_semantic_unit_id':tgt,'relationship_dependency_authority':'EXPLICIT_BUILDER_DIRECTIVE','reason':'EXPLICIT_BUILDER_DIRECTIVE','priority':3,'budget_cost':0.26}
             elif kind=='DIVIDER':
                 ev={'kind':'DIVIDER','x_norm':float(d.get('x_norm',0.5)),'reason':'EXPLICIT_BUILDER_DIRECTIVE','priority':2,'budget_cost':0.20}
             elif kind in {'X_MARK','CHECK_MARK'}:
                 target=str(d.get('target_unit_id') or d.get('unit_id') or '')
                 if target in phys:
                     b=phys[target]['bbox_norm'];x,y,w,h=map(float,b)
-                    ev={'kind':kind,'center_norm':[min(0.92,x+w),max(0.08,y)],'reason':'EXPLICIT_BUILDER_DIRECTIVE','priority':3,'budget_cost':0.22}
+                    ev={'kind':kind,'center_norm':[min(0.92,x+w),max(0.08,y)],'target_semantic_unit_id':target,'reason':'EXPLICIT_BUILDER_DIRECTIVE','priority':3,'budget_cost':0.22}
             elif kind=='FOCUS_RING':
                 target=str(d.get('target_unit_id') or d.get('unit_id') or '')
                 if target in phys:
-                    ev={'kind':'FOCUS_RING','bbox_norm':list(phys[target]['bbox_norm']),'reason':'EXPLICIT_BUILDER_DIRECTIVE','priority':2,'budget_cost':0.18}
+                    ev={'kind':'FOCUS_RING','bbox_norm':list(phys[target]['bbox_norm']),'target_semantic_unit_id':target,'reason':'EXPLICIT_BUILDER_DIRECTIVE','priority':2,'budget_cost':0.18}
             if not ev: continue
             start=st+min(max(0.16,dur*0.30),max(0.05,dur-0.20));graphic_cap=0.54 if kind=='ARROW' else 0.78;end=min(en-0.03,start+min(graphic_cap,max(0.40,dur*0.30)))
             if end-start<0.28: continue
             ev.update({'graphic_id':f'GRAPHIC_{len(events)+1:03d}','scene_id':sid,'start_seconds':round(start,6),'end_seconds':round(end,6),'fade_in_seconds':0.09,'fade_out_seconds':0.09})
             events.append(ev)
-    result={
-        'schema':'HEXA_SEMANTIC_GRAPHICS_PLAN_V31','version':'3.0',
-        'policy':'EXPLICIT_BUILDER_DIRECTIVES_ONLY__NATIVE_OBJECT_STORY_FIRST__PRESET_DERIVED_ARROW_WIPE',
-        'event_count':len(events),'events':events,
-        'diagnostics':{'implicit_relationships_not_rendered_as_arrows':rejected_implicit},
-        'hard_rules':{
-            'max_one_semantic_graphic_per_scene':True,
-            'no_decorative_icon_spam':True,
-            'explicit_builder_directive_required':True,
-            'automatic_relationship_arrow_forbidden':True,
-            'native_object_choreography_has_priority':True,
-            'topic_specific_graphic_rules_forbidden':True,
-            'presentation_budget_required':True,
-        }
-    }
+    result={'schema':'HEXA_SEMANTIC_GRAPHICS_PLAN_V31','version':'3.1_INTERACTION_DEPENDENCY_METADATA','policy':'EXPLICIT_BUILDER_DIRECTIVES_ONLY__NATIVE_OBJECT_STORY_FIRST__PRESET_DERIVED_ARROW_WIPE','event_count':len(events),'events':events,'diagnostics':{'implicit_relationships_not_rendered_as_arrows':rejected_implicit},'hard_rules':{'max_one_semantic_graphic_per_scene':True,'no_decorative_icon_spam':True,'explicit_builder_directive_required':True,'automatic_relationship_arrow_forbidden':True,'native_object_choreography_has_priority':True,'topic_specific_graphic_rules_forbidden':True,'presentation_budget_required':True}}
     if logger:logger.log('PASS','SEMANTIC_GRAPHICS_PLAN_BUILT',graphic_events=len(events),policy=result['policy'],implicit_relationship_arrows_suppressed=rejected_implicit)
     return result

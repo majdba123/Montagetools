@@ -27,8 +27,6 @@ class VisualContinuityQA:
             for outgoing,incoming in zip(members,members[1:]):
                 gap=float(incoming.get('start_seconds',0))-float(outgoing.get('end_seconds',0))
                 if gap<=.01:continue
-                # Extend an existing source-backed readable state only through
-                # the gap. Entry anchors and preset families remain untouched.
                 outgoing['end_seconds']=round(float(incoming['start_seconds']),6)
                 outgoing['physical_end_seconds']=outgoing['end_seconds']
                 outgoing['continuity_repair']='SOURCE_BACKED_READABLE_HANDOFF_EXTENSION'

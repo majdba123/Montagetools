@@ -1,85 +1,24 @@
 {
   "schema": "HEXA_V20_DEPENDENCY_MANIFEST",
-  "version": "1.1",
+  "version": "1.2",
   "build_download_policy": "FORBIDDEN",
   "setup_download_policy": "ONLY_IF_MISSING_OR_INVALID",
   "python_packages": [
-    {
-      "import": "numpy",
-      "pip": "numpy>=1.24,<3",
-      "required": true,
-      "purpose": "vision/audio arrays"
-    },
-    {
-      "import": "PIL",
-      "pip": "Pillow>=10,<13",
-      "required": true,
-      "purpose": "scene PNG IO"
-    },
-    {
-      "import": "cv2",
-      "pip": "opencv-python-headless>=4.8,<5",
-      "required": true,
-      "purpose": "foreground graph/reconstruction"
-    },
-    {
-      "import": "faster_whisper",
-      "pip": "faster-whisper>=1.0,<2",
-      "required": false,
-      "strongly_recommended": true,
-      "purpose": "observed word timestamps reconciled to exact canonical script"
-    },
-    {
-      "import": "arabic_reshaper",
-      "pip": "arabic-reshaper>=3,<4",
-      "required": false,
-      "strongly_recommended": true,
-      "purpose": "Arabic on-screen typography fallback shaping when Pillow RAQM is unavailable"
-    },
-    {
-      "import": "bidi",
-      "pip": "python-bidi>=0.6,<1",
-      "required": false,
-      "strongly_recommended": true,
-      "purpose": "Arabic RTL on-screen typography fallback bidi ordering"
-    },
-    {
-      "import": "uharfbuzz",
-      "pip": "uharfbuzz==0.56.0",
-      "required": true,
-      "license": "Apache-2.0",
-      "python_support": ">=3.10; Windows cp310-abi3 wheel supports certified Python 3.11",
-      "purpose": "Offline deterministic HarfBuzz Arabic glyph-plan validation against the certified font hash"
-    }
+    {"import":"numpy","pip":"numpy>=1.24,<3","required":true,"purpose":"vision/audio arrays"},
+    {"import":"PIL","pip":"Pillow>=10,<13","required":true,"purpose":"scene PNG IO"},
+    {"import":"cv2","pip":"opencv-python-headless>=4.8,<5","required":true,"purpose":"foreground graph/reconstruction and encoded interaction QA"},
+    {"import":"ortools.sat.python.cp_model","pip":"ortools==9.15.6755","required":true,"license":"Apache-2.0","purpose":"deterministic CP-SAT interaction action/reaction scheduling"},
+    {"import":"shapely.geometry","pip":"shapely==2.1.2","required":true,"license":"BSD-3-Clause","purpose":"swept-path geometry and interaction collision certification"},
+    {"import":"faster_whisper","pip":"faster-whisper>=1.0,<2","required":false,"strongly_recommended":true,"purpose":"observed word timestamps reconciled to exact canonical script"},
+    {"import":"arabic_reshaper","pip":"arabic-reshaper>=3,<4","required":false,"strongly_recommended":true,"purpose":"Arabic on-screen typography fallback shaping when Pillow RAQM is unavailable"},
+    {"import":"bidi","pip":"python-bidi>=0.6,<1","required":false,"strongly_recommended":true,"purpose":"Arabic RTL on-screen typography fallback bidi ordering"},
+    {"import":"uharfbuzz","pip":"uharfbuzz==0.56.0","required":true,"license":"Apache-2.0","python_support":">=3.10; Windows cp310-abi3 wheel supports certified Python 3.11","purpose":"Offline deterministic HarfBuzz Arabic glyph-plan validation against the certified font hash"}
   ],
   "executables": [
-    {
-      "name": "ffmpeg",
-      "required": true
-    },
-    {
-      "name": "ffprobe",
-      "required": false,
-      "supported_fallback": "FFMPEG_STDERR_MEDIA_PROBE",
-      "purpose": "preferred structured metadata probe; V31.0.1 supports ffmpeg-only fallback"
-    }
+    {"name":"ffmpeg","required":true},
+    {"name":"ffprobe","required":false,"supported_fallback":"FFMPEG_STDERR_MEDIA_PROBE","purpose":"preferred structured metadata probe; V31.0.1 supports ffmpeg-only fallback"}
   ],
-  "models": [
-    {
-      "id": "FASTER_WHISPER_SMALL",
-      "required_for_word_level_alignment": true,
-      "reuse_first": true,
-      "download_only_during_setup": true,
-      "known_family": "Systran/faster-whisper-small"
-    }
-  ],
-  "media_probe_policy": "FFPROBE_PREFERRED__FFMPEG_FALLBACK_CERTIFIED"
-  ,"isolated_foundation_vision": {
-    "environment": "foundation_vision/venv",
-    "python": ">=3.10",
-    "packages": ["torch==2.5.1", "torchvision==0.20.1", "transformers==4.49.0", "huggingface-hub==0.28.1", "safetensors==0.5.2", "sam2==1.1.0"],
-    "sam2_cuda_extension_required": false,
-    "normal_build_network_access": false,
-    "failure_policy": "LOG_EXACT_FAILURE_AND_USE_LEGACY_CV"
-  }
+  "models": [{"id":"FASTER_WHISPER_SMALL","required_for_word_level_alignment":true,"reuse_first":true,"download_only_during_setup":true,"known_family":"Systran/faster-whisper-small"}],
+  "media_probe_policy":"FFPROBE_PREFERRED__FFMPEG_FALLBACK_CERTIFIED",
+  "isolated_foundation_vision":{"environment":"foundation_vision/venv","python":">=3.10","packages":["torch==2.5.1","torchvision==0.20.1","transformers==4.49.0","huggingface-hub==0.28.1","safetensors==0.5.2","sam2==1.1.0"],"sam2_cuda_extension_required":false,"normal_build_network_access":false,"failure_policy":"LOG_EXACT_FAILURE_AND_USE_LEGACY_CV"}
 }

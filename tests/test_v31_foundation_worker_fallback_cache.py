@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json,pathlib,tempfile
+import json,pathlib,subprocess,sys,tempfile
 from hexa_v31.vision.foundation.backend import FoundationVisionClient
 from hexa_v31.vision.foundation.model_registry import fingerprint
 from hexa_v31.app.pipeline import _foundation_materially_useful
@@ -12,6 +12,26 @@ disabled=FoundationVisionClient({},root/'extension');assert not disabled.start()
 missing=FoundationVisionClient({'foundation_vision_enabled':True,'foundation_python_exe':str(root/'missing-python.exe')},root/'extension');assert not missing.start() and missing.failure=='FOUNDATION_PYTHON_MISSING'
 assert _foundation_materially_useful({'units':[{'animation_safe':False}],'expected_semantic_units':3,'grouped_detail_count':3})
 assert not _foundation_materially_useful({'units':[{'animation_safe':True},{'animation_safe':True}],'expected_semantic_units':2,'grouped_detail_count':0})
+
+# Native/early worker exits must preserve return code and stderr in the BUILD-facing
+# diagnostic instead of the historical blank "Foundation worker exited:" message.
+probe=FoundationVisionClient({},root/'extension');probe.process=subprocess.Popen([sys.executable,'-c','import sys;sys.stderr.write("native-startup-detail\\n");sys.exit(7)'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+try:probe._request({'command':'initialize'},timeout=5)
+except RuntimeError as exc:
+ text=str(exc);assert 'returncode=7' in text and 'native-startup-detail' in text,text
+else:raise AssertionError('early Foundation worker exit was not reported')
+finally:probe.close()
+
+# A configured CUDA worker gets one bounded explicit CPU restart after startup
+# failure; this is startup recovery only and never downloads during BUILD.
+class RetryClient(FoundationVisionClient):
+ def __init__(self):
+  super().__init__({'foundation_vision_enabled':True,'foundation_python_exe':sys.executable,'foundation_device':'cuda'},root/'extension');self.calls=[]
+ def _spawn(self,force_cpu=False):self.calls.append(force_cpu);self.process=None;return ['fake']
+ def _request(self,*_,**__):
+  if len(self.calls)==1:raise RuntimeError('simulated cuda native init failure')
+  return {'status':'READY','backend_used':'FLORENCE2_SAM2','device':{'device':'cpu'}}
+retry=RetryClient();assert retry.start() and retry.calls==[False,True],(retry.calls,retry.failure);assert retry.startup_attempts[-1]['status']=='READY'
 
 registry=root/'extension/resources/HEXA_FOUNDATION_VISION_MODELS_V31.json';a=fingerprint(registry)
 with tempfile.TemporaryDirectory() as td:
