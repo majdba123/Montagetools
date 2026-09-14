@@ -65,6 +65,7 @@ def _build_final_motion_plan(*args, **kwargs):
     from hexa_v31.layout.reference_perceptual_residual import finalize_reference_perceptual_residual
     from hexa_v31.layout.reference_joint_interval_framing import finalize_reference_joint_interval_framing
     from hexa_v31.layout.reference_staggered_sequence_v2 import finalize_reference_staggered_sequence
+    from hexa_v31.planning.sequential_audio_reveal import finalize_audio_sequential_reveal
     from hexa_v31.motion.pacing_qa import build_final_card_pacing_report
     from hexa_v31.motion.cross_card_editorial import finalize_cross_card_editorial
 
@@ -119,6 +120,11 @@ def _build_final_motion_plan(*args, **kwargs):
     stagger_stats = finalize_reference_staggered_sequence(plan, fps=fps)
     plan['reference_staggered_sequence_finalizer'] = stagger_stats
 
+    audio_reveal_stats = finalize_audio_sequential_reveal(plan, fps=fps)
+    plan['audio_sequential_reveal_finalizer'] = audio_reveal_stats
+    if not audio_reveal_stats.get('pass'):
+        raise ValueError('AUDIO_SEQUENTIAL_REVEAL_QA_FAILED: ' + ' | '.join(audio_reveal_stats.get('failures') or [])[:2000])
+
     # Round 3 cross-card choreography deliberately runs after every reference geometry
     # finalizer. Motion adapts to the final certified footprint; geometry is never shrunk
     # or relocated merely to satisfy a later handoff request.
@@ -137,6 +143,7 @@ def _build_final_motion_plan(*args, **kwargs):
         current_plan['reference_perceptual_residual_finalizer'] = perceptual_residual_stats
         current_plan['reference_joint_interval_framing_finalizer'] = joint_interval_stats
         current_plan['reference_staggered_sequence_finalizer'] = stagger_stats
+        current_plan['audio_sequential_reveal_finalizer'] = audio_reveal_stats
         current_plan['cross_card_editorial_finalizer'] = cross_card_editorial_stats
 
     reference_changed = (
@@ -149,6 +156,7 @@ def _build_final_motion_plan(*args, **kwargs):
         or perceptual_residual_stats.get('changed')
         or joint_interval_stats.get('changed')
         or stagger_stats.get('changed')
+        or audio_reveal_stats.get('changed')
         or cross_card_editorial_stats.get('changed')
     )
 
@@ -211,6 +219,7 @@ def _build_final_motion_plan(*args, **kwargs):
     # Pacing must describe the final certified state, not an intermediate geometry.
     pacing_stats = build_final_card_pacing_report(plan)
     plan['final_card_pacing_qa'] = pacing_stats
+
     return plan
 
 
