@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 import statistics
 from hexa_v31.composition_qa import _state
 from hexa_v31.composition_solver import SAFE_X, SAFE_Y
@@ -63,13 +64,27 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
         actor_events=[e for e in events if str(e.get('visual_card_id'))==cid
                       and not e.get('suppressed_by_card_density')
                       and str(e.get('render_mode') or '').upper()!='RESIDUAL_SUPPORT']
+        # Pixel-presence evidence is broader than the density cohort: an outgoing
+        # scene may legally hold its exact last material pose across a card boundary
+        # even though its normal owned/physical window no longer overlaps this card.
+        # Such a carrier prevents white/blank pixels but never counts as an actor.
+        pixel_evs=[e for e in active if (
+            (owned_window(e)[0]<ce-1e-9 and owned_window(e)[1]>cs+1e-9)
+            or (
+                e.get('scene_boundary_carrier_authority')=='OUTGOING_LAST_MATERIAL_PIXEL_HOLD'
+                and e.get('scene_boundary_carrier_start_seconds') is not None
+                and e.get('scene_boundary_carrier_end_seconds') is not None
+                and float(e.get('scene_boundary_carrier_start_seconds'))<ce-1e-9
+                and float(e.get('scene_boundary_carrier_end_seconds'))>cs+1e-9
+            )
+        )]
         source_counts={}
         for event in actor_events:
             sid=str(event.get('scene_id') or '')
             if sid:source_counts[sid]=source_counts.get(sid,0)+1
         multi_scene_ids=sorted(sid for sid,count in source_counts.items() if count>=2)
         total_valid=len(actor_events)
-        covs=[];inks=[];pops=[];islands=[];primary_area=[];support_area=[];prev=None;blank=0.0;t=cs
+        covs=[];inks=[];pops=[];islands=[];primary_area=[];support_area=[];prev=None;coarse_blank=0.0;t=cs
         scene_peaks={sid:0 for sid in source_counts}
         while t<ce-1e-9:
             states=[]
@@ -96,14 +111,41 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
             for sid,count in visible_scene_pop.items():scene_peaks[sid]=max(scene_peaks.get(sid,0),count)
             covs.append(cov);inks.append(ink);pops.append(pop);islands.append(isl)
             primary_area.append(pa);support_area.append(sa)
-            # "Blank" means the safe frame has effectively no visible geometry.
-            # Ink alone is not a reliable blank test for deliberately sparse SVGs/icons.
-            if not states:blank+=sample_step
+            if not states:coarse_blank+=sample_step
             sig=(round(cov,3),round(ink,3),pop,tuple(sorted((str(e.get('event_id')),round(op,2),round(sc,2)) for e,_,op,sc in states)))
             if prev is not None:
                 transitions+=1
                 if sig==prev:static+=1
             prev=sig;t+=sample_step
+        # Preserve the historical coarse density clock for ordinary cards. Only
+        # cards that actually contain a certified pixel-only scene-boundary carrier
+        # need encoded-frame certification, because the carrier is intentionally not
+        # part of the actor/density cohort.
+        carrier_evs=[e for e in pixel_evs if e.get('scene_boundary_carrier_authority')=='OUTGOING_LAST_MATERIAL_PIXEL_HOLD']
+        if carrier_evs:
+            fps=max(1.0,float(motion_plan.get('fps') or 30.0));eps=1e-9
+            first_frame=max(0,int(math.ceil(cs*fps-eps)));end_frame=max(first_frame,int(math.ceil(ce*fps-eps)))
+            blank_frames=0
+            for frame in range(first_frame,end_frame):
+                ft=frame/fps;visible=False
+                for e in pixel_evs:
+                    state=_state(e,ft)
+                    if state is not None and float(state[2])>0.08:
+                        visible=True;break
+                    if e.get('scene_boundary_carrier_authority')!='OUTGOING_LAST_MATERIAL_PIXEL_HOLD':
+                        continue
+                    carrier_start=e.get('scene_boundary_carrier_start_seconds');carrier_end=e.get('scene_boundary_carrier_end_seconds')
+                    sample=e.get('scene_boundary_carrier_sample_seconds')
+                    if carrier_start is None or carrier_end is None or sample is None:
+                        continue
+                    if float(carrier_start)-eps<=ft<float(carrier_end)-eps:
+                        held=_state(e,float(sample),ignore_scene_ownership=True)
+                        if held is not None and float(held[2])>0.08:
+                            visible=True;break
+                if not visible:blank_frames+=1
+            blank=blank_frames/fps
+        else:
+            blank=coarse_blank
         median_cov=statistics.median(covs) if covs else 0.0;median_ink=statistics.median(inks) if inks else 0.0;peak=max(pops or [0])
         hard_scene_ids=sorted(sid for sid in multi_scene_ids if scene_peaks.get(sid,0)<2)
         multi=bool(multi_scene_ids)
