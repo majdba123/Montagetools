@@ -1,6 +1,8 @@
 from pathlib import Path
 from hexa_v31.motion import build_motion_plan
 from hexa_v31.preset_qa import preset_motion_qa
+from hexa_v31.interaction.scene_ownership_contract import _coverage_with_boundary_carriers
+from hexa_v31.visual_timeline_coverage import visual_timeline_coverage_qa
 ROOT=Path(__file__).resolve().parents[1]
 # Stress shape mirrors the user's failed build: many sub-3-second audio scenes.
 pattern=[0.40,0.92,1.02,3.35,1.46,2.74,1.40,1.99,2.35,2.46,1.76,0.80,1.36,1.14,2.72,1.42,1.12,0.70,2.82,2.76,0.92,1.22,1.64,3.20,1.66,1.22,3.10,1.24,1.90,2.90,2.26,3.25,2.70,2.54,1.60,2.02,3.30,2.40]
@@ -32,4 +34,31 @@ for e in m['events']:
             assert not a.get('target_semantic_unit_id') and not a.get('relationship_evidence')
 # Supports must receive deterministic card positions rather than colliding at source coordinates.
 assert all(e.get('card_rest_position_norm') for e in m['events'] if e['attention_priority']!='PRIMARY' and not e.get('suppressed_by_card_density'))
+
+# Regression: coverage is certified on encoded frame timestamps, not a card-local
+# floating clock. A real missing encoded frame must still fail closed.
+def _coverage_event(eid,start,end,own_start=None,own_end=None,carrier=None):
+    row={'event_id':eid,'scene_id':eid,'visual_card_id':'CARD_FRAME_GRID','render_mode':'ROOT_ATOMIC',
+         'start_seconds':start,'end_seconds':end,'physical_start_seconds':start,'physical_end_seconds':end,
+         'motion_start_seconds':start,'motion_end_seconds':end}
+    if own_start is not None: row['scene_ownership_start_seconds']=own_start
+    if own_end is not None: row['scene_ownership_end_seconds']=own_end
+    if carrier is not None:
+        row.update(scene_boundary_carrier_start_seconds=carrier[0],scene_boundary_carrier_end_seconds=carrier[1],
+                   scene_boundary_carrier_sample_seconds=carrier[2],scene_boundary_carrier_authority='OUTGOING_LAST_MATERIAL_PIXEL_HOLD')
+    return row
+frame_grid_plan={'fps':30.0,'events':[
+    _coverage_event('OUT',6.9,8.0,6.9,8.7,(8.0,8.7,239/30.0)),
+    _coverage_event('IN',8.7,12.0,8.7,12.0),
+], 'visual_cards':{'cards':[{'card_id':'CARD_FRAME_GRID','start_seconds':8.033333,'end_seconds':12.0,'duration_seconds':3.966667}]}}
+legacy=visual_timeline_coverage_qa(frame_grid_plan,fps=30.0)
+assert not legacy['pass'] and 'VISUAL_TIMELINE_COVERAGE_GAP' in legacy['failures'],legacy
+encoded=_coverage_with_boundary_carriers(frame_grid_plan,30.0,visual_timeline_coverage_qa)
+assert encoded['pass'],encoded
+assert encoded.get('coverage_sampling_authority')=='GLOBAL_ENCODED_FRAME_GRID',encoded
+broken={**frame_grid_plan,'events':[dict(e) for e in frame_grid_plan['events']]}
+broken['events'][0]['scene_boundary_carrier_end_seconds']=260/30.0
+rejected=_coverage_with_boundary_carriers(broken,30.0,visual_timeline_coverage_qa)
+assert not rejected['pass'] and 'VISUAL_TIMELINE_COVERAGE_GAP' in rejected['failures'],rejected
+assert any(g.get('start_frame')==260 and g.get('end_frame')==261 for g in rejected['visual_gaps']),rejected
 print('V31_FAILURE_LOG_CARD_COMPILER_PASS',len(cards))
