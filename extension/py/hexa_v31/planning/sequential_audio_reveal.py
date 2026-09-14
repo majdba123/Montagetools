@@ -53,7 +53,7 @@ def _strip_competing_reveal_tracks(event: dict) -> int:
         for state in event.get(field) or []:
             track = str(state.get('envelope_track') or '')
             authority = str(state.get('authority') or '')
-            if track in {'SEMANTIC_SEQUENCE', 'EDITORIAL_ENTRY'} or authority == 'REFERENCE_SEMANTIC_STAGGERED_SEQUENCE_V1':
+            if track == 'SEMANTIC_SEQUENCE' or authority == 'REFERENCE_SEMANTIC_STAGGERED_SEQUENCE_V1':
                 removed += 1
                 continue
             kept.append(state)
@@ -109,8 +109,9 @@ def finalize_audio_sequential_reveal(plan: dict, fps: float = 30.0) -> dict:
 
     This is a visibility-only finalizer: source pixels, masks, settled geometry,
     preset families/durations, physical lifetimes and protected Foundation
-    partitions are not rewritten. Existing late stagger/editorial-entry envelopes
-    are removed so there is exactly one reveal authority.
+    partitions are not rewritten. Existing late semantic-stagger visibility envelopes
+    are removed so there is exactly one reveal authority, while positional editorial
+    entry choreography remains intact.
     """
     fps = max(1.0, float(fps))
     frame = 1.0 / fps

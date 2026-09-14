@@ -71,12 +71,61 @@ def _audio_sequential_reveal_contract() -> None:
     primary = _event('A', 'UNIT_001')
     primary['attention_priority'] = 'PRIMARY'
     supporting = _event('B', 'UNIT_002')
+    supporting['composition_states'] = [
+        {
+            'state_id': 'B::EDITORIAL_ENTRY::ORIGIN',
+            'envelope_track': 'EDITORIAL_ENTRY',
+            'position_envelope': True,
+            'start_seconds': 0.0,
+            'transition_duration_seconds': 0.0,
+            'center_norm': [-0.1, 0.5],
+            'scale_multiplier': 0.96,
+            'visibility': 0.0,
+        },
+        {
+            'state_id': 'B::EDITORIAL_ENTRY::SETTLE',
+            'envelope_track': 'EDITORIAL_ENTRY',
+            'position_envelope': True,
+            'start_seconds': 0.03,
+            'transition_duration_seconds': 0.58,
+            'center_norm': [0.5, 0.5],
+            'scale_multiplier': 1.0,
+            'visibility': 1.0,
+        },
+    ]
+    supporting['composition_participant_states'] = [
+        {
+            'state_id': 'B::LEGACY_SEMANTIC_REVEAL',
+            'authority': 'REFERENCE_SEMANTIC_STAGGERED_SEQUENCE_V1',
+            'sequence_envelope': True,
+            'envelope_track': 'SEMANTIC_SEQUENCE',
+            'start_seconds': 0.0,
+            'transition_duration_seconds': 0.2,
+            'center_norm': [0.5, 0.5],
+            'scale_multiplier': 1.0,
+            'visibility': 1.0,
+            'position_envelope': False,
+        }
+    ]
     plan = {'fps': 30.0, 'events': [primary, supporting]}
     report = finalize_audio_sequential_reveal(plan, 30.0)
     assert report['pass'], report
     assert primary['audio_reveal_authority'] == AUTHORITY
     assert supporting['audio_reveal_authority'] == AUTHORITY
     assert supporting['audio_reveal_seconds'] - primary['audio_reveal_seconds'] >= 5 / 30 - 1e-6
+    assert any(
+        state.get('envelope_track') == 'EDITORIAL_ENTRY' and state.get('position_envelope')
+        for state in supporting.get('composition_states') or []
+    ), supporting
+    assert not any(
+        state.get('envelope_track') == 'SEMANTIC_SEQUENCE'
+        for key in ('composition_states', 'composition_participant_states')
+        for state in supporting.get(key) or []
+    ), supporting
+    assert any(
+        state.get('envelope_track') == 'AUDIO_SEQUENTIAL_REVEAL'
+        for state in supporting.get('composition_participant_states') or []
+    ), supporting
     qa = audio_sequential_reveal_qa(plan, 30.0)
     assert qa['pass'] and qa['burst_count'] == 0 and qa['pre_audio_reveal_count'] == 0, qa
 
