@@ -22,7 +22,7 @@ cp=subprocess.run(['node','--check'],input=(ROOT/'extension/jsx/host.jsx').read_
 # CI-only learning fails before the expensive planner regressions.
 for f in ['test_recovery_detector.py','test_recovery_store.py','test_recovery_engine.py','test_recovery_repository_contract.py','test_v31_recovery_validation_gate.py','test_v31_recovery_memory.py','test_v31_recovery_release_contract.py']:
     run([sys.executable,ROOT/'tests'/f],timeout=480)
-for f in ['test_v31_late_partition_carrier.py','test_v31_density_convergence.py','test_v31_scene_ownership.py','test_v31_final_density_recovery.py']:
+for f in ['test_v31_late_partition_carrier.py','test_v31_density_convergence.py','test_v31_scene_ownership.py','test_v31_final_density_recovery.py','test_v31_asset_fidelity_audio_reveal.py']:
     run([sys.executable,ROOT/'tests'/f],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_editorial_topology.py'],timeout=480)
 run([sys.executable,ROOT/'tests'/'test_v31_phase_settled_qa_contract.py'],timeout=480)
