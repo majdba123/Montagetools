@@ -61,8 +61,10 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
             oe=float(event.get('scene_ownership_end_seconds',pe))
             return max(ps,os),min(pe,oe)
         evs=[e for e in active if owned_window(e)[0]<ce-1e-9 and owned_window(e)[1]>cs+1e-9]
+        # Source-valid density candidates include actors later suppressed by the
+        # density planner itself. Otherwise serialization can hide the fact that
+        # the same source scene had multiple usable visual units available.
         actor_events=[e for e in events if str(e.get('visual_card_id'))==cid
-                      and not e.get('suppressed_by_card_density')
                       and str(e.get('render_mode') or '').upper()!='RESIDUAL_SUPPORT']
         # Pixel-presence evidence is broader than the density cohort: an outgoing
         # scene may legally hold its exact last material pose across a card boundary
@@ -80,8 +82,8 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
         )]
         source_counts={}
         for event in actor_events:
-            sid=str(event.get('scene_id') or '')
-            if sid:source_counts[sid]=source_counts.get(sid,0)+1
+            sid=str(event.get('scene_id') or f'__CARD_SOURCE__:{cid}')
+            source_counts[sid]=source_counts.get(sid,0)+1
         multi_scene_ids=sorted(sid for sid,count in source_counts.items() if count>=2)
         total_valid=len(actor_events)
         covs=[];inks=[];pops=[];islands=[];primary_area=[];support_area=[];prev=None;coarse_blank=0.0;t=cs
@@ -106,8 +108,8 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
             visible_scene_pop={}
             for event,_,op,_ in states:
                 if op<=0.22 or str(event.get('render_mode') or '').upper()=='RESIDUAL_SUPPORT':continue
-                sid=str(event.get('scene_id') or '')
-                if sid:visible_scene_pop[sid]=visible_scene_pop.get(sid,0)+1
+                sid=str(event.get('scene_id') or f'__CARD_SOURCE__:{cid}')
+                visible_scene_pop[sid]=visible_scene_pop.get(sid,0)+1
             for sid,count in visible_scene_pop.items():scene_peaks[sid]=max(scene_peaks.get(sid,0),count)
             covs.append(cov);inks.append(ink);pops.append(pop);islands.append(isl)
             primary_area.append(pa);support_area.append(sa)
