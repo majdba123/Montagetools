@@ -61,11 +61,13 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
             oe=float(event.get('scene_ownership_end_seconds',pe))
             return max(ps,os),min(pe,oe)
         evs=[e for e in active if owned_window(e)[0]<ce-1e-9 and owned_window(e)[1]>cs+1e-9]
-        # Source-valid density candidates include actors later suppressed by the
-        # density planner itself. Otherwise serialization can hide the fact that
-        # the same source scene had multiple usable visual units available.
+        # Source-valid density candidates include generic planner suppression so a
+        # true same-source serialization deficit cannot disappear from QA. Explicit
+        # semantic/geometry suppression reasons are intentional consolidation and
+        # therefore are not re-counted as density candidates.
         actor_events=[e for e in events if str(e.get('visual_card_id'))==cid
-                      and str(e.get('render_mode') or '').upper()!='RESIDUAL_SUPPORT']
+                      and str(e.get('render_mode') or '').upper()!='RESIDUAL_SUPPORT'
+                      and (not e.get('suppressed_by_card_density') or not e.get('suppression_reason'))]
         # Pixel-presence evidence is broader than the density cohort: an outgoing
         # scene may legally hold its exact last material pose across a card boundary
         # even though its normal owned/physical window no longer overlaps this card.
