@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib, importlib, inspect, pathlib
 from .render import scene_media as _implementation
 from .util import write_json
+from .render.scene_ownership_contract import _materialize_render_map
 globals().update({key: value for key, value in vars(_implementation).items() if key not in {'__name__','__package__','__loader__','__spec__','__file__','__cached__'}})
 _base_render_scene_media=_implementation.render_scene_media
 
@@ -46,10 +47,14 @@ def render_scene_media(render_edit_map,motion_plan,vision_results,text_plan,grap
     pixel_cache=pathlib.Path(cache_dir)/('scene_media_pixels_'+renderer_signature[:16])
     pixel_cache.mkdir(parents=True,exist_ok=True)
     if logger:logger.log('INFO','SCENE_MEDIA_RENDERER_CACHE_NAMESPACE',signature=renderer_signature[:16],cache=str(pixel_cache))
-    manifest=_base_render_scene_media(framed_render_map,motion_plan,vision_results,text_plan,guarded_graphics,out_dir,pixel_cache,width=width,height=height,fps=fps,logger=logger)
+    render_pixel_map=_materialize_render_map(framed_render_map)
+    # The base renderer predates pixel-only scene-boundary holds. Its coverage gate
+    # sees render-residency copies, while certified semantic/physical lifetimes stay
+    # untouched in the source motion plan and in explicit certified_* fields.
+    manifest=_base_render_scene_media(render_pixel_map,motion_plan,vision_results,text_plan,guarded_graphics,out_dir,pixel_cache,width=width,height=height,fps=fps,logger=logger)
     manifest['renderer_dependency_sha256']=renderer_signature
     composition_sources=pathlib.Path(out_dir)/'HEXA_V31_COMPOSITION_RENDER_SOURCES.json'
-    write_json(composition_sources,dict(framed_render_map,
+    write_json(composition_sources,dict(render_pixel_map,
         composition_text_events=list((text_plan or {}).get('events') or []),
         composition_graphic_events=list((guarded_graphics or {}).get('events') or [])))
     manifest['composition_render_map_path']=str(composition_sources)
