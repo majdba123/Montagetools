@@ -160,25 +160,11 @@ def _build_final_motion_plan(*args, **kwargs):
         plan = finalize_interaction_motion_plan(plan, fps=fps)
         _restore_finalizer_metadata(plan)
 
-    density_rounds = []
-    for _ in range(3):
-        round_stats = recover_final_density(plan, fps=fps)
-        density_rounds.append(round_stats)
-        if not round_stats.get('repaired_event_ids'):
-            break
-        # Every accepted density batch is re-certified by the unchanged hard
-        # lifetime/physical barrier before another measurement is allowed.
-        plan = finalize_interaction_motion_plan(plan, fps=fps)
-        _restore_finalizer_metadata(plan)
-        if not (build_visual_density_report(plan).get('hard_under_density_cards') or []):
-            # A further round is unnecessary unless near-blank recovery still has
-            # work; let the cheap report in recover_final_density decide once more.
-            final_probe = recover_final_density(plan, fps=fps)
-            density_rounds.append(final_probe)
-            if final_probe.get('repaired_event_ids'):
-                plan = finalize_interaction_motion_plan(plan, fps=fps)
-                _restore_finalizer_metadata(plan)
-            break
+    from hexa_v31.planning.final_density_recovery import converge_final_density
+    plan, density_rounds, density_convergence = converge_final_density(
+        plan, fps=fps, recertify=finalize_interaction_motion_plan,
+        restore_metadata=_restore_finalizer_metadata,
+    )
 
     # Product permanence gate: after every late geometry/density finalizer, known
     # CI hard-gate families get exactly one bounded full recertification through the
@@ -213,6 +199,7 @@ def _build_final_motion_plan(*args, **kwargs):
         'repaired_event_ids': all_repaired,
         'hard_density_repairs': all_hard_repairs,
         'recertification_round_count': len(density_rounds),
+        'convergence': density_convergence,
         'rounds': density_rounds,
         'before_hard_under_density_cards': (density_rounds[0].get('before_hard_under_density_cards') or []) if density_rounds else [],
         'after_hard_under_density_cards': unresolved,

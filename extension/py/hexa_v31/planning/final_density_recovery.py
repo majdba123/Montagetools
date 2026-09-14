@@ -222,3 +222,44 @@ def recover_final_density(plan:dict,fps:float=30.0)->dict:
         'after_near_blank_duration_seconds':after.get('near_blank_duration_seconds'),
         'pass':not unresolved and not (after.get('hard_under_density_cards') or []),
     }
+
+
+def converge_final_density(plan, *, fps, recertify, restore_metadata, max_iterations=32):
+    """Measure after certification; terminate at a fixed point, cycle or bound.
+
+    Recovery diagnostics are excluded from the fingerprint: changing a report is
+    not progress in the renderer's event/card state. Every mutation still crosses
+    the caller's unchanged physical/lifetime certification barrier.
+    """
+    import hashlib
+    import json
+
+    def fingerprint(current):
+        state = {key: current.get(key) for key in ('events', 'visual_cards')}
+        return hashlib.sha256(json.dumps(state, sort_keys=True, separators=(',', ':'),
+                                         allow_nan=False).encode()).hexdigest()
+
+    rounds = []
+    seen = {fingerprint(plan)}
+    reason = 'SAFETY_BOUND'
+    for _ in range(max_iterations):
+        before = fingerprint(plan)
+        stats = recover_final_density(plan, fps=fps)
+        rounds.append(stats)
+        if not stats.get('repaired_event_ids'):
+            report = build_visual_density_report(plan)
+            reason = ('PASS' if not report.get('hard_under_density_cards')
+                      and not report.get('near_blank_duration_seconds') else 'NO_PROGRESS')
+            break
+        plan = recertify(plan, fps=fps)
+        restore_metadata(plan)
+        after = fingerprint(plan)
+        if after == before:
+            reason = 'NO_PROGRESS'
+            break
+        if after in seen:
+            reason = 'REPEATED_STATE'
+            break
+        seen.add(after)
+    return plan, rounds, {'reason': reason, 'iterations': len(rounds),
+                          'max_iterations': max_iterations}

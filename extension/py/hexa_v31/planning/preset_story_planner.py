@@ -1935,13 +1935,39 @@ def _schedule_event(e:dict, phase_window:tuple[float,float], card:dict, index:in
         e['preset_exit']={'name':'DISAPPEAR_DOWN_SCALE','start_seconds':round(xs,6),'duration_seconds':dd,'authority':'USER_PRFPSET_DISAPPEARANCE__V31_CONSTRAINT_LAYOUT'}
         e['appearance_method']='SCALE_POP';e['disappearance_method']='PRESET_DISAPPEARANCE';e['position_animated']=False;e['entry_direction']=None;e['start_seconds']=round(st,6);e['settle_seconds']=round(st+ad,6);e['end_seconds']=round(pe,6)
     e['preset_actions']=[];e['motion_energy']='HIGH' if primary else 'MEDIUM';e['position_interpolation']='USER_PRESET_CURVE';e['position_min_frames']=12
-    # Physical existence is owned by the semantic phase. Motion presets are a
-    # separate, bounded interval and may never retire the source composition.
-    e['physical_start_seconds']=round(ps,6);e['physical_end_seconds']=round(pe,6)
+    # Attention belongs to the phase; certified source survival belongs to the
+    # partition. Late member-level fallback must not reset the common carrier.
+    e['semantic_focus_start_seconds']=round(ps,6)
+    e['semantic_focus_end_seconds']=round(pe,6)
+    protected=(e.get('render_mode') in {'CHILD_PARTITION','RESIDUAL_SUPPORT'}
+               and e.get('partition_carrier_start_seconds') is not None
+               and e.get('partition_carrier_end_seconds') is not None)
+    carrier_start=float(e['partition_carrier_start_seconds']) if protected else ps
+    carrier_end=float(e['partition_carrier_end_seconds']) if protected else pe
+    e['physical_start_seconds']=round(carrier_start,6)
+    e['physical_end_seconds']=round(carrier_end,6)
+    e['visibility_interval_seconds']=[e['physical_start_seconds'],e['physical_end_seconds']]
+    if protected:
+        _retime_exit_to_effective_end(e,carrier_end,carrier_start)
+        e['end_seconds']=round(carrier_end,6)
+        e['partition_exit_retimed_to_carrier_end']=True
     e['motion_start_seconds']=e.get('start_seconds');e['motion_end_seconds']=e.get('end_seconds')
     e['motion_intervals']=[dict(kind='ENTRY',**e['preset_entry'])] if e.get('preset_entry') else []
     e['motion_intervals'] += [dict(kind='ACTION',**a) for a in (e.get('preset_actions') or [])]
     if e.get('preset_exit'):e['motion_intervals'].append(dict(kind='EXIT',**e['preset_exit']))
+    if protected and e.get('render_mode')=='RESIDUAL_SUPPORT':
+        e['preset_entry']=None;e['preset_exit']=None;e['preset_actions']=[]
+        e['start_seconds']=round(carrier_start,6);e['settle_seconds']=round(carrier_start,6)
+        e['appearance_method']='STATIC_SUPPORT';e['disappearance_method']='STATIC_SUPPORT'
+        e['independent_motion_allowed']=False;e['position_animated']=False
+        e['motion_intervals']=[]
+        e['motion_start_seconds']=round(carrier_start,6)
+        e['motion_end_seconds']=round(carrier_start,6)
+    elif protected:
+        intervals,motion_start,motion_end=_compile_final_motion_intervals(e)
+        e['motion_intervals']=intervals
+        e['motion_start_seconds']=round(motion_start,6)
+        e['motion_end_seconds']=round(motion_end,6)
     e['visual_carrier_id']=f"{e.get('visual_card_id')}::{e.get('scene_id')}::{e.get('partition_root_id') or e.get('event_id')}"
     e['visual_carrier_role']='FOUNDATION_STATIC_SUPPORT' if e.get('render_mode')=='RESIDUAL_SUPPORT' else ('FOUNDATION_PARTITION_MEMBER' if e.get('render_mode')=='CHILD_PARTITION' else 'SOURCE_VISUAL')
     entry=e.get('preset_entry') or {};entry_dur=float(entry.get('duration_seconds') or 0);entry_start=float(entry.get('start_seconds',e.get('start_seconds',0)));impact=entry_start+_entry_fraction(e)*entry_dur
