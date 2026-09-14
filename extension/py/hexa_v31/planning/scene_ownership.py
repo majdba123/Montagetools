@@ -108,18 +108,6 @@ def _raw_scene_pair_conflicts(events, fps):
 
 
 def compile_scene_ownership(plan: dict, fps: float = 30.0) -> dict:
-    """Compile one source-scene pixel owner per encoded frame without retiming semantics.
-
-    Source-scene ownership is deliberately independent from physical/source survival and
-    semantic action timing.  The renderer may withhold an incoming scene's optional
-    pre-roll until the outgoing scene releases ownership, but this function never moves
-    ``start_seconds``, presets, interaction actions, or protected partition lifetimes.
-
-    When an outgoing certified Foundation partition survives beyond the next scene's
-    materially-visible pre-roll, the boundary is delayed to the partition carrier end.
-    That recovery is legal only when the prematurely-visible incoming actors are
-    independent roots; protected source pixels themselves are never shortened.
-    """
     fps = max(1.0, float(fps or plan.get('fps') or 30.0))
     events = _active(list(plan.get('events') or []))
     by_scene = defaultdict(list)
@@ -135,7 +123,6 @@ def compile_scene_ownership(plan: dict, fps: float = 30.0) -> dict:
         plan['scene_ownership_compiler'] = report
         return report
 
-    # Clear stale ownership before measuring the truthful authored/render state.
     for event in events:
         for key in ('scene_ownership_start_seconds', 'scene_ownership_end_seconds',
                     'scene_ownership_authority', 'scene_ownership_index',
@@ -168,61 +155,108 @@ def compile_scene_ownership(plan: dict, fps: float = 30.0) -> dict:
         })
     scene_rows.sort(key=lambda row: (row['source_start'], row['source_end'], row['scene_id']))
 
-    # Scene windows are contiguous on the encoded frame grid. The ordinary
-    # handoff cannot begin before the source scene itself begins, and it waits for
-    # the incoming scene's first materially-visible frame so we never manufacture a
-    # pre-semantic entry just to cover a cut. A materially-visible protected outgoing
-    # partition may push the cut later. That changes only pixel ownership of the
-    # incoming independent ROOT pre-roll; semantic/action timing stays untouched.
+    event_by_id = {str(event.get('event_id') or ''): event for event in events}
+    actions_by_scene = defaultdict(list)
+    for action in (plan.get('interaction_engine') or {}).get('physical_actions') or []:
+        event = event_by_id.get(str(action.get('event_id') or ''))
+        sid = _scene_id(event) if event is not None else ''
+        if sid:
+            actions_by_scene[sid].append(action)
+
     boundaries = []
     recoveries = []
     failures = []
     for outgoing, incoming in zip(scene_rows, scene_rows[1:]):
         source_boundary_frame = _frame_ceil(incoming['source_start'], fps)
-        boundary_frame = max(int(source_boundary_frame), int(incoming['first_material_frame']))
-        reason = ('INCOMING_FIRST_MATERIAL_FRAME'
-                  if boundary_frame > source_boundary_frame else 'SOURCE_SCENE_BOUNDARY')
+        preferred_frame = max(int(source_boundary_frame), int(incoming['first_material_frame']))
+        lower_frame = -10**12
+        upper_frame = 10**12
+        lower_reasons = []
+        upper_reasons = []
 
-        # Preserve all materially-visible pixels of a certified outgoing Foundation
-        # partition. The raw physical/carrier fields themselves are never edited.
         protected_last = outgoing.get('protected_last_material_frame')
         if protected_last is not None:
-            protected_release_frame = int(protected_last) + 1
-            if protected_release_frame > boundary_frame:
-                from hexa_v31.composition_qa import _state
-                early = []
-                for event in incoming['members']:
-                    visible = any(
-                        (state := _state(event, _frame_time(frame, fps), ignore_scene_ownership=True)) is not None
-                        and float(state[2]) > 0.05
-                        for frame in range(boundary_frame, protected_release_frame)
-                    )
-                    if visible:
-                        early.append(event)
-                illegal = [event for event in early if not _is_independent_root(event)]
-                if illegal:
-                    failures.append(
-                        f"{outgoing['scene_id']}->{incoming['scene_id']}: protected partition handoff "
-                        f"would suppress non-independent incoming actors "
-                        f"{[str(e.get('event_id')) for e in illegal]}"
-                    )
-                else:
-                    original_boundary = boundary_frame
-                    boundary_frame = protected_release_frame
-                    reason = 'PROTECTED_PARTITION_MATERIAL_RELEASE'
-                    if early:
-                        recoveries.append({
-                            'authority': _PROTECTED_HANDOFF_AUTHORITY,
-                            'outgoing_scene_id': outgoing['scene_id'],
-                            'incoming_scene_id': incoming['scene_id'],
-                            'protected_partition_event_ids': sorted(
-                                str(e.get('event_id')) for e in outgoing['members'] if _is_partition(e)
-                            ),
-                            'delayed_independent_root_event_ids': sorted(str(e.get('event_id')) for e in early),
-                            'original_ownership_handoff_frame': int(original_boundary),
-                            'ownership_handoff_frame': int(boundary_frame),
-                            'ownership_handoff_seconds': round(_frame_time(boundary_frame, fps), 6),
-                        })
+            candidate = int(protected_last) + 1
+            if candidate > lower_frame:
+                lower_frame = candidate
+            lower_reasons.append(('OUTGOING_PROTECTED_MATERIAL_RELEASE', candidate))
+
+        protected_first = incoming.get('protected_first_material_frame')
+        if protected_first is not None:
+            candidate = int(protected_first)
+            if candidate < upper_frame:
+                upper_frame = candidate
+            upper_reasons.append(('INCOMING_PROTECTED_MATERIAL_ONSET', candidate))
+
+        for action in actions_by_scene.get(outgoing['scene_id'], []):
+            candidate = _frame_ceil(float(action.get('end_seconds', action.get('start_seconds', 0.0))), fps)
+            if candidate > lower_frame:
+                lower_frame = candidate
+            lower_reasons.append(('OUTGOING_SEMANTIC_ACTION_END', candidate))
+
+        for action in actions_by_scene.get(incoming['scene_id'], []):
+            if str(action.get('visible_embodiment_authority') or '') == 'HEXA_AUDIO_SEQUENTIAL_REVEAL_V1':
+                action_start = float(action.get('visible_embodiment_material_start_seconds', action.get('visible_embodiment_start_seconds', action.get('start_seconds', 0.0))))
+                reason_name = 'INCOMING_AUDIO_VISIBLE_ACTION_START'
+            else:
+                action_start = float(action.get('start_seconds', 0.0))
+                reason_name = 'INCOMING_SEMANTIC_ACTION_START'
+            candidate = _frame_ceil(action_start, fps)
+            if candidate < upper_frame:
+                upper_frame = candidate
+            upper_reasons.append((reason_name, candidate))
+
+        upper_frame = min(upper_frame, int(incoming['last_material_frame']))
+
+        if lower_frame > upper_frame:
+            failures.append(
+                f"{outgoing['scene_id']}->{incoming['scene_id']}: ownership constraints conflict "
+                f"lower={lower_frame} upper={upper_frame}"
+            )
+            boundary_frame = max(int(source_boundary_frame), min(int(incoming['last_material_frame']), lower_frame))
+            reason = 'OWNERSHIP_CONSTRAINT_CONFLICT'
+        else:
+            boundary_frame = min(max(preferred_frame, lower_frame), upper_frame)
+            if boundary_frame < source_boundary_frame:
+                reason = 'INCOMING_REQUIRED_PIXEL_OR_ACTION_ONSET'
+            elif boundary_frame > preferred_frame:
+                reason = 'OUTGOING_REQUIRED_PIXEL_OR_ACTION_RELEASE'
+            elif boundary_frame > source_boundary_frame:
+                reason = 'INCOMING_FIRST_MATERIAL_FRAME'
+            else:
+                reason = 'SOURCE_SCENE_BOUNDARY'
+
+        if boundary_frame > preferred_frame:
+            from hexa_v31.composition_qa import _state
+            early = []
+            for event in incoming['members']:
+                visible = any(
+                    (state := _state(event, _frame_time(frame, fps), ignore_scene_ownership=True)) is not None
+                    and float(state[2]) > 0.05
+                    for frame in range(preferred_frame, boundary_frame)
+                )
+                if visible:
+                    early.append(event)
+            illegal = [event for event in early if not _is_independent_root(event)]
+            if illegal:
+                failures.append(
+                    f"{outgoing['scene_id']}->{incoming['scene_id']}: required ownership delay "
+                    f"would suppress non-independent incoming actors "
+                    f"{[str(e.get('event_id')) for e in illegal]}"
+                )
+            elif early:
+                recoveries.append({
+                    'authority': _PROTECTED_HANDOFF_AUTHORITY,
+                    'outgoing_scene_id': outgoing['scene_id'],
+                    'incoming_scene_id': incoming['scene_id'],
+                    'protected_partition_event_ids': sorted(
+                        str(e.get('event_id')) for e in outgoing['members'] if _is_partition(e)
+                    ),
+                    'delayed_independent_root_event_ids': sorted(str(e.get('event_id')) for e in early),
+                    'original_ownership_handoff_frame': int(preferred_frame),
+                    'ownership_handoff_frame': int(boundary_frame),
+                    'ownership_handoff_seconds': round(_frame_time(boundary_frame, fps), 6),
+                })
 
         boundaries.append({
             'outgoing_scene_id': outgoing['scene_id'],
@@ -231,10 +265,12 @@ def compile_scene_ownership(plan: dict, fps: float = 30.0) -> dict:
             'seconds': round(_frame_time(boundary_frame, fps), 6),
             'source_boundary_frame': int(source_boundary_frame),
             'reason': reason,
+            'constraint_lower_frame': None if lower_frame <= -10**11 else int(lower_frame),
+            'constraint_upper_frame': None if upper_frame >= 10**11 else int(upper_frame),
+            'constraint_lower_reasons': [name for name, frame in lower_reasons if frame == lower_frame],
+            'constraint_upper_reasons': [name for name, frame in upper_reasons if frame == upper_frame],
         })
 
-    # Even if a recovery is impossible, stamp deterministic windows so QA can report
-    # exact violations. The caller remains fail-closed on report.pass.
     first_start = min(_frame_floor(min(row['source_start'], min(_physical_start(e) for e in row['members'])), fps)
                       for row in scene_rows)
     last_end = max(_frame_ceil(max(row['source_end'], max(_physical_end(e) for e in row['members'])), fps)
@@ -248,9 +284,6 @@ def compile_scene_ownership(plan: dict, fps: float = 30.0) -> dict:
         start_seconds = _frame_time(start_frame, fps)
         end_seconds = _frame_time(end_frame, fps)
         for event in row['members']:
-            # Keep the exact frame/fps quotient in runtime metadata. Decimal
-            # rounding (for example 74/30 -> 2.466667) can move a half-open gate
-            # past its own encoded frame and manufacture a one-frame handoff gap.
             event['scene_ownership_start_seconds'] = start_seconds
             event['scene_ownership_end_seconds'] = end_seconds
             event['scene_ownership_authority'] = _AUTHORITY
@@ -303,4 +336,3 @@ def scene_ownership_conflict_pairs(plan: dict, fps: float = 30.0) -> set[tuple[s
             for scene_b in scenes[index + 1:]:
                 pairs.add((scene_a, scene_b))
     return pairs
-

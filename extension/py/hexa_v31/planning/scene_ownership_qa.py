@@ -64,9 +64,6 @@ def scene_ownership_qa(plan: dict, fps: float = 30.0) -> dict:
             if len(scenes) > 1:
                 mixed_frames.append({'frame': frame, 'time_seconds': round(t, 6), 'scene_ids': scenes})
 
-    # Protected Foundation physical/carrier metadata is immutable. Pixel ownership
-    # must contain every frame on which the protected source is materially visible;
-    # invisible pre-roll/tails do not force a hybrid-scene frame.
     groups = defaultdict(list)
     for event in events:
         if _is_partition(event):
@@ -106,8 +103,6 @@ def scene_ownership_qa(plan: dict, fps: float = 30.0) -> dict:
             'pass': valid,
         })
 
-    # Interaction actions are semantic evidence and may not be silently hidden by the
-    # pixel ownership gate. Optional entry/exit pre-roll may be clipped, semantic actions may not.
     by_id = {str(event.get('event_id') or ''): event for event in events}
     hidden_actions = []
     for action in (plan.get('interaction_engine') or {}).get('physical_actions') or []:
@@ -116,11 +111,25 @@ def scene_ownership_qa(plan: dict, fps: float = 30.0) -> dict:
             continue
         owner_start = float(event.get('scene_ownership_start_seconds', _physical_start(event)))
         owner_end = float(event.get('scene_ownership_end_seconds', _physical_end(event)))
-        start = float(action.get('start_seconds', 0.0)); end = float(action.get('end_seconds', start))
-        if start < owner_start - 1e-6 or end > owner_end + 1e-6:
+        authored_start = float(action.get('start_seconds', 0.0)); authored_end = float(action.get('end_seconds', authored_start))
+        if str(action.get('visible_embodiment_authority') or '') == 'HEXA_AUDIO_SEQUENTIAL_REVEAL_V1':
+            start = float(action.get('visible_embodiment_material_start_seconds', action.get('visible_embodiment_start_seconds', authored_start)))
+            fade = max(1.0 / max(1.0, fps), float(action.get('visible_embodiment_fade_seconds') or 0.0))
+            end = start + fade
+        else:
+            start, end = authored_start, authored_end
+        owner_start_frame = _frame_ceil(owner_start, fps)
+        owner_end_frame = _frame_ceil(owner_end, fps)
+        first_action_frame = _frame_ceil(start, fps)
+        last_action_frame = _frame_floor(max(start, end - 1e-9), fps)
+        if first_action_frame < owner_start_frame or last_action_frame >= owner_end_frame:
             hidden_actions.append({'interaction_id': action.get('interaction_id'), 'event_id': action.get('event_id'),
                                    'start_seconds': start, 'end_seconds': end,
-                                   'ownership_start_seconds': owner_start, 'ownership_end_seconds': owner_end})
+                                   'authored_start_seconds': authored_start, 'authored_end_seconds': authored_end,
+                                   'visible_embodiment_authority': action.get('visible_embodiment_authority'),
+                                   'first_action_frame': first_action_frame, 'last_action_frame': last_action_frame,
+                                   'ownership_start_seconds': owner_start, 'ownership_end_seconds': owner_end,
+                                   'ownership_start_frame': owner_start_frame, 'ownership_end_frame': owner_end_frame})
     if mixed_frames:
         failures.append('SCENE_OWNERSHIP_MIXED_SOURCE_PIXELS')
     if uncovered_handoffs:

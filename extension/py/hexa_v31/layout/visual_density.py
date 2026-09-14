@@ -51,9 +51,6 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
     rows=[];all_cov=[];all_ink=[];all_pop=[];all_islands=[];near_blank=0.0;static=0;transitions=0
     for card in cards:
         cid=str(card.get('card_id'));cs=float(card.get('start_seconds',0));ce=float(card.get('end_seconds',cs))
-        # Density sees the same physical + source-scene ownership interval as the
-        # renderer. Cross-scene actors may share a visual card for editorial
-        # bookkeeping, but they are never a legitimate simultaneous-density cohort.
         def owned_window(event):
             ps=float(event.get('physical_start_seconds',event.get('start_seconds',0)))
             pe=float(event.get('physical_end_seconds',event.get('end_seconds',ps)))
@@ -61,17 +58,9 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
             oe=float(event.get('scene_ownership_end_seconds',pe))
             return max(ps,os),min(pe,oe)
         evs=[e for e in active if owned_window(e)[0]<ce-1e-9 and owned_window(e)[1]>cs+1e-9]
-        # Source-valid density candidates include generic planner suppression so a
-        # true same-source serialization deficit cannot disappear from QA. Explicit
-        # semantic/geometry suppression reasons are intentional consolidation and
-        # therefore are not re-counted as density candidates.
         actor_events=[e for e in events if str(e.get('visual_card_id'))==cid
                       and str(e.get('render_mode') or '').upper()!='RESIDUAL_SUPPORT'
                       and (not e.get('suppressed_by_card_density') or not e.get('suppression_reason'))]
-        # Pixel-presence evidence is broader than the density cohort: an outgoing
-        # scene may legally hold its exact last material pose across a card boundary
-        # even though its normal owned/physical window no longer overlaps this card.
-        # Such a carrier prevents white/blank pixels but never counts as an actor.
         pixel_evs=[e for e in active if (
             (owned_window(e)[0]<ce-1e-9 and owned_window(e)[1]>cs+1e-9)
             or (
@@ -101,8 +90,6 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
             rects=[r for _,r,_,_ in states];cov=_union_area(rects)/SAFE_AREA if rects else 0.0
             ink=0.0;pa=sa=0.0
             for e,r,op,_ in states:
-                # Projected alpha/mask support is the density authority; rectangle
-                # union above remains only a collision/layout measurement.
                 a=model.project(e,r,op,clip_rect=(SAFE_X[0],SAFE_Y[0],SAFE_X[1]-SAFE_X[0],SAFE_Y[1]-SAFE_Y[0]))/SAFE_AREA;ink+=a
                 if str(e.get('attention_priority') or '').upper()=='PRIMARY':pa+=a
                 else:sa+=a
@@ -121,10 +108,6 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
                 transitions+=1
                 if sig==prev:static+=1
             prev=sig;t+=sample_step
-        # Preserve the historical coarse density clock for ordinary cards. Only
-        # cards that actually contain a certified pixel-only scene-boundary carrier
-        # need encoded-frame certification, because the carrier is intentionally not
-        # part of the actor/density cohort.
         carrier_evs=[e for e in pixel_evs if e.get('scene_boundary_carrier_authority')=='OUTGOING_LAST_MATERIAL_PIXEL_HOLD']
         if carrier_evs:
             fps=max(1.0,float(motion_plan.get('fps') or 30.0));eps=1e-9
@@ -144,16 +127,39 @@ def build_visual_density_report(motion_plan:dict,sample_step:float=0.10)->dict:
                         continue
                     if float(carrier_start)-eps<=ft<float(carrier_end)-eps:
                         held=_state(e,float(sample),ignore_scene_ownership=True)
-                        if held is not None and float(held[2])>0.08:
+                        if held is not None and float(held[2])>0.05:
                             visible=True;break
                 if not visible:blank_frames+=1
             blank=blank_frames/fps
         else:
             blank=coarse_blank
         median_cov=statistics.median(covs) if covs else 0.0;median_ink=statistics.median(inks) if inks else 0.0;peak=max(pops or [0])
-        hard_scene_ids=sorted(sid for sid in multi_scene_ids if scene_peaks.get(sid,0)<2)
+        fps=max(1.0,float(motion_plan.get('fps') or 30.0))
+        def certified_sequential_scene(sid):
+            rows=[e for e in actor_events if str(e.get('scene_id') or f'__CARD_SOURCE__:{cid}')==sid]
+            if len(rows)<2:return False
+            groups={}
+            for e in rows:
+                key=str(e.get('semantic_unit_id') or e.get('semantic_scope_id') or e.get('partition_root_id') or e.get('event_id'))
+                groups.setdefault(key,[]).append(e)
+            if len(groups)<2:return False
+            reveals=[]
+            for members in groups.values():
+                if any(str(e.get('audio_reveal_authority') or '')!='HEXA_AUDIO_SEQUENTIAL_REVEAL_V1' for e in members):
+                    return False
+                vals=[e.get('audio_reveal_seconds') for e in members]
+                if any(v is None for v in vals):return False
+                reveal=min(float(v) for v in vals)
+                source_start=min(float(e.get('source_scene_start_seconds',e.get('physical_start_seconds',0))) for e in members)
+                if reveal < source_start-1.0/fps:return False
+                reveals.append(reveal)
+            reveals=sorted(set(round(v,6) for v in reveals))
+            if len(reveals)<2:return False
+            return all((b-a)>=5.0/fps-1e-6 for a,b in zip(reveals,reveals[1:]))
+        intentional_serialized={sid for sid in multi_scene_ids if certified_sequential_scene(sid)}
+        hard_scene_ids=sorted(sid for sid in multi_scene_ids if scene_peaks.get(sid,0)<2 and sid not in intentional_serialized)
         multi=bool(multi_scene_ids)
-        rows.append({'card_id':cid,'archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'source_valid_object_count':total_valid,'active_object_count':len(evs),'peak_visible_object_count':peak,'same_scene_source_valid_object_counts':dict(sorted(source_counts.items())),'same_scene_peak_visible_object_counts':dict(sorted(scene_peaks.items())),'same_scene_multi_object_scene_ids':multi_scene_ids,'hard_under_density_scene_ids':hard_scene_ids,'mean_temporal_population':round(statistics.mean(pops) if pops else 0.0,4),'median_safe_frame_union_coverage':round(median_cov,6),'median_estimated_alpha_coverage':round(median_ink,6),'negative_space_ratio':round(1.0-median_cov,6),'largest_object_dominance':round(max((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs),default=0.0)/max(1e-9,sum((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs))),6),'mean_visual_island_count':round(statistics.mean(islands) if islands else 0.0,4),'max_visual_island_count':max(islands or [0]),'primary_secondary_balance':round(statistics.mean(primary_area)/max(1e-9,statistics.mean(primary_area)+statistics.mean(support_area)),6) if primary_area else 0.0,'near_blank_duration_seconds':round(min(max(0.0,ce-cs),blank),3),'hard_under_density':bool(hard_scene_ids),'soft_under_density':bool(multi and median_ink<0.24)})
+        rows.append({'card_id':cid,'archetype':(card.get('universal_scene_grammar') or {}).get('archetype'),'source_valid_object_count':total_valid,'active_object_count':len(evs),'peak_visible_object_count':peak,'same_scene_source_valid_object_counts':dict(sorted(source_counts.items())),'same_scene_peak_visible_object_counts':dict(sorted(scene_peaks.items())),'same_scene_multi_object_scene_ids':multi_scene_ids,'hard_under_density_scene_ids':hard_scene_ids,'intentional_audio_sequential_scene_ids':sorted(intentional_serialized),'mean_temporal_population':round(statistics.mean(pops) if pops else 0.0,4),'median_safe_frame_union_coverage':round(median_cov,6),'median_estimated_alpha_coverage':round(median_ink,6),'negative_space_ratio':round(1.0-median_cov,6),'largest_object_dominance':round(max((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs),default=0.0)/max(1e-9,sum((float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[2])*float((card.get('constraint_layout') or {}).get('placements',{}).get(e.get('event_id'),{}).get('rect_norm',[0,0,0,0])[3]) for e in evs))),6),'mean_visual_island_count':round(statistics.mean(islands) if islands else 0.0,4),'max_visual_island_count':max(islands or [0]),'primary_secondary_balance':round(statistics.mean(primary_area)/max(1e-9,statistics.mean(primary_area)+statistics.mean(support_area)),6) if primary_area else 0.0,'near_blank_duration_seconds':round(min(max(0.0,ce-cs),blank),3),'hard_under_density':bool(hard_scene_ids),'soft_under_density':bool(multi and median_ink<0.24)})
         all_cov.extend(covs);all_ink.extend(inks);all_pop.extend(pops);all_islands.extend(islands);near_blank+=blank
     severe=[r['card_id'] for r in rows if r['hard_under_density']]
     soft=[r['card_id'] for r in rows if r['soft_under_density']]
